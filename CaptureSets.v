@@ -21,8 +21,16 @@ Create HintDb csets.
 (** A captureset -- a triple of free variables,
     bound variables, and if we contain the special
     `universal` variable. *)
-Inductive cap : Type :=
-  | cset_set : atoms -> nats -> bool -> cap.
+(* Inductive cap : Type :=
+  | cset_set : atoms -> nats -> bool -> cap. *)
+
+Inductive cap : Set :=
+  | cset_top : cap
+  | cset_bvar : nat -> cap
+  | cset_fvar : atom -> cap
+  | cset_join : cap -> cap -> cap
+  | cset_bot : cap
+.
 
 (** ************************************************** *)
 (** Constructors *)
@@ -30,26 +38,43 @@ Inductive cap : Type :=
 
 Declare Scope cset_shorthand.
 
-Notation "`cset_fvar` a" := (cset_set {a}A {}N false)
+Notation "`cset_fvar` a" := (cset_fvar {a}A)
                               (at level 10, a at level 9) : cset_shorthand.
 
-Notation "`cset_bvar` k" := (cset_set {}A {k}N false)
+Notation "`cset_bvar` k" := (cset_bvar {k}N)
                               (at level 10, k at level 9) : cset_shorthand.
 
-Notation "{}" := (cset_set {}A {}N false) : cset_shorthand.
-Notation "{*}" := (cset_set {}A {}N true) : cset_shorthand.
+Notation "{}" := (cset_bot) : cset_shorthand.
+Notation "{*}" := (cset_top) : cset_shorthand.
 
 (** ************************************************** *)
 (** Selectors *)
 (** ************************************************** *)
 
-Notation "`cset_fvars` C" := (match C with cset_set xs _ _ => xs end)
+Fixpoint cset_fvars C :=
+  match C with
+  | cset_fvar a => AtomSet.F.singleton a
+  | cset_join c1 c2 => AtomSet.F.union (cset_fvars c1) (cset_fvars c2)
+  | _ => AtomSet.F.empty  
+  end.          
+
+Notation "`cset_fvars` C" := (cset_fvars C)
                                 (at level 10, C at level 9) : cset_shorthand.
 
-Notation "`cset_bvars` C" := (match C with cset_set _ ks _ => ks end)
+Fixpoint cset_bvars C :=
+  match C with
+  | cset_bvar k => NatSet.F.singleton k
+  | cset_join c1 c2 => NatSet.F.union (cset_bvars c1) (cset_bvars c2)
+  | _ => NatSet.F.empty  
+  end.
+
+Notation "`cset_bvars` C" := (cset_bvars C)
                                 (at level 10, C at level 9) : cset_shorthand.
 
-Notation "`cset_uvar` C" := (match C with cset_set _ _ u => u end)
+Notation "`cset_uvar` C" := (match C with
+  | cset_top => true
+  | _ => false
+end)
                                 (at level 10, C at level 9) : cset_shorthand.
 
 (** ************************************************** *)
@@ -68,10 +93,7 @@ Open Scope cset_shorthand.
 
 (** Capture set unions are what you'd expect. *)
 Definition cset_union (c1 c2 : cap) : cap :=
-  cset_set
-    (AtomSet.F.union (`cset_fvars` c1) (`cset_fvars` c2))
-    (NatSet.F.union (`cset_bvars` c1) (`cset_bvars` c2))
-    ((`cset_uvar` c1) || (`cset_uvar` c2)).
+  cset_join c1 c2.
 
 Definition cset_subset_dec (C D : cap) :=
   AtomSet.F.subset (`cset_fvars` C) (`cset_fvars` D)
@@ -79,13 +101,33 @@ Definition cset_subset_dec (C D : cap) :=
     && (implb (`cset_uvar` C) (`cset_uvar` D)).
 
 Notation "C `u` D" := (cset_union C D) (at level 69) : cset_shorthand.
-Notation "C A`\` x" := (cset_set ((`cset_fvars` C) `\`A x) (`cset_bvars` C) (`cset_uvar` C))
+
+(* TODO: Should we do a proper tree leaf deletion? *)
+Fixpoint remove_fvar (x : atom) (C : cap) :=
+  match C with
+  | cset_top => C
+  | cset_bvar k => C
+  | cset_join c1 c2 => cset_join (remove_fvar x c1) (remove_fvar x c2)
+  | cset_fvar a => if x == a then cset_bot else C
+  | cset_bot => C
+  end.
+
+Fixpoint remove_bvar (k : nat) (C : cap) :=
+  match C with
+  | cset_top => C
+  | cset_fvar a => C
+  | cset_join c1 c2 => cset_join (remove_bvar k c1) (remove_bvar k c2)
+  | cset_bvar k' => if (k === k') then cset_bot else C
+  | cset_bot => C
+  end.
+
+Notation "C A`\` x" := (remove_fvar x C)
                          (at level 69) : cset_shorthand.
 Notation "x A`in` C" := (AtomSet.F.In x (`cset_fvars` C))
                           (at level 69) : cset_shorthand.
 Notation "x A`mem` C" := (AtomSet.F.mem x (`cset_fvars` C)) (at level 69) : cset_shorthand.
 
-Notation "C N`\` k" := (cset_set ((`cset_fvars` C) ) ((`cset_bvars` C) `\`N k) (`cset_uvar` C))
+Notation "C N`\` k" := (remove_bvar k C)
                          (at level 69) : cset_shorthand.
 Notation "k N`in` C" := (NatSet.F.In k (`cset_bvars` C))
                           (at level 69) : cset_shorthand.
@@ -152,7 +194,7 @@ Definition cset_subset_prop (c : cap) (d : cap) : Prop :=
 (** Properties *)
 (** ************************************************** *)
 
-Section Props.
+(* Section Props.
   Variable x y a f : atom.
   Variable l m R : bool.
   Variable A A1 A2 : atoms.
@@ -312,10 +354,10 @@ Section Props.
       destruct b; destruct b0; unfold leb in *; simpl in *; destruct D; destruct b; auto*.
   Qed.
 
-End Props.
+End Props. *)
 
 (* TODO defined here to avoid all the implicit arguments *)
-Lemma subset_univ_1 : forall R C,
+(* Lemma subset_univ_1 : forall R C,
   cset_subset_prop R C -> `cset_references_univ` R -> `cset_references_univ` C.
 Proof. intros.
   destruct H as [_ [_ H]]. destruct R;
@@ -550,7 +592,7 @@ Hint Rewrite cset_concrete_union : csets.
 Ltac _csetsimpl_hook := idtac.
 
 Ltac csetsimpl :=
-  repeat (_csetsimpl_hook; subst; simpl; autorewrite with csets in *).
+  repeat (_csetsimpl_hook; subst; simpl; autorewrite with csets in * ).
 
 Ltac csetsimplIn H :=
   repeat (subst; simpl in H; autorewrite with csets in H).
@@ -607,7 +649,7 @@ Lemma false_andb_false : forall xs,
   andb false xs = false.
 Proof. destr_bool. Qed.
 
-Hint Resolve leb_reflexive leb_true false_leb andb_false_false false_andb_false : core.
+Hint Resolve leb_reflexive leb_true false_leb andb_false_false false_andb_false : core. *)
 
 (** ************************************************** *)
 (** Locally Namelesss *)
@@ -616,7 +658,7 @@ Hint Resolve leb_reflexive leb_true false_leb andb_false_false false_andb_false 
 
 Definition capt (c : cap) : Prop := NatSet.F.Empty (`cset_bvars` c).
 
-Lemma singleton_closed : forall f,
+(* Lemma singleton_closed : forall f,
   capt (`cset_fvar` f).
 Proof.
   unfold capt; fnsetdec.
@@ -636,7 +678,7 @@ Proof.
 Qed.
 
 Hint Unfold capt : core.
-Hint Resolve capt_empty_bvar capt_concrete_cset : core.
+Hint Resolve capt_empty_bvar capt_concrete_cset : core. *)
 
 (** Opening a capture set with a bound variable d[k -> c] *)
 Definition open_cset (k : nat) (c : cap) (d : cap) : cap :=
