@@ -38,11 +38,11 @@ Inductive cap : Set :=
 
 Declare Scope cset_shorthand.
 
-Notation "`cset_fvar` a" := (cset_fvar {a}A)
-                              (at level 10, a at level 9) : cset_shorthand.
-
-Notation "`cset_bvar` k" := (cset_bvar {k}N)
-                              (at level 10, k at level 9) : cset_shorthand.
+(* Notation "`cset_fvar` a" := (cset_fvar {a}A) *)
+(*                               (at level 10, a at level 9) : cset_shorthand. *)
+(**)
+(* Notation "`cset_bvar` k" := (cset_bvar {k}N) *)
+(*                               (at level 10, k at level 9) : cset_shorthand. *)
 
 Notation "{}" := (cset_bot) : cset_shorthand.
 Notation "{*}" := (cset_top) : cset_shorthand.
@@ -173,8 +173,8 @@ Notation "`cset_references_univ` c" :=
 
 Declare Scope experimental_set_scope.
 
-Notation "{ x 'as' A}" := (`cset_fvar` x) : experimental_set_scope.
-Notation "{ x 'as' N}" := (`cset_bvar` x) : experimental_set_scope.
+Notation "{ x 'as' A}" := (cset_fvar x) : experimental_set_scope.
+Notation "{ x 'as' N}" := (cset_bvar x) : experimental_set_scope.
 
 (** ************************************************** *)
 (** Logical Predicates *)
@@ -581,10 +581,10 @@ Proof. intros. destruct xs. unfold cset_union. autorewrite with csets; trivial. 
 
 Hint Rewrite cunion_empty_idempotent empty_cunion_idempotent : csets.
 
-Lemma cset_concrete_union : forall xs ns us xs' ns' us',
+(* Lemma cset_concrete_union : forall xs ns us xs' ns' us',
   (cset_set xs ns us) `u` (cset_set xs' ns' us') =
   (cset_set (xs `u`A xs') (ns `u`N ns') (us || us')).
-Proof. intros. cbv [cset_union]. reflexivity. Qed.
+   Proof. intros. cbv [cset_union]. reflexivity. Qed. *)
 
 Hint Rewrite cset_concrete_union : csets.
 
@@ -811,13 +811,13 @@ Hint Resolve singleton_closed open_cset_capt subst_cset_capt : core.
 Hint Rewrite subst_cset_singleton subst_cset_union : csets.
 
 (** Automation *)
-Lemma cset_eq_injectivity : forall a1 a2 n1 n2,
+(* Lemma cset_eq_injectivity : forall a1 a2 n1 n2,
     a1 = a2 ->
     n1 = n2 ->
     cset_set a1 n1 = cset_set a2 n2.
 Proof.
   intros. congruence.
-Qed.
+   Qed. *)
 
 Ltac fnset_mem_dec :=
   match goal with
