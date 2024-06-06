@@ -681,20 +681,26 @@ Hint Unfold capt : core.
 Hint Resolve capt_empty_bvar capt_concrete_cset : core. *)
 
 (** Opening a capture set with a bound variable d[k -> c] *)
-Definition open_cset (k : nat) (c : cap) (d : cap) : cap :=
-  if `cset_references_bvar_dec` k d then
-    cset_union c (`cset_remove_bvar` k d)
-  else
-    d.
+Fixpoint open_cset (k : nat) (c : cap) (d : cap) : cap :=
+  match d with
+  | cset_top => cset_top
+  | cset_bot => cset_bot
+  | cset_bvar k' => if k === k' then c else d
+  | cset_fvar _ => d
+  | cset_join d1 d2 => cset_join (open_cset k c d1) (open_cset k c d2)
+end.
 
 (** Substituting a capture set with a free variable d[a -> c] *)
-Definition subst_cset (a : atom) (c : cap) (d: cap) : cap :=
-  if `cset_references_fvar_dec` a d then
-    cset_union c (`cset_remove_fvar` a d)
-  else
-    d.
+Fixpoint subst_cset (a : atom) (c : cap) (d: cap) : cap :=
+  match d with
+  | cset_top => cset_top
+  | cset_bot => cset_bot
+  | cset_bvar _ => d
+  | cset_fvar a' => if a == a' then c else d
+  | cset_join d1 d2 => cset_join (subst_cset a c d1) (subst_cset a c d2)
+end.
 
-Lemma subst_over_subset : forall C1 C2 D x,
+(* Lemma subst_over_subset : forall C1 C2 D x,
   cset_subset_prop C1 C2 ->
   cset_subset_prop (subst_cset x D C1) (subst_cset x D C2).
 Proof.
@@ -1033,7 +1039,7 @@ Proof with eauto*.
   unfold cset_union in *.
   destruct C1 eqn:HC1; destruct C2 eqn:HC2; subst...
   inversion Hunion...
-  assert (x `in` (t1 `union` t3)) by (rewrite H1; eauto*)...
+  assert (x `in` (t1 `union` t3)) by (rewrite H1; eauto* )...
   apply AtomSetFacts.union_iff in H0; inversion H0; subst...
 Qed.
 
@@ -1057,4 +1063,4 @@ Proof.
     destruct D eqn:EQ__D;
     unfold cset_union in *; split.
   all : (easy || fsetdec).
-Qed.
+Qed. *)
