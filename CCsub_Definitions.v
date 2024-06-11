@@ -3,10 +3,28 @@ Require Export Metatheory.
 Require Export CaptureSets.
 Require Import Coq.Program.Wf.
 
-Notation "* ∈ C" := (`* in` C) (at level 80, no associativity).
+(* Notation "* ∈ C" := (`* in` C) (at level 80, no associativity). *)
 Notation "x '∈' L" := (x `in` L) (at level 80, no associativity).
 Notation "x '∉' L" := (x `notin` L) (at level 80, no associativity).
 Notation "xs '⊆' ys" := (xs `subset` ys) (at level 80, no associativity).
+
+Fixpoint open_cse (k : nat) (c : cse) (d : cse) : cse :=
+  match d with
+  | cse_top => cse_top
+  | cse_bot => cse_bot
+  | cse_bvar k' => if k === k' then c else d
+  | cse_fvar _ => d
+  | cse_join d1 d2 => cse_join (open_cse k c d1) (open_cse k c d2)
+end.
+
+Fixpoint subst_cse (a : atom) (c : cse) (d: cse) : cse :=
+  match d with
+  | cse_top => cse_top
+  | cse_bot => cse_bot
+  | cse_bvar _ => d
+  | cse_fvar a' => if a == a' then c else d
+  | cse_join d1 d2 => cse_join (subst_cse a c d1) (subst_cse a c d2)
+end.
 
 Inductive typ : Type :=
   | typ_var : var -> typ
@@ -14,14 +32,14 @@ Inductive typ : Type :=
   | typ_arr : typ -> typ -> typ
   | typ_all : typ -> typ -> typ
   | typ_box : typ -> typ
-  | typ_capt : cap -> typ -> typ.
+  | typ_cse : cse -> typ -> typ.
 
 Coercion typ_var : var >-> typ.
 Notation "'⊤'" := typ_top (at level 80, no associativity).
 Notation "'∀' '(' S ')' T" := (typ_arr S T) (at level 60, S at next level, T at next level, right associativity).
 Notation "'∀' '[' R ']' T" := (typ_all R T) (at level 60, R at next level, T at next level, right associativity).
 Notation "'□' T" := (typ_box T) (at level 70, no associativity).
-Notation "C '#' R" := (typ_capt C R) (at level 65, R at next level, right associativity).
+Notation "C '#' R" := (typ_cse C R) (at level 65, R at next level, right associativity).
 
 Inductive exp : Type :=
   | exp_var : var -> exp
@@ -31,7 +49,7 @@ Inductive exp : Type :=
   | exp_tabs : typ -> exp -> exp
   | exp_tapp : var -> typ -> exp
   | exp_box : var -> exp
-  | exp_unbox : cap -> var -> exp.
+  | exp_unbox : cse -> var -> exp.
 
 Coercion exp_var : var >-> exp.
 Notation "'λ' '(' T ')' Γ" := (exp_abs T Γ) (at level 60, T at next level, Γ at next level, right associativity).
@@ -42,10 +60,10 @@ Notation "x  '@' '[' R ']'" := (exp_tapp x R) (at level 61, R at next level, lef
 Notation "'box' Γ" := (exp_box Γ) (at level 70, Γ at next level, no associativity).
 Notation "C '⟜' x" := (exp_unbox  C x) (at level 60, x at next level, right associativity).
 
-Definition var_cv (v : var) : cap :=
+Definition var_cv (v : var) : cse :=
   match v with
   | var_b _ => {}
-  | var_f x => `cset_fvar` x
+  | var_f x => cse_fvar x
   end.
 
 Definition open_vt (K : nat) (U : typ) (v : var) : typ :=
@@ -76,10 +94,10 @@ Fixpoint open_te_rec (K : nat) (U : typ) (Γ : exp) {struct Γ} : exp :=
   | C ⟜ x => C ⟜ x
   end.
 
-Fixpoint open_ct_rec (k : nat) (c : cap) (T : typ)  {struct T} : typ :=
+Fixpoint open_ct_rec (k : nat) (c : cse) (T : typ)  {struct T} : typ :=
   match T with
   | typ_var v => v
-  | C # R => open_cset k c C # open_ct_rec k c R
+  | C # R => open_cse k c C # open_ct_rec k c R
   | ⊤ => ⊤
   | ∀ (T1) T2 => ∀ (open_ct_rec k c T1) (open_ct_rec (S k) c T2)
   | ∀ [T1] T2 => ∀ [open_ct_rec k c T1] (open_ct_rec (S k) c T2)
@@ -92,7 +110,7 @@ Definition open_vv (k : nat) (z : atom) (v : var) : var :=
   | var_f x => x
   end.
 
-Fixpoint open_ve_rec (k : nat) (z : atom) (c : cap) (Γ : exp)  {struct Γ} : exp :=
+Fixpoint open_ve_rec (k : nat) (z : atom) (c : cse) (Γ : exp)  {struct Γ} : exp :=
   match Γ with
   | exp_var v => open_vv k z v
   | λ (t) e1 => λ (open_ct_rec k c t) (open_ve_rec (S k) z c e1)
@@ -101,7 +119,7 @@ Fixpoint open_ve_rec (k : nat) (z : atom) (c : cap) (Γ : exp)  {struct Γ} : ex
   | Λ [t] e1 => exp_tabs (open_ct_rec k c t) (open_ve_rec (S k) z c e1)
   | x @ [t] => exp_tapp (open_vv k z x) (open_ct_rec k c t)
   | box x => box open_vv k z x
-  | C ⟜ x => open_cset k (`cset_fvar` z) C ⟜ open_vv k z x
+  | C ⟜ x => open_cse k (cse_fvar z) C ⟜ open_vv k z x
   end.
 
 Definition open_tt T U := open_tt_rec 0 U T.
@@ -109,7 +127,7 @@ Definition open_te Γ U := open_te_rec 0 U Γ.
 Definition open_ve Γ x c := open_ve_rec 0 x c Γ.
 Definition open_ct T c := open_ct_rec 0 c T.
 
-Fixpoint exp_cv (Γ : exp) : cap :=
+Fixpoint exp_cv (Γ : exp) : cse :=
   match Γ with
   | exp_var v => var_cv v
   | λ (t) e1 => exp_cv e1
@@ -118,15 +136,30 @@ Fixpoint exp_cv (Γ : exp) : cap :=
   | Λ [t] e1 => exp_cv e1
   | x @ [t] => var_cv x
   | box x => {}
-  | C ⟜ x => cset_set (`cset_fvars` C) {}N (`cset_uvar` C) `u` var_cv x
+  (* TODO*)
+  | C ⟜ x => C `u` var_cv x
+  (* | C ⟜ x => cset_set (`cset_fvars` C) {}N (`cset_uvar` C) `u` var_cv x *)
   end.
+
+Inductive cset : cse -> Prop :=
+  | cset_top :
+      cset cse_top
+  | cset_fvar : forall (X : atom),
+      cset (cse_fvar X)
+  | cset_join : forall Q1 Q2,
+      cset Q1 ->
+      cset Q2 ->
+      cset (cse_join Q1 Q2)
+  | cset_bot :
+      cset cse_bot
+.
 
 Inductive type : typ -> Prop :=
   | type_pure : forall R,
       pure_type R ->
       type R
-  | type_capt : forall C R,
-      capt C ->
+  | type_cse : forall C R,
+      cset C ->
       pure_type R ->
       type (C # R)
 with pure_type : typ -> Prop :=
@@ -135,7 +168,7 @@ with pure_type : typ -> Prop :=
   | type_top : pure_type typ_top
   | type_arr : forall L S' T,
       type S' ->
-      (forall X : atom, X ∉ L -> type (open_ct T (`cset_fvar` X))) ->
+      (forall X : atom, X ∉ L -> type (open_ct T (cse_fvar X))) ->
       pure_type (∀ (S') T)
   | type_all : forall L R T,
       pure_type R ->
@@ -154,13 +187,13 @@ Inductive expr : exp -> Prop :=
       expr x
   | expr_abs : forall L T e1,
       type T ->
-      (forall x : atom, x ∉ L -> expr (open_ve e1 x (`cset_fvar` x))) ->
+      (forall x : atom, x ∉ L -> expr (open_ve e1 x (cse_fvar x))) ->
       expr (λ (T) e1)
   | expr_app : forall (f x : atom),
       expr (f @ x)
   | expr_let : forall L e1 e2,
       expr e1 ->
-      (forall x : atom, x ∉ L -> expr (open_ve e2 x (`cset_fvar` x))) ->
+      (forall x : atom, x ∉ L -> expr (open_ve e2 x (cse_fvar x))) ->
       expr (let= e1 in e2)
   | expr_tabs : forall L R e1,
       pure_type R ->
@@ -172,12 +205,13 @@ Inductive expr : exp -> Prop :=
   | expr_box : forall x : atom,
       expr (box x)
   | expr_unbox : forall C (x : atom),
-      capt C ->
+      cset C ->
       expr (C ⟜ x).
 
 Inductive binding : Type :=
   | bind_sub : typ -> binding
-  | bind_typ : typ -> binding.
+  | bind_typ : typ -> binding
+  | bind_cse : cse -> binding.
 
 Notation env := (list (atom * binding)).
 Notation "∅" := (@nil (atom * binding)).
@@ -191,11 +225,28 @@ Definition allbound (Γ : env) (fvars : atoms) : Prop :=
 
 Reserved Notation "Γ '⊢ₛ' C 'wf'" (at level 40, C at next level, no associativity).
 
-Inductive wf_cset (Γ : env) : cap -> Prop :=
-  | wf_concrete_cset : forall fvars univ,
-    allbound Γ fvars ->
-    wf_cset Γ (cset_set fvars {}N univ)
-where "Γ '⊢ₛ' C 'wf'" := (wf_cset Γ C).
+Inductive wf_cse : env -> cse -> Prop :=
+  | wf_cse_top : forall E,
+      wf_cse E cse_top
+  | wf_cse_fvar : forall R E (X : atom),
+      binds X (bind_cse R) E ->
+      wf_cse E (cse_fvar X)
+  | wf_cse_term_fvar : forall T E (x : atom),
+      binds x (bind_typ T) E ->
+      wf_cse E (cse_fvar x)
+  | wf_cse_join : forall E Q1 Q2,
+      wf_cse E Q1 ->
+      wf_cse E Q2 ->
+      wf_cse E (cse_join Q1 Q2)
+  | wf_cse_bot : forall E,
+      wf_cse E cse_bot
+where "Γ '⊢ₛ' C 'wf'" := (wf_cse Γ C).
+
+(* Inductive wf_cset (Γ : env) : cap -> Prop := *)
+(*   | wf_concrete_cset : forall fvars univ, *)
+(*     allbound Γ fvars -> *)
+(*     wf_cset Γ (cset_set fvars {}N univ) *)
+(* where "Γ '⊢ₛ' C 'wf'" := (wf_cset Γ C). *)
 
 Reserved Notation "Γ '⊢' T 'wf'" (at level 40, T at next level, no associativity).
 
@@ -207,7 +258,7 @@ Inductive wf_typ : env -> typ -> Prop :=
       Γ ⊢ ⊤ wf
   | wf_typ_arr : forall L Γ C R T,
       Γ ⊢ (C # R) wf ->
-      (forall x : atom, x ∉ L -> ([(x, bind_typ (C # R))] ++ Γ) ⊢ (open_ct T (`cset_fvar` x)) wf) ->
+      (forall x : atom, x ∉ L -> ([(x, bind_typ (C # R))] ++ Γ) ⊢ (open_ct T (cse_fvar x)) wf) ->
       Γ ⊢ ∀ (C # R) T wf
   | wf_typ_all : forall L Γ R T,
       Γ ⊢ R wf ->
@@ -241,37 +292,47 @@ Inductive wf_env : env -> Prop :=
       pure_type T ->
       X ∉ dom Γ ->
       ([(X, bind_sub T)] ++ Γ) ⊢ wf
-  | wf_env_typ : forall (Γ : env) (x : atom) (C : cap) (R : typ),
+  | wf_env_typ : forall (Γ : env) (x : atom) (C : cse) (R : typ),
       Γ ⊢ wf ->
       Γ ⊢ (C # R) wf ->
       x ∉ dom Γ ->
       ([(x, bind_typ (C # R))] ++ Γ) ⊢ wf
 where "Γ '⊢' 'wf'" := (wf_env Γ).
 
-Inductive subcapt : env -> cap -> cap -> Prop :=
-  | subcapt_universal : forall Γ C xs,
-      Γ ⊢ₛ cset_set xs {}N true wf ->
-      Γ ⊢ₛ C wf ->
-      Γ ⊢ₛ C <: cset_set xs {}N true
-  | subcapt_in : forall Γ x xs b,
-      Γ ⊢ₛ `cset_fvar` x wf ->
-      Γ ⊢ₛ cset_set xs {}N b wf ->
-      x ∈ xs ->
-      Γ ⊢ₛ `cset_fvar` x <: cset_set xs {}N b
-  | subcapt_in_univ : forall Γ D,
-      Γ ⊢ₛ D wf ->
-      * ∈ D ->
-      Γ ⊢ₛ {*} <: D
-  | subcapt_var : forall Γ x C1 R C2,
-      binds x (bind_typ (C1 # R)) Γ ->
-      Γ ⊢ₛ C1 <: C2 ->
-      Γ ⊢ₛ `cset_fvar` x <: C2
-  | subcapt_set : forall Γ xs b D,
-      Γ ⊢ₛ D wf ->
-      AtomSet.F.For_all (fun x => Γ ⊢ₛ `cset_fvar` x <: D) xs ->
-      implb b (`* mem` D) = true ->
-      Γ ⊢ₛ cset_set xs {}N b <: D
-where "Γ '⊢ₛ' C1 <: C2" := (subcapt Γ C1 C2).
+Inductive subcset : env -> cse -> cse -> Prop :=
+  | subcset_top : forall E Q,
+      wf_env E ->
+      wf_cse E Q ->
+      subcset E Q cse_top
+  | subcset_bot : forall E Q,
+      wf_env E ->
+      wf_cse E Q ->
+      subcset E cse_bot Q
+  | subcset_refl_qvar : forall E X,
+      wf_env E ->
+      wf_cse E (cse_fvar X) ->
+      subcset E (cse_fvar X) (cse_fvar X)
+  | subcset_trans_qvar : forall R E Q X,
+      binds X (bind_cse R) E ->
+      subcset E R Q ->
+      subcset E (cse_fvar X) Q
+  (* | subcset_trans_term_qvar : forall R E T Q X, *)
+  (*     binds X (bind_typ (qtyp_qtyp R T)) E -> *)
+  (*     subcset E R Q -> *)
+  (*     subcset E (cse_fvar X) Q *)
+  | subcset_join_inl : forall E R1 R2 Q,
+      subcset E Q R1 ->
+      wf_cse E R2 ->
+      subcset E Q (cse_join R1 R2)
+  | subcset_join_inr : forall E R1 R2 Q,
+      wf_cse E R1 ->
+      subcset E Q R2 ->
+      subcset E Q (cse_join R1 R2)
+  | subcset_join_elim : forall E R1 R2 Q,
+      subcset E R1 Q ->
+      subcset E R2 Q ->
+      subcset E (cse_join R1 R2) Q
+where "Γ '⊢ₛ' C1 <: C2" := (subcset Γ C1 C2).
 
 Inductive sub : env -> typ -> typ -> Prop :=
   | sub_refl_tvar : forall Γ (X : atom),
@@ -298,7 +359,7 @@ Inductive sub : env -> typ -> typ -> Prop :=
       pure_type R1 ->
       pure_type R2 ->
       Γ ⊢ₛ C2 <: C1 ->
-      (forall x : atom, x ∉ L -> ([(x, bind_typ (C2 # R2))] ++ Γ) ⊢ open_ct T1 (`cset_fvar` x) <: open_ct T2 (`cset_fvar` x)) ->
+      (forall x : atom, x ∉ L -> ([(x, bind_typ (C2 # R2))] ++ Γ) ⊢ open_ct T1 (cse_fvar x) <: open_ct T2 (cse_fvar x)) ->
       Γ ⊢ (∀ (C1 # R1) T1) <: (∀ (C2 # R2) T2)
   | sub_all : forall L Γ R1 R2 T1 T2,
       Γ ⊢ R2 <: R1 ->
@@ -315,20 +376,20 @@ Inductive typing : env -> exp -> typ -> Prop :=
   | typing_var : forall Γ x C R,
       Γ ⊢ wf ->
       binds x (bind_typ (C # R)) Γ ->
-      Γ ⊢ x : (`cset_fvar` x # R)
+      Γ ⊢ x : (cse_fvar x # R)
   | typing_abs : forall L Γ C R e1 T1,
       Γ ⊢ (C # R) wf ->
       (forall x : atom, x ∉ L ->
-        ([(x, bind_typ (C # R))] ++ Γ) ⊢ open_ve e1 x (`cset_fvar` x) : open_ct T1 (`cset_fvar` x)) ->
+        ([(x, bind_typ (C # R))] ++ Γ) ⊢ open_ve e1 x (cse_fvar x) : open_ct T1 (cse_fvar x)) ->
       Γ ⊢ (λ (C # R) e1) : (exp_cv e1 # ∀ (C # R) T1)
   | typing_app : forall D Q Γ (f x : atom) T C,
       Γ ⊢ f : (C # (∀ (D # Q) T)) ->
       Γ ⊢ x : (D # Q) ->
-      Γ ⊢ (f @ x) : open_ct T (`cset_fvar` x)
+      Γ ⊢ (f @ x) : open_ct T (cse_fvar x)
   | typing_let : forall L C1 T1 T2 Γ e k,
       Γ ⊢ e : (C1 # T1) ->
       (forall x : atom, x ∉ L ->
-        ([(x, bind_typ (C1 # T1))] ++ Γ) ⊢ open_ve k x (`cset_fvar` x) : T2) ->
+        ([(x, bind_typ (C1 # T1))] ++ Γ) ⊢ open_ve k x (cse_fvar x) : T2) ->
       Γ ⊢ (let= e in k) : T2
   | typing_tabs : forall L Γ V e1 T1,
       Γ ⊢ V wf ->
@@ -342,7 +403,7 @@ Inductive typing : env -> exp -> typ -> Prop :=
       Γ ⊢ (x @ [P]) : open_tt T P
   | typing_box : forall Γ (x : atom) C R,
       Γ ⊢ x : (C # R) ->
-      `cset_fvars` C `subset` dom Γ ->
+      wf_cse Γ C ->
       Γ ⊢ (box x) : ({} # □ (C # R))
   | typing_unbox : forall Γ (x : atom) C R,
       Γ ⊢ x : ({} # □ (C # R)) ->
@@ -380,7 +441,7 @@ Definition stores (S : store_ctx) (x : atom) (v : exp) : Prop :=
     binds x (store v) S.
 
 Inductive scope (k : exp) : Type :=
-  | mk_scope : forall L, (forall x, x ∉ L -> expr (open_ve k x (`cset_fvar` x))) -> scope k.
+  | mk_scope : forall L, (forall x, x ∉ L -> expr (open_ve k x (cse_fvar x))) -> scope k.
 
 Definition eval_ctx : Type := (list exp).
 
@@ -411,7 +472,7 @@ Inductive eval_typing (Γ : env) : eval_ctx -> typ -> typ -> Prop :=
   | typing_eval_cons : forall L k E C1 R1 C2 R2 C3 R3,
       scope k ->
       (forall x, x ∉ L ->
-        ([(x, bind_typ (C1 # R1))] ++ Γ) ⊢ open_ve k x (`cset_fvar` x) : (C2 # R2)) ->
+        ([(x, bind_typ (C1 # R1))] ++ Γ) ⊢ open_ve k x (cse_fvar x) : (C2 # R2)) ->
       Γ ⊢ E : (C2 # R2) ⇒ (C3 # R3) ->
       Γ ⊢ (k :: E) : (C1 # R1) ⇒ (C3 # R3)
 where "Γ '⊢' E ':' T '⇒' U" := (eval_typing Γ E T U).
@@ -428,16 +489,16 @@ Inductive red : state -> state -> Prop :=
       value v ->
       x ∉ dom S ->
           ⟨ S | k :: K | v ⟩
-      --> ⟨ [(x, store v)] ++ S | K | open_ve k x (`cset_fvar` x) ⟩
+      --> ⟨ [(x, store v)] ++ S | K | open_ve k x (cse_fvar x) ⟩
   | red_let_var : forall (x : atom) v k S K,
       stores S x v ->
           ⟨ S | k :: K | x ⟩
-      --> ⟨ S | K | open_ve k x (`cset_fvar` x) ⟩
+      --> ⟨ S | K | open_ve k x (cse_fvar x) ⟩
   | red_let_val : forall x v k S K,
       value v ->
       x ∉ dom S ->
           ⟨ S | K | let= v in k ⟩
-      --> ⟨ [(x, store v )] ++ S | K | open_ve k x (`cset_fvar` x) ⟩
+      --> ⟨ [(x, store v )] ++ S | K | open_ve k x (cse_fvar x) ⟩
   | red_let_exp : forall e k (k_scope : scope k) S K,
           ⟨ S | K | let= e in k ⟩
       --> ⟨ S | k :: K | e ⟩
@@ -445,7 +506,7 @@ Inductive red : state -> state -> Prop :=
       stores S f (λ (U) e) ->
       stores S x v ->
           ⟨ S | K | f @ x ⟩
-      --> ⟨ S | K | open_ve e x (`cset_fvar` x) ⟩
+      --> ⟨ S | K | open_ve e x (cse_fvar x) ⟩
   | red_tapp : forall x R U e S K,
       stores S x (Λ [U] e) ->
       pure_type R ->
@@ -457,33 +518,34 @@ Inductive red : state -> state -> Prop :=
       --> ⟨ S | K | y ⟩
 where "Σ1 --> Σ2" := (red Σ1 Σ2).
 
-Hint Constructors type pure_type expr wf_cset wf_typ wf_env value sub subcapt typing : core.
+Hint Constructors type pure_type expr wf_cse wf_typ wf_env value sub subcset typing : core.
 Hint Resolve sub_top sub_refl_tvar sub_arr sub_all sub_box : core.
 Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_sub : core.
 
-Local Ltac cset_unfold_union0 :=
-  match goal with
-  | _ : _ |- context G [?C `u` (cset_set ?xs ?ns ?us)] =>
-    match C with
-    | cset_set _ _ _ =>
-      rewrite cset_concrete_union
-    | C =>
-      let HA := match goal with
-                | H : wf_cset _ C |- _ => H
-                | _ =>
-                  let H := fresh "WF" in
-                  (* NOTE: avoid asserting (wf_cset _ _ C), it takes long to solve. *)
-                  assert (wf_cset _ C) as HA by eauto; H
-                end
-      in
-      (* Invert, subst and clean up unnecessary hypothesis. *)
-      pose proof ltac_mark; inversion HA; subst; clear_until_mark;
-      (* Rewrite to avoid matching the same union twice, not sure if necessary. *)
-      rewrite cset_concrete_union
-    end
-  end.
-
-(* We can only define this tactic here, since in CaptureSets we don't have wf_cset. *)
-Ltac cset_unfold_union := repeat cset_unfold_union0.
-
-Ltac _csetsimpl_hook ::= cset_unfold_union.
+(* TODO: ???? *)
+(* Local Ltac cset_unfold_union0 := *)
+(*   match goal with *)
+(*   | _ : _ |- context G [?C `u` (cset_set ?xs ?ns ?us)] => *)
+(*     match C with *)
+(*     | cset_set _ _ _ => *)
+(*       rewrite cset_concrete_union *)
+(*     | C => *)
+(*       let HA := match goal with *)
+(*                 | H : wf_cset _ C |- _ => H *)
+(*                 | _ => *)
+(*                   let H := fresh "WF" in *)
+(*                   (* NOTE: avoid asserting (wf_cset _ _ C), it takes long to solve. *) *)
+(*                   assert (wf_cset _ C) as HA by eauto; H *)
+(*                 end *)
+(*       in *)
+(*       (* Invert, subst and clean up unnecessary hypothesis. *) *)
+(*       pose proof ltac_mark; inversion HA; subst; clear_until_mark; *)
+(*       (* Rewrite to avoid matching the same union twice, not sure if necessary. *) *)
+(*       rewrite cset_concrete_union *)
+(*     end *)
+(*   end. *)
+(**)
+(* (* We can only define this tactic here, since in CaptureSets we don't have wf_cset. *) *)
+(* Ltac cset_unfold_union := repeat cset_unfold_union0. *)
+(**)
+(* Ltac _csetsimpl_hook ::= cset_unfold_union. *)
