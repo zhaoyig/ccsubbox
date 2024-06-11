@@ -110,6 +110,15 @@ Fixpoint remove_bvar (k : nat) (C : cse) :=
   | cse_bot => C
   end.
 
+Fixpoint remove_all_bvars (C : cse) :=
+  match C with
+  | cse_top => C
+  | cse_fvar a => C
+  | cse_join c1 c2 => cse_join (remove_all_bvars c1) (remove_all_bvars c2)
+  | cse_bvar _ => cse_bot
+  | cse_bot => C
+  end.
+
 (* Notation "C A`\` x" := (remove_fvar x C) *)
 (*                          (at level 69) : cset_shorthand. *)
 Notation "x A`in` C" := (AtomSet.F.In x (`cse_fvars` C))
@@ -138,6 +147,9 @@ Notation "`cse_references_bvar_dec` k c" :=
 Notation "`cse_remove_bvar` k c" :=
   (c N`\` k)
     (at level 10, k at level 9, c at level 9, only parsing) : cse_shorthand.
+Notation "`cse_remove_all_bvars` c" :=
+  (remove_all_bvars c)
+    (at level 10, c at level 9, only parsing) : cse_shorthand.
 
 Notation "`cse_references_fvar` a c" :=
   (a A`in` c)
@@ -145,6 +157,19 @@ Notation "`cse_references_fvar` a c" :=
 Notation "`cse_references_fvar_dec` a c" :=
   (a A`mem` c)
     (at level 10, a at level 9, c at level 9, only parsing) : cse_shorthand.
+
+Fixpoint cse_not_all_top (C: cse) :=
+  match C with
+    | cse_top => false
+    | cse_fvar _ => true
+    | cse_bvar _ => true
+    | cse_join c1 c2 => cse_not_all_top c1 || cse_not_all_top c2
+    | cse_bot => false
+    end.
+
+Notation "`cse_not_all_top` c" := (cse_not_all_top c)
+                                    (at level 10, c at level 9) : cse_shorthand.
+
 
 (* Check (fun x =>  fun N => x N`in` N). *)
 (* Check (fun C D x => (cset_union D (cset_remove_fvar x C))). *)

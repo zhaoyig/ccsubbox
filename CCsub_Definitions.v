@@ -136,9 +136,7 @@ Fixpoint exp_cv (Γ : exp) : cse :=
   | Λ [t] e1 => exp_cv e1
   | x @ [t] => var_cv x
   | box x => {}
-  (* TODO*)
-  | C ⟜ x => C `u` var_cv x
-  (* | C ⟜ x => cset_set (`cset_fvars` C) {}N (`cset_uvar` C) `u` var_cv x *)
+  | C ⟜ x =>  `cse_remove_all_bvars` C `u` var_cv x
   end.
 
 Inductive cset : cse -> Prop :=
@@ -242,12 +240,6 @@ Inductive wf_cse : env -> cse -> Prop :=
       wf_cse E cse_bot
 where "Γ '⊢ₛ' C 'wf'" := (wf_cse Γ C).
 
-(* Inductive wf_cset (Γ : env) : cap -> Prop := *)
-(*   | wf_concrete_cset : forall fvars univ, *)
-(*     allbound Γ fvars -> *)
-(*     wf_cset Γ (cset_set fvars {}N univ) *)
-(* where "Γ '⊢ₛ' C 'wf'" := (wf_cset Γ C). *)
-
 Reserved Notation "Γ '⊢' T 'wf'" (at level 40, T at next level, no associativity).
 
 Inductive wf_typ : env -> typ -> Prop :=
@@ -316,6 +308,7 @@ Inductive subcset : env -> cse -> cse -> Prop :=
       binds X (bind_cse R) E ->
       subcset E R Q ->
       subcset E (cse_fvar X) Q
+  (* TODO *)
   (* | subcset_trans_term_qvar : forall R E T Q X, *)
   (*     binds X (bind_typ (qtyp_qtyp R T)) E -> *)
   (*     subcset E R Q -> *)
