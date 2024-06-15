@@ -158,17 +158,17 @@ Notation "`cse_references_fvar_dec` a c" :=
   (a A`mem` c)
     (at level 10, a at level 9, c at level 9, only parsing) : cse_shorthand.
 
-Fixpoint cse_not_all_top (C: cse) :=
-  match C with
-    | cse_top => false
-    | cse_fvar _ => true
-    | cse_bvar _ => true
-    | cse_join c1 c2 => cse_not_all_top c1 || cse_not_all_top c2
-    | cse_bot => false
-    end.
-
-Notation "`cse_not_all_top` c" := (cse_not_all_top c)
-                                    (at level 10, c at level 9) : cse_shorthand.
+Inductive cse_all_not_top: cse -> Prop :=
+  | cse_all_not_top_fvar: forall a,
+      cse_all_not_top (cse_fvar a)
+  | cse_all_not_top_bvar: forall n,
+      cse_all_not_top (cse_bvar n)
+  | cse_all_not_top_join: forall c1 c2,
+      cse_all_not_top c1 ->
+      cse_all_not_top c2 ->
+      cse_all_not_top (cse_join c1 c2)
+  | cse_all_not_top_bot:
+    cse_all_not_top cse_bot.
 
 
 (* Check (fun x =>  fun N => x N`in` N). *)

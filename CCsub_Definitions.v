@@ -208,8 +208,7 @@ Inductive expr : exp -> Prop :=
 
 Inductive binding : Type :=
   | bind_sub : typ -> binding
-  | bind_typ : typ -> binding
-  | bind_cse : cse -> binding.
+  | bind_typ : typ -> binding.
 
 Notation env := (list (atom * binding)).
 Notation "∅" := (@nil (atom * binding)).
@@ -226,9 +225,6 @@ Reserved Notation "Γ '⊢ₛ' C 'wf'" (at level 40, C at next level, no associa
 Inductive wf_cse : env -> cse -> Prop :=
   | wf_cse_top : forall E,
       wf_cse E cse_top
-  | wf_cse_fvar : forall R E (X : atom),
-      binds X (bind_cse R) E ->
-      wf_cse E (cse_fvar X)
   | wf_cse_term_fvar : forall T E (x : atom),
       binds x (bind_typ T) E ->
       wf_cse E (cse_fvar x)
@@ -300,19 +296,14 @@ Inductive subcset : env -> cse -> cse -> Prop :=
       wf_env E ->
       wf_cse E Q ->
       subcset E cse_bot Q
-  | subcset_refl_qvar : forall E X,
+  | subcset_refl_var : forall E X,
       wf_env E ->
       wf_cse E (cse_fvar X) ->
       subcset E (cse_fvar X) (cse_fvar X)
-  | subcset_trans_qvar : forall R E Q X,
-      binds X (bind_cse R) E ->
+  | subcset_trans_var : forall R E Q X T,
+      binds X (bind_typ (typ_cse R T)) E ->
       subcset E R Q ->
       subcset E (cse_fvar X) Q
-  (* TODO *)
-  (* | subcset_trans_term_qvar : forall R E T Q X, *)
-  (*     binds X (bind_typ (qtyp_qtyp R T)) E -> *)
-  (*     subcset E R Q -> *)
-  (*     subcset E (cse_fvar X) Q *)
   | subcset_join_inl : forall E R1 R2 Q,
       subcset E Q R1 ->
       wf_cse E R2 ->
