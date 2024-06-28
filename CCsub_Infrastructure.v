@@ -241,7 +241,10 @@ Proof with eauto*.
   intros.
   induction H.
   - apply captN_join; auto.
-  - apply captN_bvar. lia. 
+  - apply captN_bvar. lia.
+  - apply captN_fvar.
+  - apply captN_bot.
+  - apply captN_top.
 Qed.
 
 Lemma typeN_weakening : forall n m T,
