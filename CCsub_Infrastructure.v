@@ -625,18 +625,12 @@ Lemma open_cset_captN : forall n C D,
 Proof with eauto*.
   intros.
   unfold open_cse.
-  induction C; auto; inversion H.
+  induction C; auto; inversion H; simpl in *.
   - destruct (n === n0); try lia; try auto.
-  - injection.
-   
-  destruct_set_mem n C.
-  exfalso.
-  unfold captN in H.
-  enough (n < n) by lia.
-  apply H, nIn.
+  - f_equal; auto.
 Qed.
 
-(* Lemma subst_cset_intro : forall X k D C,
+Lemma subst_cset_intro : forall X k D C,
   X ∉ `cse_fvars` C ->
   open_cse k D C = subst_cse X D (open_cse k (cse_fvar X) C).
 Proof with eauto*.
@@ -654,7 +648,7 @@ Proof with eauto*.
   - unfold subst_cset.
     destruct_set_mem X C.
     exfalso; fsetdec.
-Qed. *)
+Qed.
 
 (* Lemma subst_te_open_te_rec : forall e T X U k,
   pure_type U ->
