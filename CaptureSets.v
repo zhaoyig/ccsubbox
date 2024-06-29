@@ -179,6 +179,7 @@ Declare Scope experimental_set_scope.
 Notation "{ x 'as' A}" := (cse_fvar x) : experimental_set_scope.
 Notation "{ x 'as' N}" := (cse_bvar x) : experimental_set_scope.
 
+Definition capt (c : cse) : Prop := NatSet.F.Empty (`cse_bvars` c).
 (** ************************************************** *)
 (** Logical Predicates *)
 (** ************************************************** *)
