@@ -170,6 +170,25 @@ Inductive cse_all_not_top: cse -> Prop :=
   | cse_all_not_top_bot:
     cse_all_not_top cse_bot.
 
+Fixpoint open_cse (k : nat) (c : cse) (d : cse) : cse :=
+  match d with
+  | cse_top => cse_top
+  | cse_bot => cse_bot
+  | cse_bvar k' => if k === k' then c else d
+  | cse_fvar _ => d
+  | cse_join d1 d2 => cse_join (open_cse k c d1) (open_cse k c d2)
+end.
+
+Fixpoint subst_cse (a : atom) (c : cse) (d: cse) : cse :=
+  match d with
+  | cse_top => cse_top
+  | cse_bot => cse_bot
+  | cse_bvar _ => d
+  | cse_fvar a' => if a == a' then c else d
+  | cse_join d1 d2 => cse_join (subst_cse a c d1) (subst_cse a c d2)
+end.
+
+
 
 (* Check (fun x =>  fun N => x N`in` N). *)
 (* Check (fun C D x => (cset_union D (cset_remove_fvar x C))). *)
@@ -180,6 +199,33 @@ Notation "{ x 'as' A}" := (cse_fvar x) : experimental_set_scope.
 Notation "{ x 'as' N}" := (cse_bvar x) : experimental_set_scope.
 
 Definition capt (c : cse) : Prop := NatSet.F.Empty (`cse_bvars` c).
+
+(** ************************************************** *)
+(** Properties *)
+(** ************************************************** *)
+
+Lemma cse_fvars_join_union : forall C1 C2,
+  `cse_fvars` (cse_join C1 C2) = AtomSet.F.union (`cse_fvars` C1) (`cse_fvars` C2).
+Proof. auto. Qed.
+
+Lemma subst_cse_fresh : forall x C1 C2,
+  x `notin` (cse_fvars C1) ->
+  C1 = subst_cse x C2 C1.
+Proof with eauto.
+  intros.
+  symmetry.
+  induction C1; simpl...
+  (* C1 is an fvar *)
+  - destruct (x == a).
+    + rewrite e in H. simpl in H. fsetdec.
+    + auto.
+  (* C1 is a join *)
+  - rewrite cse_fvars_join_union in H.
+    notin_simpl.
+    rewrite IHC1_1...
+    rewrite IHC1_2...
+Qed.
+
 (** ************************************************** *)
 (** Logical Predicates *)
 (** ************************************************** *)

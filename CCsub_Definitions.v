@@ -8,24 +8,6 @@ Notation "x '∈' L" := (x `in` L) (at level 80, no associativity).
 Notation "x '∉' L" := (x `notin` L) (at level 80, no associativity).
 Notation "xs '⊆' ys" := (xs `subset` ys) (at level 80, no associativity).
 
-Fixpoint open_cse (k : nat) (c : cse) (d : cse) : cse :=
-  match d with
-  | cse_top => cse_top
-  | cse_bot => cse_bot
-  | cse_bvar k' => if k === k' then c else d
-  | cse_fvar _ => d
-  | cse_join d1 d2 => cse_join (open_cse k c d1) (open_cse k c d2)
-end.
-
-Fixpoint subst_cse (a : atom) (c : cse) (d: cse) : cse :=
-  match d with
-  | cse_top => cse_top
-  | cse_bot => cse_bot
-  | cse_bvar _ => d
-  | cse_fvar a' => if a == a' then c else d
-  | cse_join d1 d2 => cse_join (subst_cse a c d1) (subst_cse a c d2)
-end.
-
 Inductive typ : Type :=
   | typ_var : var -> typ
   | typ_top : typ

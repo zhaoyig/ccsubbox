@@ -912,14 +912,13 @@ Lemma subst_ct_open_vt_fresh : forall z c k P v,
   capt c ->
   z ∉ (fv_ct P `u`A fv_tt P) ->
   subst_ct z c (open_vt k P v) = open_tt_rec k P v.
-  Admitted.
-(* Proof with eauto.
+Proof with eauto.
   intros * Capt NotIn.
   induction P; unfold open_vt; destruct v; simpl in *...
   all: destruct (k === n); subst; simpl; f_equal...
   - destruct v0...
-  - symmetry; apply subst_cset_fresh...
-Qed. *)
+  - symmetry. apply subst_cse_fresh...
+Qed.
 
 Lemma subst_ct_open_tt_rec_fresh : forall c z P t k,
   capt c ->
