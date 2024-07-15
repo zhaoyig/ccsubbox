@@ -121,18 +121,6 @@ Fixpoint exp_cv (Γ : exp) : cse :=
   | C ⟜ x =>  `cse_remove_all_bvars` C `u` var_cv x
   end.
 
-Inductive cset : cse -> Prop :=
-  | cset_top :
-      cset cse_top
-  | cset_fvar : forall (X : atom),
-      cset (cse_fvar X)
-  | cset_join : forall Q1 Q2,
-      cset Q1 ->
-      cset Q2 ->
-      cset (cse_join Q1 Q2)
-  | cset_bot :
-      cset cse_bot
-.
 
 Inductive type : typ -> Prop :=
   | type_pure : forall R,

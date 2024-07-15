@@ -198,11 +198,28 @@ Declare Scope experimental_set_scope.
 Notation "{ x 'as' A}" := (cse_fvar x) : experimental_set_scope.
 Notation "{ x 'as' N}" := (cse_bvar x) : experimental_set_scope.
 
-Definition capt (c : cse) : Prop := NatSet.F.Empty (`cse_bvars` c).
+Inductive cset : cse -> Prop :=
+  | cset_top :
+      cset cse_top
+  | cset_fvar : forall (X : atom),
+      cset (cse_fvar X)
+  | cset_join : forall Q1 Q2,
+      cset Q1 ->
+      cset Q2 ->
+      cset (cse_join Q1 Q2)
+  | cset_bot :
+      cset cse_bot
+.
+
+(* Definition capt (c : cse) : Prop := cset c. *)
 
 (** ************************************************** *)
 (** Properties *)
 (** ************************************************** *)
+
+(* Lemma cse_fvars_capt: forall (x: atom), *)
+(*   capt (cse_fvar x). *)
+(* Proof. intros. unfold capt. simpl. fnsetdec. Qed. *)
 
 Lemma cse_fvars_join_union : forall C1 C2,
   `cse_fvars` (cse_join C1 C2) = AtomSet.F.union (`cse_fvars` C1) (`cse_fvars` C2).
@@ -225,6 +242,138 @@ Proof with eauto.
     rewrite IHC1_1...
     rewrite IHC1_2...
 Qed.
+
+Lemma empty_union_empty : forall C1 C2,
+  NatSet.F.Empty (C1 `u`N C2) ->
+  NatSet.F.Empty C1 /\ NatSet.F.Empty C2.
+Proof with eauto.
+  intros.
+  split; intro; fnsetdec.
+Qed.
+
+Lemma open_cse_cset : forall i C c,
+  cset C ->
+  C = open_cse i c C.
+Proof with eauto*.
+  intros i C c H.
+  induction H; simpl in *...
+Qed.
+
+Lemma subst_cc_intro_rec : forall x (C : cse) U k,
+  x `notin` (`cse_fvars` C) ->
+  open_cse k U C = subst_cse x U (open_cse k (cse_fvar x) C).
+Proof with auto*.
+  intros * NotIn.
+  induction C; simpl...
+  - destruct (k === n); simpl...
+    + destruct (x == x); auto...
+  - destruct (x == a); simpl...
+    + rewrite e in NotIn. simpl in NotIn. fsetdec.
+  - f_equal; rewrite cse_fvars_join_union in NotIn; notin_simpl.
+    rewrite IHC1...
+    rewrite IHC2...
+Qed.
+
+Notation "`cset_references_bvar` k c" :=
+  (k N`in` c)
+    (at level 10, k at level 9, c at level 9, only parsing) : cse_shorthand.
+Notation "`cset_references_bvar_dec` k c" :=
+  (k N`mem` c)
+    (at level 10, k at level 9, c at level 9, only parsing) : cse_shorthand.
+Notation "`cset_remove_bvar` k c" :=
+  (c N`\` k)
+    (at level 10, k at level 9, c at level 9, only parsing) : cse_shorthand.
+
+Notation "`cset_references_fvar` a c" :=
+  (a A`in` c)
+    (at level 10, a at level 9, c at level 9, only parsing) : cse_shorthand.
+Notation "`cset_references_fvar_dec` a c" :=
+  (a A`mem` c)
+    (at level 10, a at level 9, c at level 9, only parsing) : cse_shorthand.
+
+Lemma cset_bvar_mem_iff : forall k C,
+  `cset_references_bvar` k C <-> `cset_references_bvar_dec` k C = true.
+Proof.
+destruct C ;
+    simpl in *; intuition.
+Qed.
+
+Lemma cset_fvar_mem_iff : forall a C,
+`cset_references_fvar` a C <-> `cset_references_fvar_dec` a C = true.
+Proof.
+  destruct C ;
+    simpl in *; intuition.
+Qed.
+
+Lemma cset_bvar_not_mem_iff : forall k C,
+  ~ `cset_references_bvar` k C <-> `cset_references_bvar_dec` k C = false.
+Proof.
+  destruct C ; rewrite <- NatSetFacts.not_mem_iff; fnsetdec.
+Qed.
+
+Lemma cset_fvar_not_mem_iff : forall a C,
+  ~ `cset_references_fvar` a C <-> `cset_references_fvar_dec` a C = false.
+Proof.
+  destruct C ;
+    split; intros; simpl in *; intuition.
+    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
+    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
+Qed.
+
+Ltac rewrite_set_facts_in H :=
+  match type of H with
+  | true = _ => symmetry in H
+  | false = _ => symmetry in H
+  | _ => idtac
+  end;
+  match type of H with
+  | NatSet.F.mem _ _ = true => rewrite <- NatSetFacts.mem_iff in H
+  | NatSet.F.mem _ _ = false => rewrite <- NatSetFacts.not_mem_iff in H
+  | AtomSet.F.mem _ _ = true => rewrite <- AtomSetFacts.mem_iff in H
+  | AtomSet.F.mem _ _ = false => rewrite <- AtomSetFacts.not_mem_iff in H
+  | `cset_references_bvar_dec` _ _ = true => rewrite <- cset_bvar_mem_iff in H
+  | `cset_references_fvar_dec` _ _ = true => rewrite <- cset_fvar_mem_iff in H
+  (* | `cset_references_univ_dec` _ _ = true => rewrite <- cset_univ_mem_iff in H *)
+  | `cset_references_bvar_dec` _ _ = false => rewrite <- cset_bvar_not_mem_iff in H
+  | `cset_references_fvar_dec` _ _ = false => rewrite <- cset_fvar_not_mem_iff in H
+  (* | `cset_references_univ_dec` _ _ = false => rewrite <- cset_univ_not_mem_iff in H *)
+  end;
+  (** argh, unused arguments need to be discharged *)
+  try apply NatSet.F.empty; try apply AtomSet.F.empty; try apply {}.
+
+Ltac destruct_set_mem a bs :=
+  match type of bs with
+  | AtomSet.F.t =>
+    let H := fresh a "In" in
+    destruct (AtomSet.F.mem a bs) eqn:H; rewrite_set_facts_in H
+  | NatSet.F.t =>
+    let H := fresh a "In" in
+    destruct (NatSet.F.mem a bs) eqn:H; rewrite_set_facts_in H
+  | cse =>
+    match type of a with
+    | atom =>
+      let H := fresh a "In" in
+      destruct (`cset_references_fvar_dec` a bs) eqn:H; rewrite_set_facts_in H; trivial
+    (** why argh *)
+    | AtomSet.F.elt =>
+      let H := fresh a "In" in
+      destruct (`cset_references_fvar_dec` a bs) eqn:H; rewrite_set_facts_in H; trivial
+    | nat =>
+      let H := fresh a "In" in
+      destruct (`cset_references_bvar_dec` a bs) eqn:H; rewrite_set_facts_in H; trivial
+    | NatSet.F.elt =>
+      let H := fresh a "In" in
+      destruct (`cset_references_bvar_dec` a bs) eqn:H; rewrite_set_facts_in H; trivial
+    end
+  end.
 
 (** ************************************************** *)
 (** Logical Predicates *)
