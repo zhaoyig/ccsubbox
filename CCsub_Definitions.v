@@ -8,24 +8,6 @@ Notation "x '∈' L" := (x `in` L) (at level 80, no associativity).
 Notation "x '∉' L" := (x `notin` L) (at level 80, no associativity).
 Notation "xs '⊆' ys" := (xs `subset` ys) (at level 80, no associativity).
 
-Fixpoint open_cse (k : nat) (c : cse) (d : cse) : cse :=
-  match d with
-  | cse_top => cse_top
-  | cse_bot => cse_bot
-  | cse_bvar k' => if k === k' then c else d
-  | cse_fvar _ => d
-  | cse_join d1 d2 => cse_join (open_cse k c d1) (open_cse k c d2)
-end.
-
-Fixpoint subst_cse (a : atom) (c : cse) (d: cse) : cse :=
-  match d with
-  | cse_top => cse_top
-  | cse_bot => cse_bot
-  | cse_bvar _ => d
-  | cse_fvar a' => if a == a' then c else d
-  | cse_join d1 d2 => cse_join (subst_cse a c d1) (subst_cse a c d2)
-end.
-
 Inductive typ : Type :=
   | typ_var : var -> typ
   | typ_top : typ
@@ -139,18 +121,6 @@ Fixpoint exp_cv (Γ : exp) : cse :=
   | C ⟜ x =>  `cse_remove_all_bvars` C `u` var_cv x
   end.
 
-Inductive cset : cse -> Prop :=
-  | cset_top :
-      cset cse_top
-  | cset_fvar : forall (X : atom),
-      cset (cse_fvar X)
-  | cset_join : forall Q1 Q2,
-      cset Q1 ->
-      cset Q2 ->
-      cset (cse_join Q1 Q2)
-  | cset_bot :
-      cset cse_bot
-.
 
 Inductive type : typ -> Prop :=
   | type_pure : forall R,
