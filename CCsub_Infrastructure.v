@@ -846,36 +846,33 @@ Proof with auto*.
   eapply subst_cse_open_cset_rec...
 Qed.
 
-Lemma subst_cset_open_cset_not_fresh : forall x c d k,
+(* Unprovable *)
+(* Lemma subst_cset_open_cset_not_fresh : forall x c d k,
   open_cse k c (subst_cse x c d)  = subst_cse x c (open_cse k (cse_fvar x) d).
 Proof with eauto*.
   intros.
-  generalize dependent c.
   induction d; auto.
   - simpl. destruct (k === n).
     -- simpl. destruct (x == x); auto. unfold not in n0. exfalso. apply n0.
        reflexivity.
     -- auto.
-  - simpl.
-    --  
-  repeat find_and_destroy_set_mem; csetdec.
-Qed.
+  - simpl. destruct (x == a).*)
 
-Lemma subst_ct_open_ct_rec_not_fresh : forall x t c k,
+(* Lemma subst_ct_open_ct_rec_not_fresh : forall x t c k,
   open_ct_rec k c (subst_ct x c t) = subst_ct x c (open_ct_rec k (cse_fvar x) t).
 Proof with eauto using subst_cset_open_cset_not_fresh.
   intros.
   revert k.
   induction t; intros k; simpl in *; f_equal...
   destruct v...
-Qed.
+Qed. *)
 
-Lemma subst_ct_open_ct_not_fresh : forall x t c,
+(* Lemma subst_ct_open_ct_not_fresh : forall x t c,
   open_ct (subst_ct x c t) c = subst_ct x c (open_ct t (cse_fvar x)).
 Proof.
   intros.
   apply subst_ct_open_ct_rec_not_fresh.
-Qed.
+Qed. *)
 
 Lemma subst_ct_open_ct_rec : forall (X : atom) C1 T C2 k,
   cset C1 ->
@@ -892,13 +889,12 @@ Lemma subst_ct_open_ct_var : forall (x y : atom) c t,
   y <> x ->
   cset c ->
   open_ct (subst_ct x c t) (cse_fvar y) = subst_ct x c (open_ct t (cse_fvar y)).
-  Admitted.
-(* Proof with auto*.
+Proof with auto*.
   intros *; intros Neq Wu.
   unfold open_ct.
   symmetry.
-  apply subst_ct_open_ct_rec...
-Qed. *)
+  apply subst_ct_open_ct_rec... apply cset_fvar.
+Qed.
 
 Lemma subst_te_open_ve_rec : forall e z c Z P k,
   type P ->
