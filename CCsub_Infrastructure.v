@@ -814,15 +814,14 @@ Qed.
 Lemma subst_ct_intro_rec : forall X T2 C k,
   X ∉ fv_ct T2 ->
   open_ct_rec k C T2 = subst_ct X C (open_ct_rec k (cse_fvar X) T2).
-  Admitted.
-(* Proof with auto*.
+Proof with auto*.
   induction T2; intros C k Fr; simpl in *; f_equal...
   - Case "v".
     destruct v...
   - Case "c # T2".
     apply subst_cc_intro_rec.
-    csetdec; destruct c...
-Qed. *)
+    fsetdec.
+Qed.
 
 (** The next lemma is a direct corollary of the immediately preceding
     lemma---the index is specialized to zero.  *)
@@ -840,25 +839,27 @@ Lemma subst_cset_open_cset_fresh : forall k X C1 C2 c,
   cset C2 ->
   ~ X A`in` C2 ->
   subst_cse X C1 (open_cse k C2 c) = open_cse k C2 (subst_cse X C1 c).
-  Admitted.
-(* Proof with auto*.
+Proof with auto*.
   intros.
-  assert (C2 = subst_cse X C1 C2). {
-    unfold subst_cset; rewrite_set_facts_back_in H1...
-    rewrite H1...
-  }
-  rewrite H2 at 2.
-  eapply subst_cset_open_cset_rec...
-Qed. *)
+  assert (C2 = subst_cse X C1 C2). { apply subst_cse_fresh. apply H1. }
+  rewrite H2 at 2. 
+  eapply subst_cse_open_cset_rec...
+Qed.
 
 Lemma subst_cset_open_cset_not_fresh : forall x c d k,
   open_cse k c (subst_cse x c d)  = subst_cse x c (open_cse k (cse_fvar x) d).
-  Admitted.
-(* Proof with eauto*.
+Proof with eauto*.
   intros.
-  unfold open_cse, subst_cse.
+  generalize dependent c.
+  induction d; auto.
+  - simpl. destruct (k === n).
+    -- simpl. destruct (x == x); auto. unfold not in n0. exfalso. apply n0.
+       reflexivity.
+    -- auto.
+  - simpl.
+    --  
   repeat find_and_destroy_set_mem; csetdec.
-Qed. *)
+Qed.
 
 Lemma subst_ct_open_ct_rec_not_fresh : forall x t c k,
   open_ct_rec k c (subst_ct x c t) = subst_ct x c (open_ct_rec k (cse_fvar x) t).
