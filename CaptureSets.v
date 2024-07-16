@@ -328,6 +328,26 @@ Proof.
     - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
 Qed.
 
+Lemma open_cset_capt : forall i C c,
+  cset C ->
+  C = open_cse i c C.
+Proof with eauto*.
+  intros i C c H.
+  induction H; try auto.
+  simpl. f_equal; auto.
+Qed.
+
+Lemma subst_cse_open_cset_rec : forall x k C1 C2 D,
+  cset C1 ->
+  subst_cse x C1 (open_cse k C2 D) = open_cse k (subst_cse x C1 C2) (subst_cse x C1 D).
+Proof with eauto*.
+  intros x k C1 C2 D Closed.
+  induction D; auto; simpl.
+  - destruct (k === n); simpl; reflexivity.
+  - destruct (x == a); simpl; subst... apply open_cset_capt. apply Closed.
+  - f_equal; auto. 
+Qed.
+
 Ltac rewrite_set_facts_in H :=
   match type of H with
   | true = _ => symmetry in H

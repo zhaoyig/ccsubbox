@@ -714,7 +714,7 @@ Lemma open_ct_rec_type : forall T C k,
   T = open_ct_rec k C T.
 Proof with auto using type_to_type0.
   intros.
-  generalize dependent k.x
+  generalize dependent k.
   induction T; intros k; simpl; f_equal; inversion H; inversion H0; subst...
   (* TODO: Should I simply the first two cases? *)
   - pick fresh x and specialize H5.
@@ -795,17 +795,6 @@ Lemma subst_ve_fresh : forall (x : atom) u c e,
   e = subst_ve x u c e.
 Proof with auto using subst_vv_fresh, subst_ct_fresh, subst_cse_fresh.
   induction e; intros; simpl in *; f_equal...
-Qed.
-
-(* Moved this lemma from CaptureSets.v to here *)
-Lemma subst_cse_open_cset_rec : forall x k C1 C2 D,
-  capt C1 ->
-  subst_cse x C1 (open_cse k C2 D) = open_cse k (subst_cse x C1 C2) (subst_cse x C1 D).
-Proof with eauto*.
-  intros x k C1 C2 D Closed.
-  induction D; auto; simpl.
-  - destruct (k === n); simpl; reflexivity.
-  - destruct (x == a); simpl; subst... unfold capt in Closed.
 Qed.
 
 Lemma subst_ct_open_rec : forall t x k c1 c2,
