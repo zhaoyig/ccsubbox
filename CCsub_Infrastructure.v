@@ -1058,16 +1058,13 @@ Lemma subst_ve_open_ve_var : forall (x y u : atom) c e,
   cset c ->
   open_ve (subst_ve x u c e) y (cse_fvar y) =
   subst_ve x u c (open_ve e y (cse_fvar y)).
-Admitted.
-(* Proof with auto*. *)
-(*   intros x y u c e Neq Wu Wc. *)
-(*   unfold open_ve. *)
-(*   rewrite subst_ve_open_ve_rec... *)
-(*   simpl. *)
-(*   destruct (y == x)... *)
-(*   destruct_set_mem x (cse_fvar y)... *)
-(*   fsetdec. *)
-(* Qed. *)
+Proof with auto*.
+  intros x y u c e Neq Wu Wc.
+  unfold open_ve.
+  rewrite subst_ve_open_ve_rec...
+  simpl.
+  destruct (x == y)...
+Qed.
 
 (* *********************************************************************** *)
 (** * #<a name="lc"></a># Local closure is preserved under substitution *)
@@ -1124,6 +1121,17 @@ Proof with eauto.
   - destruct HXfresh. notin_simpl. simpl. fsetdec.
 Qed.
 
+Lemma subst_cse_cset: forall X C D,
+  cset C ->
+  cset D ->
+  cset (subst_cse X C D).
+Proof with auto.
+  intros X C D HC HD.
+  induction D; simpl...
+  - destruct (X == a); subst...
+  - apply cset_join; inversion HD...
+Qed.
+
 Lemma subst_ct_type : forall T z c,
   type T ->
   cset c ->
@@ -1132,37 +1140,38 @@ with subst_ct_pure_type : forall R z c,
   pure_type R ->
   cset c ->
   pure_type (subst_ct z c R).
-  Admitted.
-(*  Proof with auto*. *)
-(* { clear subst_ct_type. *)
-(*   intros * Typ ?. *)
-(*   induction Typ; simpl... *)
-(* } *)
-(* { clear subst_ct_pure_type. *)
-(*   intros * Typ Cap. *)
-(*   induction Typ; simpl... *)
-(*   - Case "∀ (S') T". *)
-(*     pick fresh x and apply type_arr... *)
-(*     assert ((open_ct (subst_ct z c T) (cse_fvar x)) = *)
-(*     (subst_ct z c (open_ct T (cse_fvar x)))). *)
-(*     { apply subst_ct_open_fresh. *)
-(*       split. *)
-(*       - fsetdec. *)
-(*       - destruct c. *)
-(*         fsetdec. *)
-(*       - apply Cap. *)
-(*     } *)
-(*     rewrite H1... *)
-(*   - Case "∀ [R] T". *)
-(*     pick fresh X and apply type_all... *)
-(*     assert ((open_tt (subst_ct z c T) X) = *)
-(*     (subst_ct z c (open_tt T X))). *)
-(*     { symmetry. *)
-(*       apply subst_ct_open_tt_rec_fresh; simpl... *)
-(*     } *)
-(*     rewrite H0... *)
-(* } *)
-(* Qed. *)
+ Proof with auto*.
+{ clear subst_ct_type.
+  intros * Typ ?.
+  induction Typ; simpl...
+  apply type_cse.
+  apply subst_cse_cset...
+  apply subst_ct_pure_type...
+}
+{ clear subst_ct_pure_type.
+  intros * Typ Cap.
+  induction Typ; simpl...
+  - Case "∀ (S') T".
+    pick fresh x and apply type_arr...
+    assert ((open_ct (subst_ct z c T) (cse_fvar x)) =
+    (subst_ct z c (open_ct T (cse_fvar x)))).
+    { apply subst_ct_open_fresh.
+      split.
+      - fsetdec.
+      - destruct c. fsetdec. auto. auto. auto. auto.
+      - apply Cap.
+    }
+    rewrite H1...
+  - Case "∀ [R] T".
+    pick fresh X and apply type_all...
+    assert ((open_tt (subst_ct z c T) X) =
+    (subst_ct z c (open_tt T X))).
+    { symmetry.
+      apply subst_ct_open_tt_rec_fresh; simpl...
+    }
+    rewrite H0...
+}
+Qed.
 
 (* *********************************************************************** *)
 (** * #<a name="auto"></a># Automation *)

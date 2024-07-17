@@ -274,60 +274,6 @@ Proof with auto*.
     rewrite IHC2...
 Qed.
 
-Notation "`cset_references_bvar` k c" :=
-  (k N`in` c)
-    (at level 10, k at level 9, c at level 9, only parsing) : cse_shorthand.
-Notation "`cset_references_bvar_dec` k c" :=
-  (k N`mem` c)
-    (at level 10, k at level 9, c at level 9, only parsing) : cse_shorthand.
-Notation "`cset_remove_bvar` k c" :=
-  (c N`\` k)
-    (at level 10, k at level 9, c at level 9, only parsing) : cse_shorthand.
-
-Notation "`cset_references_fvar` a c" :=
-  (a A`in` c)
-    (at level 10, a at level 9, c at level 9, only parsing) : cse_shorthand.
-Notation "`cset_references_fvar_dec` a c" :=
-  (a A`mem` c)
-    (at level 10, a at level 9, c at level 9, only parsing) : cse_shorthand.
-
-Lemma cset_bvar_mem_iff : forall k C,
-  `cset_references_bvar` k C <-> `cset_references_bvar_dec` k C = true.
-Proof.
-destruct C ;
-    simpl in *; intuition.
-Qed.
-
-Lemma cset_fvar_mem_iff : forall a C,
-`cset_references_fvar` a C <-> `cset_references_fvar_dec` a C = true.
-Proof.
-  destruct C ;
-    simpl in *; intuition.
-Qed.
-
-Lemma cset_bvar_not_mem_iff : forall k C,
-  ~ `cset_references_bvar` k C <-> `cset_references_bvar_dec` k C = false.
-Proof.
-  destruct C ; rewrite <- NatSetFacts.not_mem_iff; fnsetdec.
-Qed.
-
-Lemma cset_fvar_not_mem_iff : forall a C,
-  ~ `cset_references_fvar` a C <-> `cset_references_fvar_dec` a C = false.
-Proof.
-  destruct C ;
-    split; intros; simpl in *; intuition.
-    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff; fsetdec.
-    - rewrite <- AtomSetFacts.not_mem_iff in H; fsetdec.
-Qed.
-
 Lemma open_cset_capt : forall i C c,
   cset C ->
   C = open_cse i c C.
@@ -347,53 +293,6 @@ Proof with eauto*.
   - destruct (x == a); simpl; subst... apply open_cset_capt. apply Closed.
   - f_equal; auto. 
 Qed.
-
-Ltac rewrite_set_facts_in H :=
-  match type of H with
-  | true = _ => symmetry in H
-  | false = _ => symmetry in H
-  | _ => idtac
-  end;
-  match type of H with
-  | NatSet.F.mem _ _ = true => rewrite <- NatSetFacts.mem_iff in H
-  | NatSet.F.mem _ _ = false => rewrite <- NatSetFacts.not_mem_iff in H
-  | AtomSet.F.mem _ _ = true => rewrite <- AtomSetFacts.mem_iff in H
-  | AtomSet.F.mem _ _ = false => rewrite <- AtomSetFacts.not_mem_iff in H
-  | `cset_references_bvar_dec` _ _ = true => rewrite <- cset_bvar_mem_iff in H
-  | `cset_references_fvar_dec` _ _ = true => rewrite <- cset_fvar_mem_iff in H
-  (* | `cset_references_univ_dec` _ _ = true => rewrite <- cset_univ_mem_iff in H *)
-  | `cset_references_bvar_dec` _ _ = false => rewrite <- cset_bvar_not_mem_iff in H
-  | `cset_references_fvar_dec` _ _ = false => rewrite <- cset_fvar_not_mem_iff in H
-  (* | `cset_references_univ_dec` _ _ = false => rewrite <- cset_univ_not_mem_iff in H *)
-  end;
-  (** argh, unused arguments need to be discharged *)
-  try apply NatSet.F.empty; try apply AtomSet.F.empty; try apply {}.
-
-Ltac destruct_set_mem a bs :=
-  match type of bs with
-  | AtomSet.F.t =>
-    let H := fresh a "In" in
-    destruct (AtomSet.F.mem a bs) eqn:H; rewrite_set_facts_in H
-  | NatSet.F.t =>
-    let H := fresh a "In" in
-    destruct (NatSet.F.mem a bs) eqn:H; rewrite_set_facts_in H
-  | cse =>
-    match type of a with
-    | atom =>
-      let H := fresh a "In" in
-      destruct (`cset_references_fvar_dec` a bs) eqn:H; rewrite_set_facts_in H; trivial
-    (** why argh *)
-    | AtomSet.F.elt =>
-      let H := fresh a "In" in
-      destruct (`cset_references_fvar_dec` a bs) eqn:H; rewrite_set_facts_in H; trivial
-    | nat =>
-      let H := fresh a "In" in
-      destruct (`cset_references_bvar_dec` a bs) eqn:H; rewrite_set_facts_in H; trivial
-    | NatSet.F.elt =>
-      let H := fresh a "In" in
-      destruct (`cset_references_bvar_dec` a bs) eqn:H; rewrite_set_facts_in H; trivial
-    end
-  end.
 
 (** ************************************************** *)
 (** Logical Predicates *)
