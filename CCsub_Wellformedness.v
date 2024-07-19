@@ -7,17 +7,17 @@ Require Import Atom.
 (** * #<a name="utils"></a># Automation Utils -- mostly related to wellformedness of environments [ok], [wf_env], [dom], ...*)
 
 
-Lemma capt_from_wf_cset : forall Γ C,
-  Γ ⊢ₛ C wf -> capt C.
+Lemma cset_from_wf_cset : forall Γ C,
+  Γ ⊢ₛ C wf -> cset C.
 Proof with auto.
   intros.
-  inversion H...
+  induction H; constructor...
 Qed.
 
-Lemma capt_from_wf_cset_in : forall Γ C, Γ ⊢ₛ C wf -> capt C.
-Proof. eauto using capt_from_wf_cset. Qed.
+Lemma cset_from_wf_cset_in : forall Γ C, Γ ⊢ₛ C wf -> cset C.
+Proof. eauto using cset_from_wf_cset. Qed.
 
-Hint Resolve capt_from_wf_cset_in : core.
+Hint Resolve cset_from_wf_cset_in : core.
 
 Lemma allbound_over_union : forall Γ T1 T2,
   allbound Γ (T1 `u`A T2) ->
@@ -76,16 +76,12 @@ Lemma empty_cset_wf : forall Γ, Γ ⊢ₛ {} wf.
 Proof.
   intros.
   constructor.
-  intros ? ?.
-  fsetdec.
 Qed.
 
 Lemma univ_cset_wf : forall Γ, Γ ⊢ₛ {*} wf.
 Proof.
   intros.
   constructor.
-  intros ? ?.
-  fsetdec.
 Qed.
 
 Hint Resolve empty_cset_wf univ_cset_wf : core.
@@ -98,38 +94,16 @@ Proof with eauto.
   intros *.
   intros H1 H2.
   inversion H1; inversion H2; subst; simpl...
-  unfold cset_union; csetsimpl.
-  constructor...
-  unfold allbound in *...
-  intros.
-  rewrite AtomSetFacts.union_iff in *.
-  auto*.
 Qed.
 
-Lemma wf_cset_over_union : forall Γ C D,
+Lemma wf_cset_over_join : forall Γ C D,
   Γ ⊢ₛ (C `u` D) wf <->
   Γ ⊢ₛ C wf /\ Γ ⊢ₛ D wf.
 Proof with eauto*.
   intros; split; intros H; destruct C eqn:HC1;
                            destruct D eqn:HC2;
-                           unfold cset_union in *.
-  - inversion H; subst...
-    rename select (allbound _ (_ `u`A _)) into AllBoundCD.
-    rename select ({}N = _ `u`N _) into EmptyBVarsCD.
-    apply empty_over_union in EmptyBVarsCD.
-    destruct EmptyBVarsCD as [EmptyBVarsC EmptyBVarsD].
-    apply allbound_over_union in AllBoundCD.
-    destruct AllBoundCD as [AllBoundC AllBoundD].
-    subst.
-    split; constructor...
-  - destruct H as [Hwf1 Hwf2].
-    inversion Hwf1; inversion Hwf2; subst...
-    csetsimpl.
-    (** this should really be a lemma... *)
-    (* assert (NatSet.F.union {}N {}N = {}N) by fnsetdec; rewrite H1. *)
-    constructor.
-    intros ? ?.
-    apply AtomSetFacts.union_iff in H...
+                           unfold cse_union in *;
+                           inversion H...
 Qed.
 
 (** This is a useful helper tactic for clearing away
@@ -156,18 +130,17 @@ Ltac wf_cset_simpl instantiate_ext :=
     end
   end.
 
-Lemma wf_cset_weakening : forall Γ Θ Δ C,
-  (Δ ++ Γ) ⊢ₛ C wf ->
-  ok (Δ ++ Θ ++ Γ) ->
-  (Δ ++ Θ ++ Γ) ⊢ₛ C wf.
+Lemma wf_cset_weakening : forall F E G C,
+  (G ++ E) ⊢ₛ C wf ->
+  ok (G ++ F ++ E) ->
+  (G ++ F ++ E) ⊢ₛ C wf.
 Proof with auto*.
   intros * Hwf Hok.
-  inversion Hwf.
-  constructor.
-  intros x xIn.
-  destruct (H x xIn) as [D [Q Bound]].
-  exists D, Q.
-  binds_cases Bound...
+  remember (G ++ E).
+  generalize dependent G.
+  induction Hwf; intros G EQ Hok; subst; simpl in *...
+  apply (wf_cse_term_fvar T (G ++ F ++ E) x).
+  apply binds_weaken...
 Qed.
 
 Lemma wf_cset_weaken_head : forall C Γ Δ,
@@ -191,10 +164,9 @@ Lemma wf_cset_narrowing : forall V U C Γ Δ X,
 Proof with simpl_env; eauto.
   intros *.
   intros Hwf Hok.
-  wf_cset_simpl False...
-  exists C, R.
-  binds_cases Hexists...
-Qed.
+  dependent induction Hwf...
+  apply (wf_cse_term_fvar T (Δ ++ [(X, bind_sub U)] ++ Γ) x).
+  Admitted.
 
 Lemma wf_cset_narrowing_typ : forall C1 R1 C2 R2 C Γ Δ X,
   (Δ ++ [(X, bind_typ (C1 # R1))] ++ Γ) ⊢ₛ C wf ->
