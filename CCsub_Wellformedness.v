@@ -301,20 +301,20 @@ Tactic Notation "solve_obvious" "with" ident(id) :=
   try solve [econstructor; eauto using id].
 
 Lemma wf_cset_strengthen : forall x Γ Δ C U,
-  x ∉ (`cset_fvars` C) ->
+  x ∉ (cse_fvars C) ->
   (Δ ++ [(x, bind_typ U)] ++ Γ) ⊢ₛ C wf ->
   (Δ ++ Γ) ⊢ₛ C wf.
 Proof with eauto.
   intros * ? H.
-  inversion H; subst.
-  rename select (allbound _ _) into Hb.
-  econstructor.
-  intros y yIn.
-  destruct (Hb y yIn) as [C [R B]].
-  exists C, R.
-  binds_cases B...
-  contradict yIn.
-  assumption.
+  dependent induction H...
+  - destruct (x == x0); simpl in H0; notin_simpl...
+    + contradiction (H2 e).
+    + econstructor. binds_cases H...
+  - apply wf_cset_union...
+    + rewrite cse_fvars_join_union in H0.
+      notin_simpl...
+    + rewrite cse_fvars_join_union in H0.
+      notin_simpl...
 Qed.
 
 Lemma notin_open_tt_rec_fv_ct : forall k x T U,
@@ -329,16 +329,16 @@ Proof with eauto*.
 Qed.
 
 Lemma notin_open_cset : forall k x c d,
-  x ∉ ((`cset_fvars` c) `u`A (`cset_fvars` d)) ->
-  x ∉ (`cset_fvars` (open_cset k c d)).
+  x ∉ ((cse_fvars c) `u`A (cse_fvars d)) ->
+  x ∉ (cse_fvars (open_cse k c d)).
 Proof with eauto*.
   intros * NotIn.
-  unfold open_cset.
-  destruct (k N`mem` d)...
+  induction d; simpl in *...
+  destruct (k === n); simpl in *...
 Qed.
 
 Lemma notin_open_ct_rec_fv_ct : forall k x c T,
-  x ∉ (fv_ct T `u`A (`cset_fvars` c)) ->
+  x ∉ (fv_ct T `u`A (cse_fvars c)) ->
   x ∉ fv_ct (open_ct_rec k c T).
 Proof with eauto using notin_open_cset.
   intros * NotIn.
@@ -488,14 +488,12 @@ Qed.
 Lemma wf_cset_from_binds : forall C R x Γ,
   Γ ⊢ wf ->
   binds x (bind_typ (C # R)) Γ ->
-  Γ ⊢ₛ (`cset_fvar` x) wf.
+  Γ ⊢ₛ (cse_fvar x) wf.
 Proof.
   intros.
   econstructor.
-  intros x0 HIn.
-  rewrite AtomSetFacts.singleton_iff in HIn.
-  subst.
-  eauto.
+  instantiate (1 := (C # R)).
+  exact H0.
 Qed.
 
 Lemma wf_typ_env_bind_typ : forall x U Γ,
@@ -568,8 +566,6 @@ Lemma wf_cset_subst_tb : forall Γ Δ Q Z P C,
   (map (subst_tb Z P) Δ ++ Γ) ⊢ₛ C wf.
 Proof with simpl_env; eauto*.
   intros * HwfC HwfP PureP Hok.
-  destruct HwfC as [fvars univ Hb].
-  unfold subst_cset.
   repeat rewrite dom_concat in Hb; simpl in Hb.
   destruct_set_mem Z fvars.
   - Case "Z ∈ fvars".
@@ -611,14 +607,14 @@ Lemma wf_cset_over_subst : forall Γ Δ Q Z C C',
   Γ ⊢ₛ C wf ->
   (Δ ++ [(Z, bind_typ Q)] ++ Γ) ⊢ₛ C' wf ->
   ok (Δ ++ [(Z, bind_typ Q)] ++ Γ) ->
-  (map (subst_cb Z C) Δ ++ Γ) ⊢ₛ (subst_cset Z C C') wf.
+  (map (subst_cb Z C) Δ ++ Γ) ⊢ₛ (subst_cse Z C C') wf.
 Proof with eauto*.
   intros Γ Δ Q Z C C'.
   intros HokFE HwfC HwfC' Hok.
   destruct HwfC as [fvars univ Hb].
   destruct HwfC' as [fvars' univ' Hb'].
   (** Case analysis : this should maybe go through better, hopefully? *)
-  - unfold subst_cset; try constructor...
+  - unfold subst_cse; try constructor...
     repeat rewrite dom_concat in Hb'; simpl in Hb'.
     find_and_destroy_set_mem.
     + csetdec.
@@ -666,7 +662,7 @@ Proof with simpl_env;
            eauto using wf_typ_weaken_head,
                        wf_cset_subst_tb,
                        type_from_wf_typ,
-                       capt_from_wf_cset.
+                       cset_from_wf_cset.
   intros *.
   intros HwfT HwfC Hok HokZ.
   remember (Δ ++ [(Z, bind_typ Q)] ++ Γ).
