@@ -193,36 +193,36 @@ Proof with simpl_env; eauto.
 Qed.
 
 (* TODO: Need to prove this *)
-(* Lemma wf_cset_ignores_typ_bindings : forall Γ Δ x C1 R1 C2 R2 C,
+Lemma wf_cset_ignores_typ_bindings : forall Γ Δ x C1 R1 C2 R2 C,
   (Δ ++ [(x, bind_typ (C1 # R1))] ++ Γ) ⊢ₛ C wf ->
   (Δ ++ [(x, bind_typ (C2 # R2))] ++ Γ) ⊢ₛ C wf.
 Proof with eauto.
   intros*.
   intros H.
-  remember (Δ ++ [(x, bind_typ (C1 # R1))] ++ Γ).
-  generalize dependent Δ.
-  induction H; intros Δ Eq; subst...
-  econstructor...
-  unfold allbound in *.
-  intros y yIn.
-  destruct (H y yIn) as [C [R Hb]].
-  binds_cases Hb...
-Qed.
+  dependent induction H; auto.
+  - binds_cases H.
+    -- apply (wf_cse_term_fvar T (Δ ++ [(x, bind_typ (C2 # R2))] ++ Γ) x0).
+       apply binds_tail; auto.
+    -- apply (wf_cse_term_fvar (C2 # R2) (Δ ++ [(x0, bind_typ (C2 # R2))] ++ Γ) x0).
+       auto.
+    -- apply (wf_cse_term_fvar T (Δ ++ [(x, bind_typ (C2 # R2))] ++ Γ) x0).
+       auto.
+  - constructor...
+Qed. 
 
 Lemma wf_cset_ignores_sub_bindings : forall Γ Δ x R1 R2 C,
   (Δ ++ [(x, bind_sub R1)] ++ Γ) ⊢ₛ C wf ->
   (Δ ++ [(x, bind_sub R2)] ++ Γ) ⊢ₛ C wf.
 Proof with eauto.
   intros * H.
-  remember (Δ ++ [(x, bind_sub R1)] ++ Γ).
-  generalize dependent Δ.
-  induction H; intros Δ Eq; subst...
-  econstructor...
-  unfold allbound in *.
-  intros y yIn.
-  destruct (H y yIn) as [C [R Hb]].
-  binds_cases Hb...
-Qed. *)
+  dependent induction H; auto.
+  - binds_cases H.
+    -- apply (wf_cse_term_fvar T (Δ ++ [(x, bind_sub R2)] ++ Γ) x0).
+       apply binds_tail; auto.
+    -- apply (wf_cse_term_fvar T (Δ ++ [(x, bind_sub R2)] ++ Γ) x0).
+       auto.
+  - constructor...
+Qed. 
 
 Create HintDb fsetdec.
 
@@ -307,7 +307,7 @@ Ltac wf_typ_inversion H :=
 Lemma type_from_wf_typ : forall Γ T,
   Γ ⊢ T wf ->
   type T.
-Proof with eauto using capt_from_wf_cset.
+Proof with eauto using cset_from_wf_cset.
   intros * H.
   induction H...
 Qed.
