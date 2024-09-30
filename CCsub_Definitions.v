@@ -226,7 +226,7 @@ Inductive wf_typ : env -> typ -> Prop :=
   | wf_typ_box : forall Γ T,
       Γ ⊢ T wf ->
       Γ ⊢ □ T wf
-  | wf_typ_capt : forall Γ C R,
+  | wf_typ_cse : forall Γ C R,
       Γ ⊢ₛ C wf ->
       Γ ⊢ R wf ->
       pure_type R ->
@@ -472,7 +472,7 @@ Inductive red : state -> state -> Prop :=
       --> ⟨ S | K | y ⟩
 where "Σ1 --> Σ2" := (red Σ1 Σ2).
 
-Hint Constructors type pure_type expr wf_cse wf_typ wf_env value sub subcset typing : core.
+Hint Constructors type pure_type expr cset wf_cse wf_typ wf_env value sub subcset typing : core.
 Hint Resolve sub_top sub_refl_tvar sub_arr sub_all sub_box : core.
 Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_sub : core.
 

@@ -50,14 +50,17 @@ Proof with eauto.
 Qed.
 
 Lemma notin_cset_fvars_open_cset : forall X k C c,
-  X ∉ `cset_fvars` (open_cset k C c) ->
-  X ∉ `cset_fvars` c.
-Proof.
+  X ∉ cse_fvars (open_cse k C c) ->
+  X ∉ cse_fvars c.
+Proof with auto.
   intros.
-  destruct c.
-  intros XIn.
-  cbv in H.
-  csetdec.
+  induction c; eauto*.
+  simpl. unfold not in H. unfold not. intros. apply H.
+  simpl. rewrite AtomSetFacts.union_iff in H0. destruct H0.
+  - rewrite AtomSetFacts.union_iff. left.
+    induction c1; auto; fsetdec.
+  - rewrite AtomSetFacts.union_iff. right.
+    induction c1; auto; fsetdec.  
 Qed.
 
 Lemma notin_fv_tt_open_ct_rec : forall k (X : atom) C T,
@@ -113,24 +116,23 @@ Proof with auto.
   intros. apply notin_fv_ct_open_ct_rec with (k := 0) (C := C)...
 Qed.
 
-Lemma notin_fv_wf_cset : forall Γ (x : atom) C,
+Lemma notin_fv_wf_cse : forall Γ (x : atom) C,
   Γ ⊢ₛ C wf ->
   x ∉ dom Γ ->
-  x ∉ `cset_fvars` C.
+  x ∉ `cse_fvars` C.
 Proof with eauto*.
   intros * WfC NotIn.
-  destruct WfC as [fvars univ AllBound].
-  contradict AllBound; rename AllBound into In; intros AllBound.
-  destruct (AllBound x In) as [C [R Binds]].
-  apply NotIn.
-  eapply binds_In, Binds.
+  dependent induction WfC; eauto*.
+  destruct (x == x0).
+  - exfalso. subst. apply binds_In in H...
+  - auto. 
 Qed.
 
 Lemma notin_fv_wf_typ : forall Γ (X : atom) T,
   Γ ⊢ T wf ->
   X ∉ dom Γ ->
   X ∉ (fv_tt T `u`A fv_ct T).
-Proof with eauto using notin_fv_wf_cset.
+Proof with eauto using notin_fv_wf_cse.
   intros * WfT.
   induction WfT; intros NotIn; simpl.
   - Case "wf_typ_var".
@@ -168,7 +170,7 @@ Proof with eauto using notin_fv_wf_cset.
   - Case "C # R".
     specialize (IHWfT NotIn).
     rename select (Γ ⊢ₛ C wf) into WfC.
-    assert (X ∉ `cset_fvars` C) by (eapply notin_fv_wf_cset; eauto).
+    assert (X ∉ `cse_fvars` C) by (eapply notin_fv_wf_cse; eauto).
     fsetdec.
 Qed.
 
@@ -177,177 +179,271 @@ Qed.
 (** TODO Maybe have a separate file for free_for_cv lemmas **)
 
 Lemma var_cv_open : forall v k (y : atom),
-  cset_subset_prop (var_cv v) (var_cv (open_vv k y v)).
+  cse_subset_prop (var_cv v) (var_cv (open_vv k y v)).
 Proof with eauto*.
   intros.
   destruct v; simpl...
-  destruct (k === n); subst; simpl...
-  unfold cset_subset_prop.
-  repeat split...
-  fsetdec.
+  - unfold cse_subset_prop. simpl. fsetdec.
+  - destruct (k === n); unfold cse_subset_prop; simpl; repeat split; fsetdec...
 Qed.
 
-Lemma exp_cv_open_ve_rec : forall e k (y : atom) C,
-  cset_subset_prop (exp_cv e) (exp_cv (open_ve_rec k y C e)).
-Proof with eauto using var_cv_open, subset_union.
-  intros e.
-  induction e; intros; simpl...
-  destruct v; csetsimpl; destruct c.
-  - repeat split; unfold open_cset.
-    + destruct_set_mem k t0; simpl; fsetdec.
-    + fsetdec.
-    + destruct_set_mem k t0; simpl; fsetdec.
-  - repeat split; unfold open_cset; csetsimpl.
-    + destruct_set_mem k t0; simpl; fsetdec.
-    + destruct (k === n); simpl; fsetdec.
-    + destruct_set_mem k t0; destruct (k === n); subst; unfold leb; destruct b; simpl...
-Qed.
+(* TODO: Code duplication in this proof *)
+(* Lemma exp_cv_open_ve_rec : forall e k (y : atom) C, *)
+(*   cse_subset_prop (exp_cv e) (exp_cv (open_ve_rec k y C e)). *)
+(* Proof with eauto using var_cv_open, subset_union. *)
+(*   intros e. *)
+(*   induction e; intros; simpl... *)
+(*   - repeat split; simpl; fsetdec. *)
+(*   - destruct v; simpl. *)
+(*     + induction c; repeat split; simpl; eauto*; try fsetdec; try fnsetdec. *)
+(*       -- destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*         simpl in *. *)
+(*         fsetdec.  *)
+(*       -- destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*         simpl in *. *)
+(*         fnsetdec. *)
+(*       -- destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*         simpl in *. *)
+(*         destruct (`cse_uvar` (remove_all_bvars c1));  *)
+(*         destruct (`cse_uvar` (remove_all_bvars c2)); intuition. *)
+(*     + destruct (k === n). *)
+(*       -- induction c; repeat split; simpl;  *)
+(*         eauto*; try fsetdec; try fnsetdec. *)
+(*         ++ destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*           simpl in *. *)
+(*           fsetdec. *)
+(*         ++ destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*           simpl in *. *)
+(*           fnsetdec. *)
+(*         ++ destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*           simpl in *. *)
+(*           destruct (`cse_uvar` (remove_all_bvars c1)); *)
+(*           destruct (`cse_uvar` (remove_all_bvars c2)); simpl; intuition.  *)
+(*       -- induction c; repeat split; simpl; *)
+(*         eauto*; try fsetdec; try fnsetdec. *)
+(*         ++ destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*           simpl in *. *)
+(*           fsetdec. *)
+(*         ++ destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*           simpl in *. *)
+(*           fnsetdec. *)
+(*         ++ destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*         simpl in *. *)
+(*         destruct (`cse_uvar` (remove_all_bvars c1)); *)
+(*         destruct (`cse_uvar` (remove_all_bvars c2)); simpl; intuition.  *)
+(* Qed. *)
 
-Lemma exp_cv_open_te_rec : forall e k (y : atom),
-  cset_subset_prop (exp_cv e) (exp_cv (open_te_rec k y e)).
-Proof with eauto*.
-  induction e; intros; simpl...
-  specialize (IHe1 k y).
-  specialize (IHe2 (`succ` k) y).
-  apply subset_union...
-Qed.
+(* Lemma exp_cv_open_te_rec : forall e k (y : atom), *)
+(*   cse_subset_prop (exp_cv e) (exp_cv (open_te_rec k y e)). *)
+(* Proof with eauto*. *)
+(*   assert ( forall c, cse_subset_prop c c ). *)
+(*   { intros. induction c; simpl; repeat split; try fsetdec. *)
+(*     - destruct IHc1 as [H1 [H2 H3]]. destruct IHc2 as [H1' [H2' H3']]. *)
+(*       simpl in *. destruct (`cse_uvar` c1); auto. } *)
+(*   induction e; intros; simpl... *)
+(*   specialize (IHe1 k y). *)
+(*   specialize (IHe2 (`succ` k) y). *)
+(*   apply subset_union... *)
+(* Qed. *)
 
 Lemma var_cv_subset_fv_vv : forall v,
-  `cset_fvars` (var_cv v) `c`A fv_vv v.
+  `cse_fvars` (var_cv v) `c`A fv_vv v.
 Proof with eauto.
   intros v.
   destruct v; simpl; fsetdec.
 Qed.
 
 Lemma var_cv_closed : forall v,
-  `cset_bvars` (var_cv v) = {}N.
+  `cse_bvars` (var_cv v) = {}N.
 Proof with eauto*.
   destruct v...
 Qed.
 
 Lemma exp_cv_subset_fv_ve : forall e,
-  `cset_fvars` (exp_cv e) `c`A fv_ve e.
+  `cse_fvars` (exp_cv e) `c`A fv_ve e.
 Proof with eauto using var_cv_subset_fv_vv, atomset_subset_union; eauto*.
   induction e; simpl...
   - fsetdec.
   - apply atomset_subset_union...
+  induction c; simpl; fsetdec.   
 Qed.
 
 Lemma exp_cv_closed : forall e,
-  `cset_bvars` (exp_cv e) = {}N.
+  `cse_bvars` (exp_cv e) = {}N.
 Proof with eauto using var_cv_closed.
   induction e; simpl...
-  - rewrite (var_cv_closed v), (var_cv_closed v0); csetdec.
-  - rewrite IHe1, IHe2; csetdec.
-  - rewrite (var_cv_closed v); csetdec.
+  - rewrite (var_cv_closed v), (var_cv_closed v0). fnsetdec.
+  - rewrite IHe1, IHe2. fnsetdec.
+  - rewrite (var_cv_closed v).
+    + induction c; simpl; try fnsetdec.
+    assert (`cse_bvars` (remove_all_bvars c1) = {}N).
+    { assert (NatSet.F.Empty (`cse_bvars` (remove_all_bvars c1) `u`N {}N)).
+      { rewrite IHc1. fnsetdec. } fnsetdec. }
+    assert (`cse_bvars` (remove_all_bvars c2) = {}N).
+    { assert (NatSet.F.Empty (`cse_bvars` (remove_all_bvars c2) `u`N {}N)).
+      { rewrite IHc2. fnsetdec. } fnsetdec. }
+    rewrite H, H0.
+    fnsetdec.
 Qed.
 
-Lemma subcapt_empty : forall Γ C,
-  Γ ⊢ₛ C wf ->
-  Γ ⊢ₛ {} <: C.
+Lemma subcset_empty : forall E C,
+  E ⊢ wf ->
+  E ⊢ₛ C wf ->
+  E ⊢ₛ {} <: C.
 Proof with eauto*.
   intros.
-  apply subcapt_set...
-  intros x xIn.
-  exfalso.
-  fsetdec.
+  apply subcset_bot.
+  exact H.
+  exact H0.
+Qed.
+
+Lemma exp_cv_subst_te_intro : forall X P e,
+  exp_cv e = exp_cv (subst_te X P e).
+Proof with eauto; try solve [f_equal; eauto].
+  intros X P e.
+  induction e; simpl; eauto; f_equal...
+Qed.
+
+Lemma cse_fvars_cse_open_ve : forall e (k: nat) (x : atom) (Y : atom),
+  x `in` (`cse_fvars` (exp_cv e)) ->
+  x `in` (`cse_fvars` (exp_cv (open_ve_rec k Y (cse_fvar Y) e))).
+Proof with eauto.
+  intros e k x Y Hxine. revert k.
+  induction e; intro k; simpl in *...
+  * destruct v... simpl in Hxine. fsetdec.
+  * assert (x `in` `cse_fvars` (var_cv v) \/ x `in` `cse_fvars` (var_cv v0)) by fsetdec.
+    destruct H.
+    destruct v; simpl in *; fsetdec.
+    destruct v0; simpl in *; fsetdec.
+  * assert (x `in` `cse_fvars` (exp_cv e1) \/ x `in` `cse_fvars` (exp_cv e2)) by fsetdec.
+    destruct H...
+    ** assert (x ∈ `cse_fvars` (exp_cv (open_ve_rec k Y (cse_fvar Y) e1))). apply (IHe1 H)... fsetdec.
+    ** assert (x ∈ `cse_fvars` (exp_cv (open_ve_rec (`succ` k) Y (cse_fvar Y) e2))). apply (IHe2 H)... fsetdec.
+  * destruct v; simpl in *; fsetdec...
+  * assert (x ∈ `cse_fvars` (remove_all_bvars c) \/ x `in` `cse_fvars` (var_cv v)) by fsetdec.
+    destruct H; induction c; destruct v; simpl in *; fsetdec...
+Qed.
+
+Lemma remove_all_bvars_fvar_equal : forall c,
+ `cse_fvars` (remove_all_bvars c) = `cse_fvars` c.
+Proof with eauto.
+  intros c.
+  induction c; simpl...
+  rewrite IHc1, IHc2...
+Qed.
+
+Lemma cse_fvars_cse_open_te : forall e (k : nat) (x : atom) (Y : atom),
+  x `in` (`cse_fvars` (exp_cv e)) ->
+  x `in` (`cse_fvars` (exp_cv (open_te_rec k Y e))).
+Proof with eauto.
+  intros e k x Y Hxine. revert k.
+  induction e; intro k; simpl...
+  * simpl in Hxine.
+    apply AtomSet.F.union_1 in Hxine.
+    destruct Hxine.
+    ** apply AtomSet.F.union_2...
+    ** apply AtomSet.F.union_3...
+Qed.
+
+Lemma wf_cse_free_vars_bound : forall X C E,
+  (wf_cse E C) ->
+  (X `in` `cse_fvars` C) ->
+  (exists T, binds X (bind_typ T) E).
+Proof with eauto.
+  intros X C E Hwf Hx.
+  induction Hwf; simpl in *; try fsetdec...
+  + assert (X = x) by fsetdec. subst. eauto.
+  + rewrite AtomSetFacts.union_iff in Hx.
+    destruct Hx...
+Qed.
+
+Lemma typing_cse_all_bound : forall E e T,
+  typing E e T ->
+  (forall X, X `in` `cse_fvars` (exp_cv e) ->
+    (exists T, binds X (bind_typ T) E)).
+Proof with eauto; simpl_env in *.
+  intros.
+  induction H; simpl in *; simpl_env...
+  - replace X with x... fsetdec.
+  - pick fresh Y.
+    destruct (H2 Y) as [T Binds]...
+      eapply cse_fvars_cse_open_ve...
+    simpl in Binds.
+    apply (binds_remove_mid_cons _ X Y _ _ _ nil) in Binds.
+    simpl in Binds.
+    exists T...
+    auto.
+  - rewrite AtomSetFacts.union_iff in H0.
+    destruct H0...
+  - pick fresh Y.
+    rewrite AtomSetFacts.union_iff in H0...
+    destruct H0...
+    destruct (H2 Y) as [T Binds]...
+      eapply cse_fvars_cse_open_ve...
+    apply (binds_remove_mid_cons _ X Y _ _ _ nil) in Binds.
+    exists T...
+    auto.
+  - pick fresh Y.
+    destruct (H3 Y) as [T Binds]...
+      eapply cse_fvars_cse_open_te...
+    apply (binds_remove_mid_cons _ X Y _ _ _ nil) in Binds.
+    exists T...
+    auto.
+  - fsetdec.
+  - rewrite AtomSetFacts.union_iff in H0.
+    destruct H0...
+    rewrite remove_all_bvars_fvar_equal in H0.
+    apply (wf_cse_free_vars_bound X C Γ) in H0...
+Qed.
+
+Lemma cset_all_bound_wf : forall E C,
+  cset C ->
+  (forall X, X `in` `cse_fvars` C -> exists T,
+    binds X (bind_typ T) E) ->
+  wf_cse E C.
+Proof with eauto.
+  intros.
+  induction H...
+  - specialize (H0 X). simpl in H0.
+    destruct (H0 ltac:(fsetdec)) as [T Binds].
+    apply (wf_cse_term_fvar T).
+    exact Binds.
+  - rewrite cse_fvars_join_union in H0.
+    constructor...
+    assert (forall X, X `in` `cse_fvars` Q1 -> exists T, binds X (bind_typ T) E).
+    { intros. apply H0. rewrite AtomSetFacts.union_iff. left... }
+    specialize (IHcset1 H2).
+    exact IHcset1.
+    assert (forall X, X `in` `cse_fvars` Q2 -> exists T, binds X (bind_typ T) E).
+    { intros. apply H0. rewrite AtomSetFacts.union_iff. right... }
+    specialize (IHcset2 H2).
+    exact IHcset2.
+Qed.
+
+Lemma expr_cset : forall e,
+  cset (exp_cv e).
+Proof with eauto.
+  intros.
+  induction e; simpl...
+  - destruct v; simpl...
+  - destruct v; apply cset_join; destruct v0; simpl...
+  - destruct v; simpl...
+  - apply cset_join...
+    induction c; simpl...
+    destruct v; simpl...
 Qed.
 
 (** This should be easily true: free variables
     are all bound if a term has a type.... *)
-Lemma typing_cv : forall Γ e C R,
-  Γ ⊢ e : (C # R) ->
-  Γ ⊢ₛ (exp_cv e) wf.
-Proof with eauto using wf_cset_over_union; eauto*.
+Lemma typing_cv : forall E e C R,
+  typing E e (C # R) ->
+  wf_cse E (exp_cv e).
+Proof with eauto using wf_cset_over_join; eauto*.
   intros * Htyp.
-  induction Htyp; simpl...
-  - Case "typing_var".
-    rename select (binds _ _ _) into Binds.
-    forwards: binds_In Binds.
-    simpl. constructor...
-    intros y ?.
-    assert (x = y) by fsetdec.
-    subst.
-    exists C0, R0...
-  - Case "typing_abs".
-    pick fresh y.
-    assert (y ∉ L) by fsetdec.
-    assert (y ∉ `cset_fvars` (exp_cv e1)).
-    { pose proof (exp_cv_subset_fv_ve e1) as P... }
-    forwards SpH0: H1 y...
-    pose proof (exp_cv_open_ve_rec e1 0 y (`cset_fvar` y))...
-    pose proof (exp_cv_closed e1).
-    destruct (exp_cv e1) eqn:Ecv1; subst.
-    inversion SpH0; subst.
-    unfold open_ve in H5.
-    rewrite <- H5 in H4.
-    destruct H4 as [t_sub_fvars [_ b_le_univ]].
-    econstructor.
-    + intros x xIn.
-      assert (x ∈ fvars) by (clear - xIn t_sub_fvars; fsetdec).
-      destruct (H6 x H4) as [D [Q B]].
-      assert (x <> y) by (clear - xIn H3; fsetdec).
-      inversion B; destruct (x == y); subst...
-  - Case "typing_app".
-    apply wf_cset_union...
-  - Case "typing_let".
-    apply wf_cset_over_union; split...
-    pick fresh y.
-    assert (y ∉ L) by fsetdec.
-    assert (y ∉ `cset_fvars` (exp_cv k)).
-    { pose proof (exp_cv_subset_fv_ve k) as P... }
-    forwards SpH0: H0 y...
-    pose proof (exp_cv_open_ve_rec k 0 y (`cset_fvar` y))...
-    pose proof (exp_cv_closed k).
-    destruct (exp_cv k) eqn:Hfcv1; subst...
-    unfold open_ve in *.
-    inversion SpH0; subst...
-    rename select (_ = _) into EQ.
-    rename select (cset_subset_prop _ _) into HH.
-    destruct HH as (HA1 & HA2 & HA3).
-    rewrite <- EQ in *.
-    simpl in *.
-    constructor.
-    intros x ?.
-    destruct (x == y). {
-      csetdec.
-    }
-    forwards (D & Q & B): H5 x. {
-      fsetdec.
-    }
-    simpl_env in *.
-    exists D, Q. binds_cases B...
-  - Case "typing_tapp".
-    pick fresh y.
-    assert (y ∉ L) by fsetdec.
-    assert (y ∉ `cset_fvars` (exp_cv e1)).
-    { pose proof (exp_cv_subset_fv_ve e1) as P... }
-    forwards SpH0: H2 y...
-    pose proof (exp_cv_open_te_rec e1 0 y)...
-    pose proof (exp_cv_closed e1).
-    destruct (exp_cv e1) eqn:Hfcv1; subst...
-    unfold open_te in *.
-    inversion SpH0; subst...
-    rename select (_ = _) into EQ.
-    rewrite <- EQ in *.
-    rename select (cset_subset_prop _ _) into HH.
-    destruct HH as (HA1 & HA2 & HA3).
-    simpl in *.
-    constructor.
-    intros x ?.
-    destruct (x == y). {
-      csetdec.
-    }
-    forwards (D & Q & B): H7 x. {
-      fsetdec.
-    }
-    simpl_env in *.
-    exists D, Q. binds_cases B...
-  - Case "typing_box".
-    apply wf_cset_union...
-    inversion H; subst.
-    apply wf_concrete_cset...
-Qed. 
+  unshelve epose proof (typing_cse_all_bound E e (C # R) Htyp) as H1...
+  apply cset_all_bound_wf...
+  apply expr_cset...
+Qed.
 
 Lemma bind_typ_notin_fv_tt : forall x S Γ T,
   binds x (bind_typ S) Γ ->
@@ -358,7 +454,7 @@ Proof with auto.
   dependent induction WfT; simpl...
   - apply AtomSetNotin.notin_union...
     pick fresh y and specialize H0.
-    eapply notin_fv_tt_open_ct with (C := `cset_fvar` y).
+    eapply notin_fv_tt_open_ct with (C := cse_fvar y).
     apply H0.
     apply binds_tail...
   - apply AtomSetNotin.notin_union...
@@ -371,13 +467,13 @@ Qed.
 Lemma wf_cset_notin_fvars : forall x Γ C,
   Γ ⊢ₛ C wf ->
   x ∉ dom Γ ->
-  x ∉ (`cset_fvars` C).
+  x ∉ (`cse_fvars` C).
 Proof with eauto*.
   intros * WfC NotIn.
-  induction WfC.
-  enough (fvars `c`A dom Γ) by fsetdec.
-  intros y yIn.
-  destruct (H y ltac:(fsetdec)) as [C [R B]]; eapply binds_In...
+  induction WfC...
+  simpl.
+  eapply binds_In in H.
+  fsetdec.
 Qed.
 
 Lemma wf_typ_notin_fv_ct : forall x Γ T,
@@ -391,7 +487,7 @@ Proof with eauto*.
   - fsetdec.
   - apply AtomSetNotin.notin_union...
     pick fresh y and specialize H0.
-    apply notin_fv_ct_open_ct with (C := `cset_fvar` y)...
+    apply notin_fv_ct_open_ct with (C := cse_fvar y)...
   - apply AtomSetNotin.notin_union...
     pick fresh Y and specialize H1.
     apply notin_fv_ct_open_tt with (U := Y)...
@@ -403,24 +499,20 @@ Qed.
 (* ********************************************************************** *)
 (** * #<a name="regularity"></a># Regularity of relations *)
 
+Lemma subcapt_env_wf : forall Γ C D,
+  Γ ⊢ₛ C <: D ->
+  Γ ⊢ wf.
+Proof with eauto.
+  intros * SubCapt.
+  induction SubCapt...
+Qed.
+
 Lemma subcapt_regular : forall Γ C D,
   Γ ⊢ₛ C <: D ->
   Γ ⊢ₛ C wf /\ Γ ⊢ₛ D wf.
 Proof with eauto*.
   intros * SubCapt.
   dependent induction SubCapt; subst...
-  - split...
-    constructor.
-    intros y yInX.
-    rewrite AtomSetFacts.singleton_iff in yInX; subst...
-  - split...
-    constructor.
-    + intros y yIn.
-      forwards (WfX & _): H1 y yIn.
-      inversion WfX; subst.
-      rename select (allbound _ _) into HABnd.
-      applys HABnd y.
-      fsetdec.
 Qed.
 
 Lemma sub_regular : forall Γ S T,
@@ -436,7 +528,7 @@ Proof with simpl_env; eauto*.
   - Case "sub_arr".
     repeat split...
     + pick fresh x and apply wf_typ_arr...
-      * apply wf_typ_capt...
+      * apply wf_typ_cse...
         rename select (_ ⊢ₛ _ <: _) into SubCapt.
         applys subcapt_regular SubCapt.
       * rename select (forall x : atom, x ∉ L -> ([(x, bind_typ (C2 # R2))] ++ Γ) ⊢ wf /\ _ /\ _) into IHSsubT.
@@ -445,7 +537,7 @@ Proof with simpl_env; eauto*.
         apply IHSsubT.
         fsetdec.
     + pick fresh x and apply wf_typ_arr...
-      * apply wf_typ_capt...
+      * apply wf_typ_cse...
         rename select (_ ⊢ₛ _ <: _) into SubCapt.
         applys subcapt_regular SubCapt.
       * rewrite_env (∅ ++ [(x, bind_typ (C2 # R2))] ++ Γ).
@@ -478,41 +570,19 @@ Proof with eauto*.
 Qed.
 
 Lemma subst_cset_cv_var_commutes_with_subst_vv : forall x u v,
-  subst_cset x (`cset_fvar` u) (var_cv v)
+  subst_cse x (cse_fvar u) (var_cv v)
   = var_cv (subst_vv x u v).
 Proof with eauto*.
-  unfold subst_cset.
-  destruct v; simpl;
-    [ destruct (a == x); subst; destruct_set_mem x {x}A
-    | destruct_set_mem x {}A
-    ]; csetdec.
-Qed.
-
-Lemma subst_cset_cv_commutes_with_susbt_ve : forall x u e,
-    subst_cset x (`cset_fvar` u) (exp_cv e)
-  = exp_cv (subst_ve x u (`cset_fvar` u) e).
-Proof with auto using subst_cset_cv_var_commutes_with_subst_vv.
-  induction e; simpl...
-  - rewrite subst_cset_union.
-    f_equal...
-  - rewrite subst_cset_union.
-    f_equal...
-  - unfold subst_cset.
-    destruct_set_mem x {}A...
-    exfalso; fsetdec.
-  - rewrite subst_cset_union.
-    f_equal...
-    unfold subst_cset.
-    destruct_set_mem x (`cset_fvars` c)...
-    csetdec.
+  intros.
+  destruct v; simpl...
+  destruct (x == a); destruct (a == x); simpl...
 Qed.
 
 Lemma subst_cset_empty : forall x c,
-  subst_cset x c {} = {}.
+  subst_cse x c {} = {}.
 Proof with eauto*.
   intros.
-  unfold subst_cset.
-  destruct_set_mem x {}A; [exfalso; fsetdec|].
+  unfold subst_cse.
   reflexivity.
 Qed.
 
@@ -529,8 +599,8 @@ Proof with eauto*.
       applys wf_typ_env_bind_sub...
     + Case "type_arr".
       pick fresh x and apply type_arr.
-      * apply type_capt...
-        eapply capt_from_wf_cset.
+      * apply type_cse...
+        eapply cset_from_wf_cset.
         rename select (_ ⊢ₛ _ <: _) into SubCapt.
         applys subcapt_regular SubCapt.
       * rename select (forall x : atom, x ∉ L -> _ ⊢ _ <: _) into IHSubCodomain.
@@ -554,8 +624,8 @@ Proof with eauto*.
     induction Sub; inversion PureT; subst...
     + Case "sub_arr".
       pick fresh x and apply type_arr.
-      * apply type_capt...
-        eapply capt_from_wf_cset.
+      * apply type_cse...
+        eapply cset_from_wf_cset.
         rename select (_ ⊢ₛ _ <: _) into SubCapt.
         applys subcapt_regular SubCapt.
       * rename select (forall x, _ -> _ ⊢ _ <: _) into SubT.
@@ -602,9 +672,8 @@ Proof with simpl_env; auto*.
     destruct (wf_typ_env_bind_typ _ _ _ WfEnv Binds) as [D [Q [Eq WfCR]]]; symmetry in Eq; inversion Eq; subst; clear Eq.
     inversion WfCR; subst...
     constructor...
-    constructor.
-    intros y yIn; destruct (y == x); try (contradict n; fsetdec); subst; clear yIn.
-    exists C, R...
+    apply (wf_cse_term_fvar (C # R) _ _).
+    exact Binds.
   - Case "typing_abs".
     pick fresh y; assert (y ∉ L) by fsetdec...
     rename select (forall x, _ -> _ /\ _ /\ _) into IH.
@@ -633,9 +702,8 @@ Proof with simpl_env; auto*.
     repeat split...
     apply wf_typ_open_capt with (S := D # Q)...
     destruct (typing_var_implies_binds _ _ _ Typ2) as [C1' [R1' xBinds]].
-    constructor.
-    intros z zIn; assert (z = x) by (clear - zIn; fsetdec); subst; clear zIn.
-    eauto.
+    apply (wf_cse_term_fvar (C1' # R1') _ _).
+    exact xBinds.
   - Case "typing_let".
     repeat split...
     + pick fresh x and apply expr_let...
@@ -685,7 +753,7 @@ Proof with simpl_env; auto*.
     apply wf_typ_open_type with (R := Q); inversion Hwf; subst...
   - Case "typing_box".
     repeat split...
-    apply wf_typ_capt...
+    apply wf_typ_cse...
     apply type_box.
     eapply type_from_wf_typ.
     applys IHTyp.
@@ -696,7 +764,7 @@ Proof with simpl_env; auto*.
     inversion WfbCR; subst.
     repeat split...
     apply expr_unbox.
-    eapply capt_from_wf_cset...
+    eapply cset_from_wf_cset...
     eassumption.
   - Case "typing_sub".
     destruct IHTyp as [HwfΓ [Hex Hwf]].
@@ -744,10 +812,10 @@ Qed.
     The other three hints try outright to solve their respective
     goals. *)
 
-Hint Extern 1 (wf_cset ?E ?C) =>
+Hint Extern 1 (wf_cse ?E ?C) =>
   match goal with
-  | H: subcapt _ C _ |- _ => apply (proj1 (subcapt_regular _ _ _ H))
-  | H: subcapt _ _ C |- _ => apply (proj2 (subcapt_regular _ _ _ H))
+  | H: subcset _ C _ |- _ => apply (proj1 (subcapt_regular _ _ _ H))
+  | H: subcset _ _ C |- _ => apply (proj2 (subcapt_regular _ _ _ H))
   end
 : core.
 
@@ -776,11 +844,11 @@ Hint Extern 1 (type ?T) =>
   end
 : core.
 
-Hint Extern 1 (capt ?C) =>
-  let go E := eapply (capt_from_wf_cset E); eauto in
+Hint Extern 1 (cset ?C) =>
+  let go E := eapply (cset_from_wf_cset E); eauto in
   match goal with
-  | H: subcapt ?E C _ |- _ => go E
-  | H: subcapt ?E _ C |- _ => go E
+  | H: subcset ?E C _ |- _ => go E
+  | H: subcset ?E _ C |- _ => go E
   | H: exp_cv ?E _ C |- _ => go E
   end
 : core.
@@ -793,7 +861,7 @@ Hint Extern 1 (expr ?e) =>
 
 (** * #<a name="auto"></a># Automation Tests *)
 
-Local Lemma test_subcapt_regular : forall Γ C1 C2,
+Local Lemma test_subcset_regular : forall Γ C1 C2,
   Γ ⊢ₛ C1 <: C2 ->
   Γ ⊢ₛ C1 wf /\ Γ ⊢ₛ C2 wf.
 Proof with eauto*.

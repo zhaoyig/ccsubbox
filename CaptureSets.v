@@ -65,15 +65,15 @@ Fixpoint cse_bvars C :=
 Notation "`cse_bvars` C" := (cse_bvars C)
                                 (at level 10, C at level 9) : cse_shorthand.
 
-(* Fixpoint cse_uvar C := *)
-(*   match C with *)
-(*   | cse_top => true *)
-(*   | cse_join c1 c2 => orb (cse_uvar c1) (cse_uvar c2) *)
-(*   | _ => false *)
-(*   end. *)
-(**)
-(* Notation "`cse_uvar` C" := (cse_uvar C) *)
-(*                                 (at level 10, C at level 9) : cse_shorthand. *)
+Fixpoint cse_uvar C :=
+  match C with
+  | cse_top => true
+  | cse_join c1 c2 => orb (cse_uvar c1) (cse_uvar c2)
+  | _ => false
+  end.
+
+Notation "`cse_uvar` C" := (cse_uvar C)
+                                (at level 10, C at level 9) : cse_shorthand.
 
 
 (** ************************************************** *)
@@ -221,7 +221,7 @@ Inductive cset : cse -> Prop :=
 (*   capt (cse_fvar x). *)
 (* Proof. intros. unfold capt. simpl. fnsetdec. Qed. *)
 
-Lemma cse_fvars_join_union : forall C1 C2,
+Lemma cse_fvars_join_union : forall (C1: cse) (C2: cse),
   `cse_fvars` (cse_join C1 C2) = AtomSet.F.union (`cse_fvars` C1) (`cse_fvars` C2).
 Proof. auto. Qed.
 
@@ -248,7 +248,7 @@ Lemma empty_union_empty : forall C1 C2,
   NatSet.F.Empty C1 /\ NatSet.F.Empty C2.
 Proof with eauto.
   intros.
-  split; intro; fnsetdec.
+  split; fnsetdec.
 Qed.
 
 Lemma open_cse_cset : forall i C c,
@@ -274,15 +274,6 @@ Proof with auto*.
     rewrite IHC2...
 Qed.
 
-Lemma open_cset_capt : forall i C c,
-  cset C ->
-  C = open_cse i c C.
-Proof with eauto*.
-  intros i C c H.
-  induction H; try auto.
-  simpl. f_equal; auto.
-Qed.
-
 Lemma subst_cse_open_cset_rec : forall x k C1 C2 D,
   cset C1 ->
   subst_cse x C1 (open_cse k C2 D) = open_cse k (subst_cse x C1 C2) (subst_cse x C1 D).
@@ -290,8 +281,45 @@ Proof with eauto*.
   intros x k C1 C2 D Closed.
   induction D; auto; simpl.
   - destruct (k === n); simpl; reflexivity.
-  - destruct (x == a); simpl; subst... apply open_cset_capt. apply Closed.
+  - destruct (x == a); simpl; subst... apply open_cse_cset. apply Closed.
   - f_equal; auto. 
+Qed.
+
+Definition cse_subset_prop (c : cse) (d : cse) : Prop :=
+  AtomSet.F.Subset (`cse_fvars` c) (`cse_fvars` d)
+    /\ NatSet.F.Subset (`cse_bvars` c) (`cse_bvars` d)
+    /\  (leb (`cse_uvar` c) (`cse_uvar` d)).
+
+Lemma subset_union : forall C1 C2 D1 D2,
+  cse_subset_prop C1 D1 ->
+  cse_subset_prop C2 D2 ->
+  cse_subset_prop (cse_union C1 C2) (cse_union D1 D2).
+Proof.
+  intros.
+  destruct C1. destruct C2;
+  destruct H as [H1C1 [H2C1 H3C1]]; destruct H0 as [H1C2 [H2C2 H3C2]];
+  repeat split; try intuition.
+  - repeat split; destruct H as [H1C1 [H2C1 H3C1]]; destruct H0 as [H1C2 [H2C2 H3C2]]; try intuition.
+  simpl. destruct C2; simpl; simpl in *; auto.
+    + intuition.
+    + destruct (`cse_uvar` C2_1 || `cse_uvar` C2_2); simpl; auto.
+      simpl in H3C2. intuition.
+  - repeat split; destruct H as [H1C1 [H2C1 H3C1]]; destruct H0 as [H1C2 [H2C2 H3C2]]; try intuition.
+    simpl. destruct (`cse_uvar` C2); auto.
+    intuition.
+  - repeat split; destruct H as [H1C1 [H2C1 H3C1]]; destruct H0 as [H1C2 [H2C2 H3C2]]; try intuition.
+    simpl. simpl in *. destruct (`cse_uvar` C1_1 || `cse_uvar` C1_2); intuition.
+    simpl. destruct (`cse_uvar` C2); auto.
+    intuition.
+  - repeat split; destruct H as [H1C1 [H2C1 H3C1]]; destruct H0 as [H1C2 [H2C2 H3C2]]; try intuition.
+    simpl. destruct (`cse_uvar` C2); intuition.
+Qed.
+
+Lemma subst_cse_union : forall x D C1 C2,
+  subst_cse x D (cse_union C1 C2) = (cse_union (subst_cse x D C1) (subst_cse x D C2)).
+Proof with eauto.
+  intros.
+  induction C1; simpl...
 Qed.
 
 (** ************************************************** *)
