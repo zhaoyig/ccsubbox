@@ -178,14 +178,14 @@ Qed.
 (** * #<a name="cvfree"></a># Lemmas about free variables -- in particular properties of [free_for_cv] *)
 (** TODO Maybe have a separate file for free_for_cv lemmas **)
 
-Lemma var_cv_open : forall v k (y : atom),
-  cse_subset_prop (var_cv v) (var_cv (open_vv k y v)).
-Proof with eauto*.
-  intros.
-  destruct v; simpl...
-  - unfold cse_subset_prop. simpl. fsetdec.
-  - destruct (k === n); unfold cse_subset_prop; simpl; repeat split; fsetdec...
-Qed.
+(* Lemma var_cv_open : forall v k (y : atom), *)
+(*   cse_subset_prop (var_cv v) (var_cv (open_vv k y v)). *)
+(* Proof with eauto*. *)
+(*   intros. *)
+(*   destruct v; simpl... *)
+(*   - unfold cse_subset_prop. simpl. fsetdec. *)
+(*   - destruct (k === n); unfold cse_subset_prop; simpl; repeat split; fsetdec... *)
+(* Qed. *)
 
 (* TODO: Code duplication in this proof *)
 (* Lemma exp_cv_open_ve_rec : forall e k (y : atom) C, *)

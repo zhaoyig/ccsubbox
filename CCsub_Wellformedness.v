@@ -106,6 +106,8 @@ Proof with eauto*.
                            inversion H...
 Qed.
 
+Hint Resolve wf_cset_union : core.
+
 (** This is a useful helper tactic for clearing away
     capture set wellformedness. *)
 
@@ -180,16 +182,13 @@ Qed.
 
 Lemma wf_cset_narrowing_typ : forall C1 R1 C2 R2 C Γ Δ X,
   (Δ ++ [(X, bind_typ (C1 # R1))] ++ Γ) ⊢ₛ C wf ->
-  ok (Δ ++ [(X, bind_typ (C2 # R2))] ++ Γ) ->
   (Δ ++ [(X, bind_typ (C2 # R2))] ++ Γ) ⊢ₛ C wf.
 Proof with simpl_env; eauto.
-  intros * Hwf Hok.
-  dependent induction Hwf...
-  destruct (x == X).
-  - subst. apply (wf_cse_term_fvar (C2 # R2) (Δ ++ [(X, bind_typ (C2 # R2))] ++ Γ) X).
-    apply binds_mid...
-  - apply (wf_cse_term_fvar T (Δ ++ [(X, bind_typ (C2 # R2))] ++ Γ) x).
-    apply binds_remove_mid in H; auto.
+  intros.
+  remember (Δ ++ [(X, bind_typ (C1 # R1))] ++ Γ).
+  generalize dependent Δ.
+  induction H; intros F Heq; subst...
+  binds_cases H...
 Qed.
 
 Lemma wf_cset_ignores_typ_bindings : forall Γ Δ x C1 R1 C2 R2 C,
