@@ -8,7 +8,6 @@ Require Import CCsub_Subcapt.
 
 (* ********************************************************************** *)
 (** ** Reflexivity (1) *)
-(* Needed *)
 Lemma sub_reflexivity : forall Γ T,
   Γ ⊢ wf ->
   Γ ⊢ T wf ->
@@ -30,7 +29,6 @@ Qed.
 (* ********************************************************************** *)
 (** ** Weakening (2) *)
 
-(* Needed *)
 Lemma sub_weakening : forall Γ Θ Δ S T,
   (Δ ++ Γ) ⊢ S <: T ->
   (Δ ++ Θ ++ Γ) ⊢ wf ->
@@ -58,40 +56,39 @@ Qed.
 (* ********************************************************************** *)
 (** ** Narrowing and transitivity (3) *)
 
-(* Needed *)
-Lemma subcapt_narrowing_typ : forall Δ Γ x CP P CQ Q C1 C2,
-  Γ ⊢ (CP # P) <: (CQ # Q) ->
-  (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ) ⊢ wf ->
-  (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ) ⊢ₛ C1 <: C2 ->
-  (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) ⊢ₛ C1 <: C2.
-Proof with eauto using wf_cset_narrowing_typ, wf_env_narrowing_typ.
-  intros * PsubQ Ok Hsc.
-  dependent induction Hsc...
-  - apply subcapt_universal...
-  - apply subcapt_in...
-  - destruct (x0 == x)...
-    + subst.
-      assert (EQ : C1 # R = CQ # Q).
-      { forwards: binds_typ_unique (C1 # R) (CQ # Q)...
-      }
-      inversion EQ; subst; clear EQ.
-
-      eapply subcapt_var...
-      eapply (subcapt_transitivity CQ)...
-      inversion PsubQ; subst...
-      rewrite_env (∅ ++ (Δ ++ [(x, bind_typ (CP # P))]) ++ Γ).
-      apply subcapt_weakening...
-      simpl_env.
-      apply wf_env_narrowing_typ with (C1 := CQ) (R1 := Q)...
-    + eapply subcapt_var...
-  - econstructor...
-    intros ? ?...
-Qed.
-
 Definition transitivity_on Q := forall Γ S T,
   Γ ⊢ S <: Q -> Γ ⊢ Q <: T -> Γ ⊢ S <: T.
 
-(* Needed *)
+Lemma subcapt_narrowing_typ : forall Δ Γ x CP P CQ Q S T,
+  (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ) ⊢ₛ S <: T ->
+  Γ ⊢ (CP # P) <: (CQ # Q) ->
+  (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) ⊢ₛ S <: T.
+Proof with eauto using wf_cset_narrowing_typ, wf_env_narrowing_typ.
+  intros * SsubT PsubQ.
+  remember (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ).
+  generalize dependent Δ.
+  induction SsubT; intros Δ EQ; subst...
+  destruct (X == x); subst...
+  - binds_cases H... inversion H0.
+    rewrite H2 in SsubT.
+    apply (subcset_trans_var CP (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) Q0 x P).
+    auto.
+    inversion PsubQ; subst.
+    assert (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ = Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ ) by reflexivity.
+    specialize (IHSsubT Δ H1).
+    assert ((Δ ++ ([(x, bind_typ (CP # P))]) ++ Γ) ⊢ₛ CP <: CQ). 
+    {
+      rewrite_env (nil ++ (Δ ++ [(x, bind_typ (CP # P))]) ++ Γ).
+      apply (subcapt_weakening Γ (Δ ++ [(x, bind_typ (CP # P))]) nil  CP CQ).
+      simpl. exact H8.
+      simpl. rewrite concat_assoc.
+      apply (subcapt_env_wf (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) CQ Q0) in IHSsubT. exact IHSsubT.
+    }
+    apply subcapt_transitivity with (D := CQ)...
+    apply subcapt_env_wf in H2. exact H2.
+  - binds_cases H...
+Qed.
+
 Lemma subcapt_narrowing : forall Δ Γ Z P Q C1 C2,
   Γ ⊢ P <: Q ->
   transitivity_on Q ->
@@ -102,11 +99,8 @@ Proof with eauto 6 using wf_cset_narrowing, wf_env_narrowing.
   intros * SubPQ TransQ WfE SubCap.
   dependent induction SubCap...
   - binds_cases H...
-  - econstructor...
-    intros ? ?...
 Qed.
 
-(* Needed *)
 Lemma sub_narrowing_aux : forall Q Δ Γ Z P S T,
   transitivity_on Q ->
   (Δ ++ [(Z, bind_sub Q)] ++ Γ) ⊢ S <: T ->
@@ -160,7 +154,6 @@ Proof with simpl_env;
     eapply IH...
 Qed.
 
-(* Needed *)
 Lemma sub_narrowing_typ_aux : forall CQ Q Δ Γ x CP P S T,
   (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ) ⊢ S <: T ->
   Γ ⊢ (CP # P) <: (CQ # Q) ->
@@ -190,7 +183,6 @@ Proof with simpl_env;
     eapply IH...
 Qed.
 
-(* Needed *)
 Lemma sub_transitivity_mut :
      (forall Q, type Q -> transitivity_on Q)
   /\ (forall Q, pure_type Q -> transitivity_on Q).
@@ -286,7 +278,6 @@ Proof with eauto using subcapt_transitivity.
     dependent induction SsubQ; inversion QsubT; subst; eauto.
 Qed.
 
-(* Needed *)
 Lemma sub_transitivity : forall Q Γ S T,
   type Q ->
   Γ ⊢ S <: Q ->
@@ -297,7 +288,6 @@ Proof with eauto*.
   apply (proj1 sub_transitivity_mut Q)...
 Qed.
 
-(* Needed *)
 Lemma sub_narrowing : forall Q Γ Δ Z P S T,
   pure_type P ->
   Γ ⊢ P <: Q ->
@@ -309,7 +299,6 @@ Proof with auto.
   eapply sub_transitivity with (Q := Q)...
 Qed.
 
-(* Needed *)
 Lemma sub_narrowing_typ : forall Γ Δ x CP P CQ Q S T,
   (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ) ⊢ S <: T ->
   Γ ⊢ (CP # P) <: (CQ # Q) ->
