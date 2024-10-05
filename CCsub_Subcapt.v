@@ -13,43 +13,57 @@ Proof with eauto using wf_cset_weakening.
   remember (Δ ++ Γ).
   remember (Δ ++ Θ ++ Γ).
   induction Hsc; subst...
-  - apply subcapt_universal; eapply wf_cset_weakening...
-  - apply subcapt_in...
-  - apply subcapt_set...
-    intros X XNotIn...
 Qed.
 
-Lemma wf_cset_fvarless : forall Γ univ,
-  Γ ⊢ₛ (cset_set {}A {}N univ) wf.
+Lemma wf_cse_top: forall Γ,
+  Γ ⊢ₛ cse_top wf.
 Proof with eauto.
   intros *.
   constructor...
-  intros ? ?.
-  exfalso; fsetdec.
 Qed.
 
-Hint Resolve wf_cset_fvarless : core.
+Lemma wf_cse_bot: forall Γ,
+  Γ ⊢ₛ cse_bot wf.
+Proof with eauto.
+  intros *.
+  constructor...
+Qed.
+
+
+
+Hint Resolve wf_cse_top : core.
+Hint Resolve wf_cse_bot : core.
 
 (* Needed *)
 Lemma subcapt_reflexivity : forall Γ C,
+  Γ ⊢ wf ->
   Γ ⊢ₛ C wf ->
   Γ ⊢ₛ C <: C.
 Proof with eauto.
-  intros * WfC.
-  inversion WfC; subst.
-  constructor...
-  - intros y yIn.
-    apply subcapt_in...
-    + apply (wf_cset_singleton_by_mem fvars univ)...
-  - destruct univ...
+  intros * WfE WfC.
+  induction WfC. 
+  - constructors... 
+  - constructors... 
+  - apply subcset_join_elim. auto. auto.
+  - auto. 
+Qed.
+
+Lemma subcset_join_split : forall E R1 R2 T,
+  E ⊢ₛ (cse_join R1 R2) <: T ->
+  E ⊢ₛ R1 <: T /\ E ⊢ₛ R2 <: T.
+Proof with eauto.
+  intros * Sub.
+  dependent induction Sub; try solve [intuition eauto]...
+  - apply wf_cset_over_join in H0. destruct H0. split; constructor...
+  - edestruct IHSub...
+  - edestruct IHSub...
 Qed.
 
 (* Needed *)
-Lemma subcapt_transitivity : forall D Γ C E,
-  Γ ⊢ wf ->
-  Γ ⊢ₛ C <: D ->
-  Γ ⊢ₛ D <: E ->
-  Γ ⊢ₛ C <: E.
+Lemma subcapt_transitivity : forall E S Q T,
+  E ⊢ₛ S <: Q ->
+  E ⊢ₛ Q <: T ->
+  E ⊢ₛ S <: T.
 Proof with eauto with fsetdec.
   intros E S Q T SsubQ QsubT.
   generalize dependent T.
@@ -63,13 +77,14 @@ Proof with eauto with fsetdec.
   - intros T QsubT...
 Qed.
 
+
 (* Needed, line 664 *)
 (* Substituting the same capture set preserves subcapturing *)
 Lemma subcapt_through_subst_cset : forall x D Q C Δ Γ C1 C2 ,
   (Δ ++ [(x, bind_typ (D # Q))] ++ Γ) ⊢ₛ C1 <: C2 ->
   (* (Δ ++ [(x, bind_typ (D # Q))] ++ Γ) ⊢ wf -> *)
   Γ ⊢ₛ C <: D ->
-  (map (subst_cb x C) Δ ++ Γ) ⊢ₛ (subst_cset x C C1) <: (subst_cset x C C2).
+  (map (subst_cb x C) Δ ++ Γ) ⊢ₛ (subst_cse x C C1) <: (subst_cse x C C2).
 Proof with eauto using wf_env_subst_cb, wf_cset_subst_cb with fsetdec.
   eauto 4 using wf_env_subst_cb, wf_cset_subst_cb, wf_cset_weaken_head.
   intros x D T C Δ Γ C1 C2 C1subC2 CsubD.
@@ -170,7 +185,7 @@ Tactic Notation "subst_mem_singleton" "<-" hyp(H) :=
 
 (* Needed *)
 Lemma subcapt_through_subst_tt : forall Γ P Q Δ X C D,
-  (Δ ++ [(X, bind_sub Q)] ++ Γ) ⊢ wf ->
+  (* (Δ ++ [(X, bind_sub Q)] ++ Γ) ⊢ wf -> *)
   (Δ ++ [(X, bind_sub Q)] ++ Γ) ⊢ₛ C <: D ->
   Γ ⊢ P <: Q ->
   (map (subst_tb X P) Δ ++ Γ) ⊢ₛ C <: D.
