@@ -869,3 +869,39 @@ Proof with eauto*.
   repeat split.
   all: auto.
 Qed.
+*)
+
+Lemma map_subst_cb_id : forall G x C,
+  wf_env G ->
+  x `notin` dom G ->
+  G = map (subst_cb x C) G.
+Proof with eauto.
+  intros G Z P H.
+  induction H; simpl; intros Fr; simpl_env...
+  rewrite <- IHwf_env...
+    rewrite <- subst_ct_fresh... assert (Z ∉ (fv_tt T) `u`A (fv_ct T)).
+    { eapply notin_fv_wf_typ. apply H0. fsetdec. }
+    fsetdec.
+  rewrite <- IHwf_env...
+    assert ([(x, bind_typ (C # R))] = [(x, bind_typ (subst_cse Z P C # subst_ct Z P R))]).
+    { f_equal. f_equal. f_equal. f_equal.
+      - rewrite <- subst_cse_fresh... apply (notin_fv_wf_typ Γ Z) in H0. simpl in H0.
+        fsetdec. fsetdec.
+      - rewrite <- subst_ct_fresh... apply (notin_fv_wf_typ Γ Z) in H0. simpl in H0.
+        fsetdec. fsetdec. }
+    rewrite H2...
+Qed.
+
+Lemma map_subst_tb_id : forall G Z P,
+  wf_env G ->
+  Z `notin` dom G ->
+  G = map (subst_tb Z P) G.
+Proof with auto.
+  intros G Z P H.
+  induction H; simpl; intros Fr; simpl_env...
+  rewrite <- IHwf_env...
+    rewrite <- subst_tt_fresh... eapply notin_fv_wf_typ; eauto.
+  rewrite <- IHwf_env...
+    rewrite <- subst_tt_fresh... eapply notin_fv_wf_typ with (Γ:=Γ); eauto.
+  inversion H0...
+Qed.

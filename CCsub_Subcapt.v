@@ -184,28 +184,49 @@ Lemma subcapt_through_subst_tt : forall Γ P Q Δ X C D,
   (Δ ++ [(X, bind_sub Q)] ++ Γ) ⊢ₛ C <: D ->
   Γ ⊢ P <: Q ->
   (map (subst_tb X P) Δ ++ Γ) ⊢ₛ C <: D.
-Proof with eauto using wf_env_subst_tb, wf_cset_subst_tb, wf_typ_subst_tb with fsetdec.
-  intros * WfEnv Subcapt Sub.
+Proof with simpl_env.
+  eauto 4 using wf_env_subst_tb, wf_cset_subst_tb, wf_typ_subst_tb, wf_cset_weaken_head, sub_regular, subcapt_reflexivity with fsetdec.
+  intros E P Q F Z S T Envwf SsubT PsubQ.
   assert (PureQ : pure_type Q).
-  { eapply wf_env_tail in WfEnv.
-    inversion WfEnv...
-  }
-  assert (PureP : pure_type P) by (apply (proj2 (sub_pure_type _ _ _ Sub) PureQ)).
-  assert ((map (subst_tb X P) Δ ++ Γ) ⊢ wf).
-  { eapply wf_env_subst_tb... apply sub_regular in Sub. destruct Sub as [_[H1 _]]... }
-  generalize dependent P.
-  dependent induction Subcapt; intros P Sub PureP WfEnvSubst.
-  - Case "subcset_top".
-    apply subcset_top.
-    + admit.
-    + eapply wf_cset_subst_tb... apply sub_regular in Sub. destruct Sub as [_[H1 _]]...
-  - apply subcset_bot...
-    inversion H0; subst...
-    admit. admit.
-  - apply subcapt_reflexivity...
-    admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-Admitted.
+  { apply wf_env_tail in Envwf.
+    inversion Envwf. auto. }
+  assert (PureP : pure_type P) by (apply (proj2 (sub_pure_type _ _ _ PsubQ) PureQ)).
+  remember (F ++ [(Z, bind_sub Q)] ++ E) as G in |-.
+  rewrite <- HeqG in SsubT. rewrite <- HeqG in Envwf.
+  generalize dependent F.
+  induction SsubT; intros G EQ; subst; simpl...
+  - apply subcset_top; 
+    (try eapply wf_cset_subst_tb; try eapply wf_env_subst_tb; 
+    try apply H0; try apply Envwf; apply sub_regular in PsubQ;
+    destruct PsubQ as [subwf1 [subwf2 subwf3]]; auto; auto).
+  - apply subcset_bot; 
+    (try eapply wf_cset_subst_tb; try eapply wf_env_subst_tb; 
+    try apply H0; try apply Envwf; apply sub_regular in PsubQ;
+    destruct PsubQ as [subwf1 [subwf2 subwf3]]; auto; auto).
+  - apply subcset_refl_var;
+    (try eapply wf_cset_subst_tb; try eapply wf_env_subst_tb; 
+    try apply H0; try apply Envwf; apply sub_regular in PsubQ;
+    destruct PsubQ as [subwf1 [subwf2 subwf3]]; auto; auto).
+  - apply (subcset_trans_var R (map (subst_tb Z P) G ++ E) Q0 X (subst_tt Z P T))...
+    binds_cases H. 
+    + (* X in E *)
+      apply binds_tail. eapply binds_map with (f := subst_tb Z P) in H. simpl in H.
+      erewrite <- map_subst_tb_id in H. apply H. eauto.
+      apply binding_uniq_from_wf_env in Envwf. auto.
+      apply binding_uniq_from_wf_env in Envwf. auto.
+    + (* X in G *)
+      apply binds_head.
+      eapply binds_map with (f := subst_tb Z P) in H1. simpl in H1.
+      apply H1.
+    + auto.
+  - apply subcset_join_inl; auto.
+    eapply wf_cset_subst_tb.
+    apply H. apply sub_regular in PsubQ as [_ [Pwf _]]. auto.
+    auto.
+  - apply subcset_join_inr; auto.
+    eapply wf_cset_subst_tb.
+    apply H. apply sub_regular in PsubQ as [_ [Pwf _]]. auto.
+    auto.
+  - apply subcset_join_elim; auto.
+Qed.
+
