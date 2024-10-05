@@ -154,53 +154,19 @@ Proof with eauto using wf_env_subst_cb, wf_cset_subst_cb with fsetdec.
             auto. auto. auto. 
         }
         eapply subcapt_transitivity. apply H. apply IHC1subC2...
-  - assert (G ++ [(x, bind_typ (D # T))] ++ Γ = G ++ [(x, bind_typ (D # T))] ++ Γ) by reflexivity. 
-    specialize (IHC1subC2 G H0). 
-    constructor...  
-    destruct R2; simpl...
-    + inversion H. 
-    + destruct (x == a). apply subcapt_regular in CsubD; destruct CsubD. destruct H2. 
-      apply wf_cset_weaken_head with (Δ:= (map (subst_cb x C) G)) in H2. exact H2. 
-      apply subcapt_regular in IHC1subC2; destruct IHC1subC2. apply ok_from_wf_env in H4. exact H4.
-      apply wf_cset_strengthen in H.
-      inversion H; subst... 
-      binds_cases H3... 
-      assert (binds a (subst_cb x C (bind_typ T0)) (map (subst_cb x C) G)).
-      { apply binds_map... }
-      simpl in H1.
-      apply wf_cse_term_fvar with (T:= (subst_ct x C T0)). apply binds_head... fsetdec.
-    + constructors... inversion H; subst.
-      ++ destruct R2_1; simpl...
-        -- inversion H4.
-        -- destruct (x == a). apply subcapt_regular in CsubD; destruct CsubD. destruct H2. 
-            apply wf_cset_weaken_head with (Δ:= (map (subst_cb x C) G)) in H2. exact H2. 
-            apply subcapt_regular in IHC1subC2; destruct IHC1subC2. apply ok_from_wf_env in H6. exact H6.
-            apply wf_cset_strengthen in H.
-            inversion H4; subst... 
-            binds_cases H3... 
-            assert (binds a (subst_cb x C (bind_typ T0)) (map (subst_cb x C) G)).
-            { apply binds_map... }
-            simpl in H1.
-            apply wf_cse_term_fvar with (T:= (subst_ct x C T0)). apply binds_head...
-            rewrite cse_fvars_join_union. rewrite AtomSetFacts.union_iff.
-            assert (forall x A B, x ∉ A /\ x ∉ B -> ~(x ∈ A \/ x ∈ B)) by fsetdec.
-            specialize (H1 x (`cse_fvars` (cse_fvar a)) (`cse_fvars` R2_2)). apply H1. split...
-            admit.
-        -- admit. 
-      ++ admit.     
-  - constructors... 
-Admitted. 
-    
-    
-    (* * 
-      * binds_cases H.
-        -- apply binds_tail... 
-        -- apply binds_head. .
-          ++ assumption.
-          ++ apply subcapt_regular in C1subC2.
-        apply (binds_map binding binding X (bind_typ (R # T0)) (subst_cb x C)) in H1.
-        -- assert (binds X (subst_cb x C (bind_typ (R # T0))) (map (subst_cb x C) G ++ Γ)).
-        {  } *)
+  - constructor...
+    eapply wf_cset_subst_cb. apply H.
+    apply subcapt_regular in C1subC2.
+    destruct C1subC2 as [wf1 [wf2 wf3]]...
+    apply subcapt_regular in CsubD.
+    destruct CsubD as [wf1 [wf2 wf3]]...
+  - apply subcset_join_inr...
+    eapply wf_cset_subst_cb. apply H.
+    apply subcapt_regular in C1subC2.
+    destruct C1subC2 as [wf1 [wf2 wf3]]...
+    apply subcapt_regular in CsubD.
+    destruct CsubD as [wf1 [wf2 wf3]]...
+Qed.
 
 Tactic Notation "subst_mem_singleton" hyp(H) :=
   match type of H with
