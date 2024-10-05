@@ -654,16 +654,16 @@ Proof with simpl_env;
     + apply wf_cset_over_subst with (Q := Q)...
     + apply IHHwfT...
     + apply subst_ct_pure_type...
+    Unshelve.
 Qed.
 
 Lemma wf_cset_subst_cb : forall Γ Δ Q x C D,
   (Δ ++ [(x, bind_typ Q)] ++ Γ) ⊢ₛ C wf ->
   (Δ ++ [(x, bind_typ Q)] ++ Γ) ⊢ wf ->
   Γ ⊢ₛ D wf ->
-  ok (map (subst_cb x D) Δ ++ Γ) ->
   (map (subst_cb x D) Δ ++ Γ) ⊢ₛ (subst_cse x D C) wf.
 Proof with simpl_env; eauto*.
-  intros * HwfC HwfEnv HwfD Hok.
+  intros * HwfC HwfEnv HwfD.
   induction C; eauto*.
   - inversion HwfC.
   - simpl. destruct (x == a).

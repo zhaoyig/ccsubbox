@@ -464,6 +464,7 @@ Proof with auto.
     apply binds_tail...
 Qed.
 
+
 Lemma wf_cset_notin_fvars : forall x Γ C,
   Γ ⊢ₛ C wf ->
   x ∉ dom Γ ->
@@ -869,7 +870,6 @@ Proof with eauto*.
   repeat split.
   all: auto.
 Qed.
-*)
 
 Lemma map_subst_cb_id : forall G x C,
   wf_env G ->
@@ -904,4 +904,13 @@ Proof with auto.
   rewrite <- IHwf_env...
     rewrite <- subst_tt_fresh... eapply notin_fv_wf_typ with (Γ:=Γ); eauto.
   inversion H0...
+Qed.
+
+
+Lemma subcapt_regular' : forall Γ C D,
+  Γ ⊢ₛ C <: D ->
+  wf_env Γ /\ Γ ⊢ₛ C wf /\ Γ ⊢ₛ D wf.
+Proof with eauto*.
+  intros * SubCapt.
+  dependent induction SubCapt; subst...
 Qed.
