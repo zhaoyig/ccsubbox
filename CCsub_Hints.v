@@ -8,16 +8,16 @@ Ltac destruct_union_mem H :=
 
 Hint Extern 1 (wf_typ ?Γ ?T) =>
 match goal with
-| H : wf_typ ?Γ (typ_capt _ ?P) |- _ =>
+| H : wf_typ ?Γ (typ_cse ?P) |- _ =>
   inversion H; subst; (match goal with
                        | H : wf_typ ?Γ (typ_arr ?T _) |- _ =>
                          inversion H; subst; assumption
                        end)
 end : core.
 
-Hint Extern 1 (wf_cset ?Γ ?C) =>
+Hint Extern 1 (wf_cse ?Γ ?C) =>
 match goal with
-| H : typing ?Γ _ (typ_capt ?C _) |- _ =>
+| H : typing ?Γ _ (typ_cse ?C _) |- _ =>
   let P := fresh "P" in
   pose proof (proj2 (proj2 (typing_regular _ _ _ H))) as P; inversion P; assumption
 end : core.
