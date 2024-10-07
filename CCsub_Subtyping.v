@@ -84,8 +84,7 @@ Proof with eauto using wf_cset_narrowing_typ, wf_env_narrowing_typ.
       simpl. rewrite concat_assoc.
       apply (subcapt_env_wf (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) CQ Q0) in IHSsubT. exact IHSsubT.
     }
-    apply subcapt_transitivity with (D := CQ)...
-    apply subcapt_env_wf in H2. exact H2.
+    apply subcapt_transitivity with (Q := CQ)...
   - binds_cases H...
 Qed.
 
