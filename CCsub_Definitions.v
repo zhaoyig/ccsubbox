@@ -387,19 +387,19 @@ Inductive answer : exp -> Prop :=
   | answer_var : forall (x : atom),
       answer x.
 
-Inductive store_frame : Type :=
+Inductive store_frame : Set :=
   | store (v : exp) : store_frame.
 
-Definition store_ctx : Type := list (atom * store_frame).
+Definition store_ctx : Set := list (atom * store_frame).
 Definition stores (S : store_ctx) (x : atom) (v : exp) : Prop :=
     binds x (store v) S.
 
 Inductive scope (k : exp) : Type :=
   | mk_scope : forall L, (forall x, x ∉ L -> expr (open_ve k x (cse_fvar x))) -> scope k.
 
-Definition eval_ctx : Type := (list exp).
+Definition eval_ctx : Set := (list exp).
 
-Inductive state : Type :=
+Inductive state : Set :=
   | mk_state : store_ctx -> eval_ctx -> exp -> state.
 
 Notation "⟨ S | E | Γ ⟩" := (mk_state S E Γ) (at level 1).
