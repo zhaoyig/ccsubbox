@@ -7,7 +7,9 @@
 Require Export AdditionalTactics.
 Require Export Atom.
 Require Export Nat.
+Require Export Loc.
 Require Export Bool.
+Require Export Store.
 Require Export Environment.
 
 Declare Scope metatheory_scope.
@@ -42,6 +44,11 @@ Notation "x `in` E" :=
   (AtomSet.F.In x E) (at level 69) : set_scope.
 Notation "x `notin` E" :=
   (~ AtomSet.F.In x E) (at level 69) : set_scope.
+
+Notation "x `In` E" :=
+  (LocSet.F.In x E) (at level 69) : set_scope.
+Notation "x `Notin` E" :=
+  (~ LocSet.F.In x E) (at level 69) : set_scope.
 
 Notation "E `subset` F" :=
   (AtomSet.F.Subset E F)

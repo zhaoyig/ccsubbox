@@ -10,7 +10,9 @@ FSetNotin.v
 FiniteSets.v
 Atom.v
 Nat.v
+Loc.v
 Environment.v
+Store.v
 Metatheory.v
 CaptureSets.v
 CCsub_Definitions.v

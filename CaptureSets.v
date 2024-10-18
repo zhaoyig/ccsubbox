@@ -10,6 +10,7 @@ Require Import OrderedType.
 Require Import FSetFacts.
 Require Import Atom.
 Require Import Nat.
+Require Import Loc.
 Require Export Bool.
 
 Create HintDb csets.
@@ -28,6 +29,7 @@ Inductive cse : Set :=
   | cse_top : cse
   | cse_bvar : nat -> cse
   | cse_fvar : atom -> cse
+  | cse_loc : loc -> cse
   | cse_join : cse -> cse -> cse
   | cse_bot : cse
 .
@@ -75,6 +77,16 @@ Fixpoint cse_uvar C :=
 Notation "`cse_uvar` C" := (cse_uvar C)
                                 (at level 10, C at level 9) : cse_shorthand.
 
+Fixpoint cse_locs C :=
+  match C with
+  | cse_loc l => LocSet.F.singleton l
+  | cse_join c1 c2 => LocSet.F.union (cse_locs c1) (cse_locs c2)
+  | _ => LocSet.F.empty  
+  end.
+
+Notation "`cse_locs` C" := (cse_locs C)
+                                (at level 10, C at level 9) : cse_shorthand.
+
 
 (** ************************************************** *)
 (** Operations *)
@@ -105,6 +117,7 @@ Fixpoint remove_bvar (k : nat) (C : cse) :=
   match C with
   | cse_top => C
   | cse_fvar a => C
+  | cse_loc l => C
   | cse_join c1 c2 => cse_join (remove_bvar k c1) (remove_bvar k c2)
   | cse_bvar k' => if (k === k') then cse_bot else C
   | cse_bot => C
@@ -114,6 +127,7 @@ Fixpoint remove_all_bvars (C : cse) :=
   match C with
   | cse_top => C
   | cse_fvar a => C
+  | cse_loc l => C
   | cse_join c1 c2 => cse_join (remove_all_bvars c1) (remove_all_bvars c2)
   | cse_bvar _ => cse_bot
   | cse_bot => C
@@ -158,17 +172,17 @@ Notation "`cse_references_fvar_dec` a c" :=
   (a A`mem` c)
     (at level 10, a at level 9, c at level 9, only parsing) : cse_shorthand.
 
-Inductive cse_all_not_top: cse -> Prop :=
-  | cse_all_not_top_fvar: forall a,
-      cse_all_not_top (cse_fvar a)
-  | cse_all_not_top_bvar: forall n,
-      cse_all_not_top (cse_bvar n)
-  | cse_all_not_top_join: forall c1 c2,
-      cse_all_not_top c1 ->
-      cse_all_not_top c2 ->
-      cse_all_not_top (cse_join c1 c2)
-  | cse_all_not_top_bot:
-    cse_all_not_top cse_bot.
+(* Inductive cse_all_not_top: cse -> Prop := *)
+(*   | cse_all_not_top_fvar: forall a, *)
+(*       cse_all_not_top (cse_fvar a) *)
+(*   | cse_all_not_top_bvar: forall n, *)
+(*       cse_all_not_top (cse_bvar n) *)
+(*   | cse_all_not_top_join: forall c1 c2, *)
+(*       cse_all_not_top c1 -> *)
+(*       cse_all_not_top c2 -> *)
+(*       cse_all_not_top (cse_join c1 c2) *)
+(*   | cse_all_not_top_bot: *)
+(*     cse_all_not_top cse_bot. *)
 
 Fixpoint open_cse (k : nat) (c : cse) (d : cse) : cse :=
   match d with
@@ -176,6 +190,7 @@ Fixpoint open_cse (k : nat) (c : cse) (d : cse) : cse :=
   | cse_bot => cse_bot
   | cse_bvar k' => if k === k' then c else d
   | cse_fvar _ => d
+  | cse_loc _ => d
   | cse_join d1 d2 => cse_join (open_cse k c d1) (open_cse k c d2)
 end.
 
@@ -184,6 +199,7 @@ Fixpoint subst_cse (a : atom) (c : cse) (d: cse) : cse :=
   | cse_top => cse_top
   | cse_bot => cse_bot
   | cse_bvar _ => d
+  | cse_loc _ => d
   | cse_fvar a' => if a == a' then c else d
   | cse_join d1 d2 => cse_join (subst_cse a c d1) (subst_cse a c d2)
 end.
@@ -203,6 +219,8 @@ Inductive cset : cse -> Prop :=
       cset cse_top
   | cset_fvar : forall (X : atom),
       cset (cse_fvar X)
+  | cset_loc : forall (l : loc),
+      cset (cse_loc l)
   | cset_join : forall Q1 Q2,
       cset Q1 ->
       cset Q2 ->
