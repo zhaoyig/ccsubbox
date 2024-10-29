@@ -186,19 +186,19 @@ Inductive binding : Type :=
   | bind_sub : typ -> binding
   | bind_typ : typ -> binding.
 
-Notation env := (list (atom * binding)).
+Notation ctx := (list (atom * binding)).
 Notation "∅" := (@nil (atom * binding)).
 
 Notation "[ x ]" := (x :: nil).
 
-Definition allbound (Γ : env) (fvars : atoms) : Prop :=
+Definition allbound (Γ : ctx) (fvars : atoms) : Prop :=
   forall x,
     x `in`A fvars ->
     exists C R, binds x (bind_typ (C # R)) Γ.
 
 Reserved Notation "Γ '⊢ₛ' C 'wf'" (at level 40, C at next level, no associativity).
 
-Inductive wf_cse : env -> cse -> Prop :=
+Inductive wf_cse : ctx -> cse -> Prop :=
   | wf_cse_top : forall E,
       wf_cse E cse_top
   | wf_cse_term_fvar : forall T E (x : atom),
@@ -214,7 +214,7 @@ where "Γ '⊢ₛ' C 'wf'" := (wf_cse Γ C).
 
 Reserved Notation "Γ '⊢' T 'wf'" (at level 40, T at next level, no associativity).
 
-Inductive wf_typ : env -> typ -> Prop :=
+Inductive wf_typ : ctx -> typ -> Prop :=
   | wf_typ_var : forall Γ X T,
       binds X (bind_sub T) Γ ->
       Γ ⊢ X wf
@@ -240,55 +240,55 @@ Inductive wf_typ : env -> typ -> Prop :=
 where "Γ '⊢' T 'wf'" := (wf_typ Γ T).
 
 Reserved Notation "Γ '⊢' 'wf'" (at level 40, no associativity).
-Reserved Notation "Γ '⊢ₛ' C1 '<:' C2" (at level 40, C1 at next level, C2 at next level, no associativity). 
+Reserved Notation "Γ '⊢ₛ' C1 '<:' C2" (at level 40, C1 at next level, C2 at next level, no associativity).
 Reserved Notation "Γ '⊢' T1 '<:' T2" (at level 40, T1 at next level, T2 at next level, no associativity).
 Reserved Notation "Γ '⊢' e ':' T" (at level 40, e at next level, T at next level, no associativity).
 Reserved Notation "S '∷' Γ" (at level 40, Γ at next level, no associativity).
 Reserved Notation "Γ '⊢' E ':' S '⇒' T" (at level 40, E at next level, S at next level, T at next level, no associativity).
 Reserved Notation "Σ1 '-->' Σ2" (at level 40, Σ2 at next level, no associativity).
 
-Inductive wf_env : env -> Prop :=
-  | wf_env_empty :
+Inductive wf_ctx : ctx -> Prop :=
+  | wf_ctx_empty :
       ∅ ⊢ wf
-  | wf_env_sub : forall (Γ : env) (X : atom) (T : typ),
+  | wf_ctx_sub : forall (Γ : ctx) (X : atom) (T : typ),
       Γ ⊢ wf ->
       Γ ⊢ T wf ->
       pure_type T ->
       X ∉ dom Γ ->
       ([(X, bind_sub T)] ++ Γ) ⊢ wf
-  | wf_env_typ : forall (Γ : env) (x : atom) (C : cse) (R : typ),
+  | wf_ctx_typ : forall (Γ : ctx) (x : atom) (C : cse) (R : typ),
       Γ ⊢ wf ->
       Γ ⊢ (C # R) wf ->
       x ∉ dom Γ ->
       ([(x, bind_typ (C # R))] ++ Γ) ⊢ wf
-where "Γ '⊢' 'wf'" := (wf_env Γ).
+where "Γ '⊢' 'wf'" := (wf_ctx Γ).
 
-Definition store_env : Set := list (loc * typ).
+Definition store_ctx : Set := list (loc * typ).
 
-Inductive wf_store_ctx : store_env -> Prop :=
-  | wf_store_nil :
+Inductive wf_store_ctx : store_ctx -> Prop :=
+  | wf_store_ctx_nil :
       wf_store_ctx nil
-  | wf_store_cons : forall l S C R,
+  | wf_store_ctx_cons : forall l S C R,
       wf_store_ctx S ->
       wf_typ nil (C # R) ->
       l `Notin` (Store.dom S) ->
       wf_store_ctx ([(l, C # R)] ++ S).
 
-Inductive subcapt : env -> store_env -> cse -> cse -> Prop :=
+Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
   | subcapt_top : forall E S Q,
-      wf_env E ->
+      wf_ctx E ->
       wf_cse E Q ->
       subcapt E S cse_top Q
   | subcapt_bot : forall E S Q,
-      wf_env E ->
+      wf_ctx E ->
       wf_cse E Q ->
       subcapt E S cse_bot Q
   | subcapt_refl_var : forall E S X,
-      wf_env E ->
+      wf_ctx E ->
       wf_cse E (cse_fvar X) ->
       subcapt E S (cse_fvar X) (cse_fvar X)
   | subcapt_refl_loc : forall E S l,
-      wf_env E ->
+      wf_ctx E ->
       wf_store_ctx S ->
       subcapt E S (cse_loc l) (cse_loc l)
   | subcapt_trans_var : forall R S E Q X T,
@@ -311,10 +311,9 @@ Inductive subcapt : env -> store_env -> cse -> cse -> Prop :=
       subcapt E S R1 Q ->
       subcapt E S R2 Q ->
       subcapt E S (cse_join R1 R2) Q.
-(* where "Γ S '⊢ₛ' C1 <: C2" := (subcapt Γ S C1 C2). *)
 
-Inductive sub : env -> store_env -> typ -> typ -> Prop :=
-  | sub_refl_tvar : forall Γ (S: store_env) (X : atom),
+Inductive sub : ctx -> store_ctx -> typ -> typ -> Prop :=
+  | sub_refl_tvar : forall Γ (S: store_ctx) (X : atom),
       Γ ⊢ wf ->
       Γ ⊢ X wf ->
       sub Γ S X X
@@ -349,9 +348,8 @@ Inductive sub : env -> store_env -> typ -> typ -> Prop :=
   | sub_box : forall Γ S T1 T2,
       sub Γ S T1 T2 ->
       sub Γ S (□ T1) (□ T2).
-(* where "Γ S '⊢' T1 '<:' T2" := (sub Γ S T1 T2). *)
 
-Inductive typing : env -> store_env -> exp -> typ -> Prop :=
+Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
   | typing_var : forall Γ x S C R,
       Γ ⊢ wf ->
       binds x (bind_typ (C # R)) Γ ->
@@ -396,7 +394,6 @@ Inductive typing : env -> store_env -> exp -> typ -> Prop :=
       typing Γ S e R ->
       sub Γ S R T ->
       typing Γ S e T.
-(* where "Γ '⊢' e ':' T" := (typing Γ e T). *)
 
 Inductive value : exp -> Prop :=
   | value_abs : forall T e1,
@@ -414,14 +411,20 @@ Inductive answer : exp -> Prop :=
       value v ->
       answer v
   | answer_var : forall (x : atom),
-      answer x.
+      answer x
+      (* ask about this *)
+  | answer_loc : forall (l : loc),
+      answer l.
 
+
+(* Complain about this *)
 Inductive store_frame : Set :=
   | store (v : exp) : store_frame.
 
-Definition store_ctx : Set := list (loc * store_frame).
-Definition stores (S : store_ctx) (x : loc) (v : exp) : Prop :=
-    Store.binds x (store v) S.
+Definition env : Set := list (atom * store_frame).
+Definition store_env : Set := list (loc * store_frame).
+(* Definition stores (S : store_env) (x : loc) (v : exp) : Prop := *)
+(*     Store.binds x (store v) S. *)
 
 Inductive scope (k : exp) : Type :=
   | mk_scope : forall L, (forall x, x ∉ L -> expr (open_ve k x (cse_fvar x))) -> scope k.
@@ -429,24 +432,25 @@ Inductive scope (k : exp) : Type :=
 Definition eval_ctx : Set := (list exp).
 
 Inductive state : Set :=
-  | mk_state : store_ctx -> store_env -> eval_ctx -> exp -> state.
+  | mk_state : env -> store_env -> eval_ctx -> exp -> state.
 
 Notation "⟨ S | L | E | Γ ⟩" := (mk_state S L E Γ) (at level 1).
 
 Inductive state_final : state -> Prop :=
-  | final_state : forall S a,
+  | final_state : forall S L a,
       answer a ->
-      state_final ⟨ S | nil | a ⟩.
+      state_final ⟨ S | L | nil | a ⟩.
 
-Inductive store_typing : store_ctx -> env -> Prop :=
-  | typing_store_nil : nil ∷ nil
-  | typing_store_cons : forall x C R v S Γ,
-      S ∷ Γ ->
-      value v ->
-      Γ ⊢ v : (C # R) ->
-      x ∉ dom Γ ->
-      ([(x, store v)] ++ S) ∷ ([(x, bind_typ (C # R))] ++ Γ)
-where "S '∷' Γ" := (store_typing S Γ).
+(* Add all 4 assoc lists here *)
+(* Inductive store_typing : ctx -> store_ctx -> env -> store_env -> Prop := *)
+(*   | typing_store_nil : nil ∷ nil. *)
+(*   | typing_store_cons : forall x C R v S Γ, *)
+(*       S ∷ Γ -> *)
+(*       value v -> *)
+(*       Γ ⊢ v : (C # R) -> *)
+(*       x ∉ dom Γ -> *)
+(*       ([(x, store v)] ++ S) ∷ ([(x, bind_typ (C # R))] ++ Γ) *)
+(* where "S '∷' Γ" := (store_typing S Γ). *)
 
 Inductive eval_typing (Γ : env) : eval_ctx -> typ -> typ -> Prop :=
   | typing_eval_nil : forall C1 R1 C2 R2,
