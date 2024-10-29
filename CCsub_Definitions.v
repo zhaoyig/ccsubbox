@@ -412,19 +412,15 @@ Inductive answer : exp -> Prop :=
       answer v
   | answer_var : forall (x : atom),
       answer x
-      (* ask about this *)
   | answer_loc : forall (l : loc),
       answer l.
 
-
-(* Complain about this *)
 Inductive store_frame : Set :=
   | store (v : exp) : store_frame.
 
-Definition env : Set := list (atom * store_frame).
 Definition store_env : Set := list (loc * store_frame).
-(* Definition stores (S : store_env) (x : loc) (v : exp) : Prop := *)
-(*     Store.binds x (store v) S. *)
+Definition stores (S : store_env) (x : loc) (v : exp) : Prop := 
+    Store.binds x (store v) S.
 
 Inductive scope (k : exp) : Type :=
   | mk_scope : forall L, (forall x, x ∉ L -> expr (open_ve k x (cse_fvar x))) -> scope k.
@@ -432,25 +428,26 @@ Inductive scope (k : exp) : Type :=
 Definition eval_ctx : Set := (list exp).
 
 Inductive state : Set :=
-  | mk_state : env -> store_env -> eval_ctx -> exp -> state.
+  | mk_state : store_env -> eval_ctx -> exp -> state.
 
-Notation "⟨ S | L | E | Γ ⟩" := (mk_state S L E Γ) (at level 1).
+Notation "⟨ S | C | e ⟩" := (mk_state S C e) (at level 1).
 
 Inductive state_final : state -> Prop :=
-  | final_state : forall S L a,
+  | final_state : forall S a,
       answer a ->
-      state_final ⟨ S | L | nil | a ⟩.
-
-(* Add all 4 assoc lists here *)
-(* Inductive store_typing : ctx -> store_ctx -> env -> store_env -> Prop := *)
-(*   | typing_store_nil : nil ∷ nil. *)
-(*   | typing_store_cons : forall x C R v S Γ, *)
-(*       S ∷ Γ -> *)
-(*       value v -> *)
-(*       Γ ⊢ v : (C # R) -> *)
-(*       x ∉ dom Γ -> *)
-(*       ([(x, store v)] ++ S) ∷ ([(x, bind_typ (C # R))] ++ Γ) *)
-(* where "S '∷' Γ" := (store_typing S Γ). *)
+      state_final ⟨ S | nil | a ⟩.
+(* 
+Inductive store_typing : ctx -> store_ctx -> store_env -> Prop :=
+  | typing_store_nil: forall E L,
+    wf_ctx E -> 
+    wf_store_ctx L -> 
+    store_typing E L nil
+  | typing_store_cons : forall x C R v S Γ,
+      S ∷ Γ ->
+      value v ->
+      Γ ⊢ v : (C # R) ->
+      x ∉ dom Γ ->
+      ([(x, store v)] ++S) ∷ ([(x, bind_typ (C # R))] ++ Γ).
 
 Inductive eval_typing (Γ : env) : eval_ctx -> typ -> typ -> Prop :=
   | typing_eval_nil : forall C1 R1 C2 R2,
@@ -504,10 +501,10 @@ Inductive red : state -> state -> Prop :=
           ⟨ S | K | C ⟜ x ⟩
       --> ⟨ S | K | y ⟩
 where "Σ1 --> Σ2" := (red Σ1 Σ2).
-
+*)
 Hint Constructors type pure_type expr cset wf_cse wf_typ wf_env value sub subcset typing : core.
 Hint Resolve sub_top sub_refl_tvar sub_arr sub_all sub_box : core.
-Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_sub : core.
+Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_sub : core. 
 
 (* TODO: ???? *)
 (* Local Ltac cset_unfold_union0 := *)
