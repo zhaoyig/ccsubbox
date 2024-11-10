@@ -26,6 +26,7 @@ Fixpoint fv_tt (T : typ) {struct T} : atoms :=
 Fixpoint fv_ce (e : exp) {struct e} : atoms :=
   match e with
   | exp_var _ => {}A
+  | exp_loc _ => {}A
   | λ (V) e1 => fv_ct V `u`A fv_ce e1
   | _ @ _ => {}A
   | let= e in C => fv_ce e `u`A fv_ce C
@@ -38,6 +39,7 @@ Fixpoint fv_ce (e : exp) {struct e} : atoms :=
 Fixpoint fv_te (e : exp) {struct e} : atoms :=
   match e with
   | exp_var _ => {}A
+  | exp_loc _ => {}A
   | λ (V) e1  => fv_tt V `u`A fv_te e1
   | _ @ _ => {}A
   | let= e in C => fv_te e `u`A fv_te C
@@ -56,6 +58,7 @@ Definition fv_vv (v : var) : atoms :=
 Fixpoint fv_ve (e : exp) {struct e} : atoms :=
   match e with
   | exp_var v => fv_vv v
+  | exp_loc _ => {}A
   | λ (V) e1 => fv_ve e1
   | x @ y => fv_vv x `u`A fv_vv y
   | let= e in C => fv_ve e `u`A fv_ve C
@@ -65,7 +68,7 @@ Fixpoint fv_ve (e : exp) {struct e} : atoms :=
   | C ⟜ x => `cse_fvars` C `u`A fv_vv x
   end.
 
-Fixpoint fv_cctx (E : env) {struct E} : atoms :=
+Fixpoint fv_cctx (E : ctx) {struct E} : atoms :=
   match E with
   | nil => {}A
   | (_, bind_typ T) :: F => fv_ct T `u`A fv_cctx F
@@ -97,6 +100,7 @@ Fixpoint subst_ct (z : atom) (c : cse) (T : typ) {struct T} : typ :=
 Fixpoint subst_te (Z : atom) (U : typ) (e : exp) {struct e} : exp :=
   match e with
   | exp_var v => v
+  | exp_loc l => l
   | λ (V) e1 => λ (subst_tt Z U V) (subst_te Z U e1)
   | f @ x => f @ x
   | let= e in C => let= subst_te Z U e in subst_te Z U C
@@ -115,6 +119,7 @@ Definition subst_vv (z : atom) (u : atom) (v : var) : var :=
 Fixpoint subst_ve (z : atom) (u : atom) (c : cse) (e : exp) {struct e} : exp :=
   match e with
   | exp_var v => subst_vv z u v
+  | exp_loc l => l
   | λ (t) e1 => exp_abs (subst_ct z c t) (subst_ve z u c e1)
   | f @ x => subst_vv z u f @ subst_vv z u x
   | let= e in C => let= subst_ve z u c e in subst_ve z u c C
@@ -142,11 +147,11 @@ Ltac gather_atoms :=
   let C := gather_atoms_with (fun x : exp => fv_te x) in
   let D := gather_atoms_with (fun x : exp => fv_ve x) in
   let E := gather_atoms_with (fun x : typ => fv_tt x) in
-  let F := gather_atoms_with (fun x : env => dom x) in
+  let F := gather_atoms_with (fun x : ctx => dom x) in
   let G := gather_atoms_with (fun x : cse => `cse_fvars` x) in
   let H := gather_atoms_with (fun x : typ => fv_ct x) in
   let I := gather_atoms_with (fun x : exp => fv_ce x) in
-  let J := gather_atoms_with (fun x : env => fv_cctx x) in
+  let J := gather_atoms_with (fun x : ctx => fv_cctx x) in
   constr:(A `u`A B `u`A C `u`A D `u`A E `u`A F `u`A G `u`A H `u`A I `u`A J).
 
 Tactic Notation "pick" "fresh" ident(x) :=
@@ -189,6 +194,8 @@ Inductive csetN : nat -> cse -> Prop :=
       m < n -> csetN n (cse_bvar m)
   | csetN_fvar : forall n a,
       csetN n (cse_fvar a)
+  | csetN_loc : forall n l,
+      csetN n (cse_loc l)
   | csetN_bot : forall n,
       csetN n cse_bot
   | csetN_top : forall n,
@@ -239,12 +246,7 @@ Lemma csetN_weakening : forall n m C,
   csetN m C.
 Proof with eauto*.
   intros.
-  induction H.
-  - apply csetN_join; auto.
-  - apply csetN_bvar. lia.
-  - apply csetN_fvar.
-  - apply csetN_bot.
-  - apply csetN_top.
+  induction H; constructor... lia.
 Qed.
 
 Lemma typeN_weakening : forall n m T,
@@ -390,6 +392,7 @@ Proof with eauto*.
       -- rewrite <- e. apply csetN_bvar. lia.
       -- apply (csetN_weakening n (`succ` n) (cse_bvar n0)); auto.
     + apply csetN_fvar.
+    + apply csetN_loc.
     + apply csetN_join.
       -- apply IHc1. inversion H. auto.
       -- apply IHc2. inversion H. auto.
@@ -416,6 +419,7 @@ Proof with eauto.
   induction H.
   - apply csetN_top.
   - apply csetN_fvar.
+  - apply csetN_loc.
   - apply csetN_join; auto.
   - apply csetN_bot.
 }
@@ -467,7 +471,7 @@ Proof with auto*.
   - Case "R".
     apply open_tt_rec_typeN with (n := k)...
     apply typeN_pure.
-    apply pure_type_to_pure_type0 in H. 
+    apply pure_type_to_pure_type0 in H.
     apply pure_typeN_weakening with (m := k) in H...
     lia.
   - Case "C # R".
@@ -589,6 +593,8 @@ Inductive exprN : nat -> exp -> Prop :=
   | exprN_var : forall n v,
       varN n v ->
       exprN n v
+  | exprN_loc : forall n l,
+      exprN n l
   | exprN_abs : forall n T e1,
       typeN n T ->
       exprN (S n) e1 ->
@@ -655,7 +661,8 @@ Lemma subst_cset_intro : forall X k D C,
       + exfalso. unfold not in H. simpl in H. apply H. rewrite e.
         apply AtomSetFacts.singleton_iff. auto.
       + auto.
-    -- simpl. f_equal; apply cse_join_in in H; destruct H; auto. 
+    -- simpl. reflexivity.
+    -- simpl. f_equal; apply cse_join_in in H; destruct H; auto.
     -- auto.
 Qed.
 
@@ -1149,7 +1156,7 @@ with subst_ct_pure_type : forall R z c,
     { apply subst_ct_open_fresh.
       split.
       - fsetdec.
-      - destruct c. fsetdec. auto. auto. auto. auto.
+      - destruct c...
       - apply Cap.
     }
     rewrite H1...

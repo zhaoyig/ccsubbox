@@ -187,6 +187,7 @@ Inductive binding : Type :=
   | bind_typ : typ -> binding.
 
 Notation ctx := (list (atom * binding)).
+Definition store_ctx : Set := list (loc * typ).
 Notation "∅" := (@nil (atom * binding)).
 
 Notation "[ x ]" := (x :: nil).
@@ -196,99 +197,94 @@ Definition allbound (Γ : ctx) (fvars : atoms) : Prop :=
     x `in`A fvars ->
     exists C R, binds x (bind_typ (C # R)) Γ.
 
-Reserved Notation "Γ '⊢ₛ' C 'wf'" (at level 40, C at next level, no associativity).
-
-Inductive wf_cse : ctx -> cse -> Prop :=
-  | wf_cse_top : forall E,
-      wf_cse E cse_top
-  | wf_cse_term_fvar : forall T E (x : atom),
+Inductive wf_cse : ctx -> store_ctx -> cse -> Prop :=
+  | wf_cse_top : forall E S,
+      wf_cse E S cse_top
+  | wf_cse_term_fvar : forall T S E (x : atom),
       binds x (bind_typ T) E ->
-      wf_cse E (cse_fvar x)
-  | wf_cse_join : forall E Q1 Q2,
-      wf_cse E Q1 ->
-      wf_cse E Q2 ->
-      wf_cse E (cse_join Q1 Q2)
-  | wf_cse_bot : forall E,
-      wf_cse E cse_bot
-where "Γ '⊢ₛ' C 'wf'" := (wf_cse Γ C).
+      wf_cse E S (cse_fvar x)
+  | wf_cse_term_loc : forall S T E (l : loc),
+      Store.binds l T S ->
+      wf_cse E S (cse_loc l)
+  | wf_cse_join : forall E S Q1 Q2,
+      wf_cse E S Q1 ->
+      wf_cse E S Q2 ->
+      wf_cse E S (cse_join Q1 Q2)
+  | wf_cse_bot : forall E S,
+      wf_cse E S cse_bot.
 
-Reserved Notation "Γ '⊢' T 'wf'" (at level 40, T at next level, no associativity).
-
-Inductive wf_typ : ctx -> typ -> Prop :=
-  | wf_typ_var : forall Γ X T,
+Inductive wf_typ : ctx -> store_ctx -> typ -> Prop :=
+  | wf_typ_var : forall Γ S X T,
       binds X (bind_sub T) Γ ->
-      Γ ⊢ X wf
-  | wf_typ_top : forall Γ,
-      Γ ⊢ ⊤ wf
-  | wf_typ_arr : forall L Γ C R T,
-      Γ ⊢ (C # R) wf ->
-      (forall x : atom, x ∉ L -> ([(x, bind_typ (C # R))] ++ Γ) ⊢ (open_ct T (cse_fvar x)) wf) ->
-      Γ ⊢ ∀ (C # R) T wf
-  | wf_typ_all : forall L Γ R T,
-      Γ ⊢ R wf ->
+      wf_typ Γ S X
+  | wf_typ_top : forall Γ S,
+      wf_typ Γ S typ_top
+  | wf_typ_arr : forall L Γ S C R T,
+      wf_typ Γ S (C # R) ->
+      (forall x : atom, x ∉ L -> wf_typ ([(x, bind_typ (C # R))] ++ Γ) S (open_ct T (cse_fvar x))) ->
+      wf_typ Γ S (∀ (C # R) T)
+  | wf_typ_all : forall L S Γ R T,
+      wf_typ Γ S R ->
       pure_type R ->
-      (forall X : atom, X ∉ L -> ([(X, bind_sub R)] ++ Γ) ⊢ (open_tt T X) wf) ->
-      Γ ⊢ ∀ [R] T wf
-  | wf_typ_box : forall Γ T,
-      Γ ⊢ T wf ->
-      Γ ⊢ □ T wf
-  | wf_typ_cse : forall Γ C R,
-      Γ ⊢ₛ C wf ->
-      Γ ⊢ R wf ->
+      (forall X : atom, X ∉ L -> wf_typ ([(X, bind_sub R)] ++ Γ) S (open_tt T X)) ->
+      wf_typ Γ S (∀ [R] T)
+  | wf_typ_box : forall Γ S T,
+      wf_typ Γ S T ->
+      wf_typ Γ S (□ T)
+  | wf_typ_cse : forall Γ S C R,
+      wf_cse Γ S C ->
+      wf_typ Γ S R ->
       pure_type R ->
-      Γ ⊢ C # R wf
-where "Γ '⊢' T 'wf'" := (wf_typ Γ T).
+      wf_typ Γ S (C # R).
 
-Reserved Notation "Γ '⊢' 'wf'" (at level 40, no associativity).
-Reserved Notation "Γ '⊢ₛ' C1 '<:' C2" (at level 40, C1 at next level, C2 at next level, no associativity).
-Reserved Notation "Γ '⊢' T1 '<:' T2" (at level 40, T1 at next level, T2 at next level, no associativity).
-Reserved Notation "Γ '⊢' e ':' T" (at level 40, e at next level, T at next level, no associativity).
 Reserved Notation "S '∷' Γ" (at level 40, Γ at next level, no associativity).
 Reserved Notation "Γ '⊢' E ':' S '⇒' T" (at level 40, E at next level, S at next level, T at next level, no associativity).
 Reserved Notation "Σ1 '-->' Σ2" (at level 40, Σ2 at next level, no associativity).
 
-Inductive wf_ctx : ctx -> Prop :=
-  | wf_ctx_empty :
-      ∅ ⊢ wf
-  | wf_ctx_sub : forall (Γ : ctx) (X : atom) (T : typ),
-      Γ ⊢ wf ->
-      Γ ⊢ T wf ->
-      pure_type T ->
-      X ∉ dom Γ ->
-      ([(X, bind_sub T)] ++ Γ) ⊢ wf
-  | wf_ctx_typ : forall (Γ : ctx) (x : atom) (C : cse) (R : typ),
-      Γ ⊢ wf ->
-      Γ ⊢ (C # R) wf ->
-      x ∉ dom Γ ->
-      ([(x, bind_typ (C # R))] ++ Γ) ⊢ wf
-where "Γ '⊢' 'wf'" := (wf_ctx Γ).
-
-Definition store_ctx : Set := list (loc * typ).
-
 Inductive wf_store_ctx : store_ctx -> Prop :=
   | wf_store_ctx_nil :
       wf_store_ctx nil
-  | wf_store_ctx_cons : forall l S C R,
+  | wf_store_ctx_cons : forall l E S C R,
       wf_store_ctx S ->
-      wf_typ nil (C # R) ->
+      wf_typ E S (C # R) ->
       l `Notin` (Store.dom S) ->
       wf_store_ctx ([(l, C # R)] ++ S).
 
+Inductive wf_ctx : ctx -> store_ctx -> Prop :=
+  | wf_ctx_empty : forall S,
+      wf_store_ctx S ->
+      wf_ctx nil S
+  | wf_ctx_sub : forall (Γ : ctx) (S : store_ctx) (X : atom) (T : typ),
+      wf_ctx Γ S ->
+      wf_typ Γ S T ->
+      pure_type T ->
+      X ∉ dom Γ ->
+      wf_ctx ([(X, bind_sub T)] ++ Γ) S
+  | wf_ctx_typ : forall (Γ : ctx) (S : store_ctx) (x : atom) (C : cse) (R : typ),
+      wf_ctx Γ S ->
+      wf_typ Γ S (C # R) ->
+      x ∉ dom Γ ->
+      wf_ctx ([(x, bind_typ (C # R))] ++ Γ) S.
+
 Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
   | subcapt_top : forall E S Q,
-      wf_ctx E ->
-      wf_cse E Q ->
+      wf_store_ctx S ->
+      wf_ctx E S ->
+      wf_cse E S Q ->
       subcapt E S cse_top Q
   | subcapt_bot : forall E S Q,
-      wf_ctx E ->
-      wf_cse E Q ->
+      wf_store_ctx S ->
+      wf_ctx E S ->
+      wf_cse E S Q ->
       subcapt E S cse_bot Q
   | subcapt_refl_var : forall E S X,
-      wf_ctx E ->
-      wf_cse E (cse_fvar X) ->
+      wf_store_ctx S ->
+      wf_ctx E S ->
+      wf_cse E S (cse_fvar X) ->
       subcapt E S (cse_fvar X) (cse_fvar X)
   | subcapt_refl_loc : forall E S l,
-      wf_ctx E ->
+      wf_store_ctx S ->
+      wf_ctx E S ->
       wf_store_ctx S ->
       subcapt E S (cse_loc l) (cse_loc l)
   | subcapt_trans_var : forall R S E Q X T,
@@ -301,10 +297,10 @@ Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
       subcapt E S (cse_loc X) Q
   | subcapt_join_inl : forall E S R1 R2 Q,
       subcapt E S Q R1 ->
-      wf_cse E R2 ->
+      wf_cse E S R2 ->
       subcapt E S Q (cse_join R1 R2)
   | subcapt_join_inr : forall E S R1 R2 Q,
-      wf_cse E R1 ->
+      wf_cse E S R1 ->
       subcapt E S Q R2 ->
       subcapt E S Q (cse_join R1 R2)
   | subcapt_join_elim : forall E S R1 R2 Q,
@@ -314,8 +310,9 @@ Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
 
 Inductive sub : ctx -> store_ctx -> typ -> typ -> Prop :=
   | sub_refl_tvar : forall Γ (S: store_ctx) (X : atom),
-      Γ ⊢ wf ->
-      Γ ⊢ X wf ->
+      wf_store_ctx S ->
+      wf_ctx Γ S ->
+      wf_typ Γ S X ->
       sub Γ S X X
   | sub_trans_tvar : forall U S Γ T X,
       binds X (bind_sub U) Γ ->
@@ -328,8 +325,9 @@ Inductive sub : ctx -> store_ctx -> typ -> typ -> Prop :=
       pure_type R2 ->
       sub Γ S (C1 # R1) (C2 # R2)
   | sub_top : forall Γ S T,
-      Γ ⊢ wf ->
-      Γ ⊢ T wf ->
+      wf_store_ctx S ->
+      wf_ctx Γ S ->
+      wf_typ Γ S T ->
       pure_type T ->
       sub Γ S T typ_top
   | sub_arr : forall L S Γ C1 R1 C2 R2 T1 T2,
@@ -351,7 +349,8 @@ Inductive sub : ctx -> store_ctx -> typ -> typ -> Prop :=
 
 Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
   | typing_var : forall Γ x S C R,
-      Γ ⊢ wf ->
+      wf_store_ctx S ->
+      wf_ctx Γ S ->
       binds x (bind_typ (C # R)) Γ ->
       typing Γ S x (C # R)
   | typing_loc : forall Γ l S C R,
@@ -359,7 +358,7 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
       Store.binds l (C # R) S ->
       typing Γ S l (C # R)
   | typing_abs : forall L S Γ C R e1 T1,
-      Γ ⊢ (C # R) wf ->
+      wf_typ Γ S (C # R) ->
       (forall x : atom, x ∉ L ->
         typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve e1 x (cse_fvar x)) (open_ct T1 (cse_fvar x))) ->
       typing Γ S (λ (C # R) e1) (∀ (C # R) T1)
@@ -373,7 +372,7 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
         typing ([(x, bind_typ (C1 # T1))] ++ Γ) S (open_ve k x (cse_fvar x)) T2) ->
       typing Γ S (let= e in k) T2
   | typing_tabs : forall S L Γ V e1 T1,
-      Γ ⊢ V wf ->
+      wf_typ Γ S V ->
       pure_type V ->
       (forall X : atom, X ∉ L ->
         typing ([(X, bind_sub V)] ++ Γ) S (open_te e1 X) (open_tt T1 X)) ->
@@ -384,11 +383,11 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
       typing Γ S (x @ [P]) (open_tt T Q)
   | typing_box : forall Γ S (x : atom) C R,
       typing Γ S x (C # R) ->
-      wf_cse Γ C ->
+      wf_cse Γ S C ->
       typing Γ S (box x) ({} # □ (C # R))
   | typing_unbox : forall Γ S (x : atom) C R,
       typing Γ S x ({} # □ (C # R)) ->
-      Γ ⊢ₛ C wf ->
+      wf_cse Γ S C ->
       typing Γ S (C ⟜ x) (C # R)
   | typing_sub : forall S R Γ e T,
       typing Γ S e R ->
@@ -502,9 +501,9 @@ Inductive red : state -> state -> Prop :=
       --> ⟨ S | K | y ⟩
 where "Σ1 --> Σ2" := (red Σ1 Σ2).
 *)
-Hint Constructors type pure_type expr cset wf_cse wf_typ wf_env value sub subcset typing : core.
+Hint Constructors type pure_type expr cset wf_cse wf_typ wf_ctx wf_store_ctx value sub subcapt typing : core.
 Hint Resolve sub_top sub_refl_tvar sub_arr sub_all sub_box : core.
-Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_sub : core. 
+Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_sub : core.
 
 (* TODO: ???? *)
 (* Local Ltac cset_unfold_union0 := *)
