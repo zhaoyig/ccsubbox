@@ -22,19 +22,23 @@ Notation "'∀' '[' R ']' T" := (typ_all R T) (at level 60, R at next level, T a
 Notation "'□' T" := (typ_box T) (at level 70, no associativity).
 Notation "C '#' R" := (typ_cse C R) (at level 65, R at next level, right associativity).
 
+Inductive var_like : Type :=
+  | var_like_var : var -> var_like 
+  | var_like_loc : loc -> var_like.
+
 Inductive exp : Type :=
-  | exp_var : var -> exp
-  | exp_loc : loc -> exp
+  | exp_var_like : var_like -> exp
   | exp_abs : typ -> exp -> exp
-  | exp_app : var -> var -> exp
+  | exp_app : var_like -> var_like -> exp
   | exp_let : exp -> exp -> exp
   | exp_tabs : typ -> exp -> exp
-  | exp_tapp : var -> typ -> exp
-  | exp_box : var -> exp
-  | exp_unbox : cse -> var -> exp.
+  | exp_tapp : var_like -> typ -> exp
+  | exp_box : var_like -> exp
+  | exp_unbox : cse -> var_like -> exp.
 
-Coercion exp_var : var >-> exp.
-Coercion exp_loc : loc >-> exp.
+Coercion exp_var_like : var_like >-> exp.
+Coercion var_like_var : var >-> var_like.
+Coercion var_like_loc : loc >-> var_like.
 Notation "'λ' '(' T ')' Γ" := (exp_abs T Γ) (at level 60, T at next level, Γ at next level, right associativity).
 Notation "'Λ' '[' R ']' Γ" := (exp_tabs R Γ) (at level 60, R at next level, Γ at next level, right associativity).
 Notation "x '@' y" := (exp_app x y) (at level 61, y at next level, left associativity).
@@ -43,10 +47,14 @@ Notation "x  '@' '[' R ']'" := (exp_tapp x R) (at level 61, R at next level, lef
 Notation "'box' Γ" := (exp_box Γ) (at level 70, Γ at next level, no associativity).
 Notation "C '⟜' x" := (exp_unbox  C x) (at level 60, x at next level, right associativity).
 
-Definition var_cv (v : var) : cse :=
-  match v with
-  | var_b _ => {}
-  | var_f x => cse_fvar x
+Definition var_cv (vl : var_like) : cse :=
+  match vl with 
+  | var_like_var v =>
+    match v with
+    | var_b _ => {}
+    | var_f x => cse_fvar x
+    end
+  | var_like_loc l => cse_loc l
   end.
 
 Definition open_vt (K : nat) (U : typ) (v : var) : typ :=
@@ -67,8 +75,7 @@ Fixpoint open_tt_rec (K : nat) (U : typ) (T : typ) {struct T} : typ :=
 
 Fixpoint open_te_rec (K : nat) (U : typ) (Γ : exp) {struct Γ} : exp :=
   match Γ with
-  | exp_var v => exp_var v
-  | exp_loc l => l
+  | exp_var_like v => exp_var_like v
   | λ (V) e1 => λ (open_tt_rec K U V) (open_te_rec (S K) U e1)
   | f @ x => exp_app f x
   | let= e1 in e2 => let= (open_te_rec K U e1) in (open_te_rec (S K) U e2)
@@ -88,16 +95,19 @@ Fixpoint open_ct_rec (k : nat) (c : cse) (T : typ)  {struct T} : typ :=
   | □ T => □ (open_ct_rec k c T)
   end.
 
-Definition open_vv (k : nat) (z : atom) (v : var) : var :=
-  match v with
-  | var_b i => if k === i then z else i
-  | var_f x => x
+Definition open_vv (k : nat) (z : atom) (vl : var_like) : var_like :=
+  match vl with
+  | var_like_var v => 
+    match v with
+    | var_b i => if k === i then z else i
+    | var_f x => x 
+    end
+  | var_like_loc l => l
   end.
 
 Fixpoint open_ve_rec (k : nat) (z : atom) (c : cse) (Γ : exp)  {struct Γ} : exp :=
   match Γ with
-  | exp_var v => open_vv k z v
-  | exp_loc l => l
+  | exp_var_like v => open_vv k z v
   | λ (t) e1 => λ (open_ct_rec k c t) (open_ve_rec (S k) z c e1)
   | f @ x => open_vv k z f @ open_vv k z x
   | let= Γ in C => let= open_ve_rec k z c Γ in open_ve_rec (S k) z c C
@@ -114,8 +124,7 @@ Definition open_ct T c := open_ct_rec 0 c T.
 
 Fixpoint exp_cv (Γ : exp) : cse :=
   match Γ with
-  | exp_var v => var_cv v
-  | exp_loc l => cse_loc l
+  | exp_var_like v => var_cv v
   | λ (t) e1 => exp_cv e1
   | f @ x => var_cv f `u` var_cv x
   | let= Γ in C => exp_cv Γ `u` exp_cv C
@@ -197,6 +206,7 @@ Definition allbound (Γ : ctx) (fvars : atoms) : Prop :=
     x `in`A fvars ->
     exists C R, binds x (bind_typ (C # R)) Γ.
 
+(* Change the order of ctx, store_ctx *)
 Inductive wf_cse : ctx -> store_ctx -> cse -> Prop :=
   | wf_cse_top : forall E S,
       wf_cse E S cse_top
