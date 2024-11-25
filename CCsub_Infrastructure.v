@@ -206,7 +206,7 @@ Inductive csetN : nat -> cse -> Prop :=
 
 Inductive typeN : nat -> typ -> Prop :=
   | typeN_pure : forall n R, pure_typeN n R -> typeN n R
-  | typeN_cset : forall n C R,
+  | typeN_capt : forall n C R,
       csetN n C ->
       pure_typeN n R ->
       typeN n (C # R)
@@ -296,7 +296,7 @@ Proof with eauto using open_vt_typeN_aux.
   destruct T; simpl in *; try discriminate H0...
   injection H0 as HC HR; subst.
   unfold open_cse in H1.
-  apply typeN_cset.
+  apply typeN_capt.
   - apply (csetN_weakening n (`succ` n) c); auto.
   - eapply open_tt_rec_pure_typeN_aux, H3.
 }
@@ -384,7 +384,7 @@ Proof with eauto*.
   all: try (discriminate x).
   inversion x; subst; clear x.
   unfold open_cse in H.
-  apply typeN_cset.
+  apply typeN_capt.
   - induction c.
     + apply (csetN_weakening n (`succ` n) {*}); auto.
     + destruct (n === n0).
@@ -414,7 +414,7 @@ Proof with eauto.
 { clear type_to_type0.
   intros * H.
   dependent induction H...
-  apply typeN_cset...
+  apply typeN_capt...
   induction H.
   - apply csetN_top.
   - apply csetN_fvar.
@@ -642,7 +642,7 @@ Proof with eauto*.
   apply AtomSetFacts.union_iff; auto.
 Qed.
 
-Lemma subst_cset_intro : forall X k D C,
+Lemma subst_cse_intro : forall X k D C,
   X ∉ `cse_fvars` C ->
   open_cse k D C = subst_cse X D (open_cse k (cse_fvar X) C).
  Proof with eauto*.
@@ -693,7 +693,7 @@ Lemma subst_te_intro_rec : forall X e U k,
   open_te_rec k U e = subst_te X U (open_te_rec k X e).
 Proof.
   induction e; intros U k Fr; simpl in *; f_equal;
-    auto using subst_cset_intro, subst_tt_intro_rec.
+    auto using subst_cse_intro, subst_tt_intro_rec.
 Qed.
 
 Lemma subst_te_intro : forall X e U,
@@ -1028,13 +1028,13 @@ Qed.
 Lemma subst_ve_intro_rec : forall x e u c k,
   x ∉ (fv_ve e `u`A fv_ce e) ->
   open_ve_rec k u c e = subst_ve x u c (open_ve_rec k x (cse_fvar x) e).
-Proof with eauto using open_ct_subst_ct_var, subst_vv_intro, subst_cset_intro.
-  induction e; intros u c' k Fr; simpl in *; f_equal... destruct v... 
-  destruct v... 
+Proof with eauto using open_ct_subst_ct_var, subst_vv_intro, subst_cse_intro.
+  induction e; intros u c' k Fr; simpl in *; f_equal... destruct v... destruct v...
   - notin_simpl. simpl. destruct (a == x). rewrite e in H1. 
   contradiction. reflexivity.
-  -  
-Admitted.
+  - notin_simpl. simpl. destruct (k === n). destruct (x == x). reflexivity. contradiction.
+    reflexivity.
+Qed.
 
 
 Lemma subst_ve_intro : forall x e u c,
@@ -1054,11 +1054,11 @@ Lemma subst_ve_open_ve_rec : forall e x y u c1 c2 k,
 Proof with auto using subst_vv_open_vv, subst_ct_open_rec, subst_cset_open_cset_fresh.
   intros * Neq Capt.
   revert k.
-  induction e; intros k; simpl; f_equal... destruct v... 
-  destruct v... simpl.
-  - simpl.
-  -
-Admitted.
+  induction e; intros k; simpl; f_equal... destruct v. destruct v... simpl.
+  - simpl. destruct (a == x); subst...
+  - simpl. destruct (k === n); subst... destruct (y == x); subst... fsetdec.
+  - simpl. f_equal; apply subst_cset_open_cset_fresh; auto.
+Qed.
 
 Lemma subst_ve_open_ve_var : forall (x y u : atom) c e,
   y <> x ->

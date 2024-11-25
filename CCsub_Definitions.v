@@ -13,14 +13,14 @@ Inductive typ : Type :=
   | typ_arr : typ -> typ -> typ
   | typ_all : typ -> typ -> typ
   | typ_box : typ -> typ
-  | typ_cse : cse -> typ -> typ.
+  | typ_capt : cse -> typ -> typ.
 
 Coercion typ_var : var >-> typ.
 Notation "'⊤'" := typ_top (at level 80, no associativity).
 Notation "'∀' '(' S ')' T" := (typ_arr S T) (at level 60, S at next level, T at next level, right associativity).
 Notation "'∀' '[' R ']' T" := (typ_all R T) (at level 60, R at next level, T at next level, right associativity).
 Notation "'□' T" := (typ_box T) (at level 70, no associativity).
-Notation "C '#' R" := (typ_cse C R) (at level 65, R at next level, right associativity).
+Notation "C '#' R" := (typ_capt C R) (at level 65, R at next level, right associativity).
 
 Inductive var_like : Type :=
   | var_like_var : var -> var_like 
@@ -241,7 +241,7 @@ Inductive wf_typ : ctx -> store_ctx -> typ -> Prop :=
   | wf_typ_box : forall Γ S T,
       wf_typ Γ S T ->
       wf_typ Γ S (□ T)
-  | wf_typ_cse : forall Γ S C R,
+  | wf_typ_capt : forall Γ S C R,
       wf_cse Γ S C ->
       wf_typ Γ S R ->
       pure_type R ->
@@ -298,11 +298,11 @@ Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
       wf_store_ctx S ->
       subcapt E S (cse_loc l) (cse_loc l)
   | subcapt_trans_var : forall R S E Q X T,
-      binds X (bind_typ (typ_cse R T)) E ->
+      binds X (bind_typ (typ_capt R T)) E ->
       subcapt E S R Q ->
       subcapt E S (cse_fvar X) Q
   | subcapt_trans_loc : forall E R S Q X T,
-      Store.binds X (typ_cse R T) S ->
+      Store.binds X (typ_capt R T) S ->
       subcapt E S R Q ->
       subcapt E S (cse_loc X) Q
   | subcapt_join_inl : forall E S R1 R2 Q,
