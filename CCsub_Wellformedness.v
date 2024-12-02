@@ -811,3 +811,70 @@ Proof with eauto using wf_typ_ignores_sub_bindings, wf_typ_ignores_typ_bindings.
   induction Δ; intros * WfCtx Wf;
     inversion WfCtx; subst; simpl_env in *...
 Qed.
+
+(* Lemma wf_typ_weaken_head : forall T Γ Δ S, *)
+(*   wf_typ Γ S T -> *)
+(*   ok (Δ ++ Γ) -> *)
+(*   wf_typ (Δ ++ Γ) S T. *)
+(* Proof. *)
+(*   intros. *)
+(*   rewrite_env (nil ++ Δ ++ Γ). *)
+(*   apply wf_typ_weakening; eauto || fsetdec. *)
+(* Qed. *)
+
+Lemma ok_from_wf_store_ctx : forall S,
+  wf_store_ctx S ->
+  Store.ok S.
+Proof with eauto.
+  intros * H.
+  induction H...
+Qed.
+
+Hint Resolve ok_from_wf_store_ctx : core.
+
+Lemma wf_cse_weaken_store_tail: forall C Γ S1 S2,
+  wf_cse Γ S2 C ->
+  Store.ok (S1 ++ S2) ->
+  wf_cse Γ (S1 ++ S2) C.
+Proof with eauto.
+  intros * Hwf Hok.
+  induction Hwf...
+Qed.
+
+Lemma wf_typ_weaken_store_tail: forall T Γ S1 S2,
+  wf_typ Γ S2 T ->
+  Store.ok (S1 ++ S2) ->
+  wf_typ Γ (S1 ++ S2) T.
+Proof with eauto.
+  intros * Hwf Hok.
+  induction Hwf...
+  apply wf_typ_capt...
+  apply wf_cse_weaken_store_tail...
+Qed.
+
+(* Lemma wf_ty *)
+
+Lemma wf_store_ctx_strengthen : forall S1 S2,
+  wf_store_ctx (S1 ++ S2) ->
+  wf_store_ctx S2.
+Proof with eauto.
+  intros * H.
+  induction S1...
+  destruct a.
+  rewrite (Store.cons_concat_assoc _ l t S1 S2) in H.
+  inversion H; subst...
+Qed.
+
+
+Lemma wf_typ_from_wf_store_ctx : forall S C R l,
+  wf_store_ctx S ->
+  Store.binds l (C # R) S ->
+  wf_typ nil S (C # R).
+Proof with eauto 5 using wf_typ_weaken_store_tail.
+  intros * Hwf Hbinds.
+  induction Hwf...
+  - inversion Hbinds.
+  - inversion Hbinds.
+    destruct (l ==== l0); subst...
+    inversion H2; subst...
+Qed.
