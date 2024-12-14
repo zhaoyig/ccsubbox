@@ -26,6 +26,10 @@ Inductive var_like : Type :=
   | var_like_var : var -> var_like 
   | var_like_loc : loc -> var_like.
 
+Inductive fvar_like : var_like -> Prop :=
+  | fvar_like_fvar : forall (x : atom), fvar_like (var_like_var x)
+  | fvar_like_loc : forall (l : loc), fvar_like (var_like_loc l).
+
 Inductive exp : Type :=
   | exp_var_like : var_like -> exp
   | exp_abs : typ -> exp -> exp
@@ -95,7 +99,7 @@ Fixpoint open_ct_rec (k : nat) (c : cse) (T : typ)  {struct T} : typ :=
   | □ T => □ (open_ct_rec k c T)
   end.
 
-Definition open_vv (k : nat) (z : atom) (vl : var_like) : var_like :=
+Definition open_vv (k : nat) (z : var_like) (vl : var_like) : var_like :=
   match vl with
   | var_like_var v => 
     match v with
@@ -105,7 +109,7 @@ Definition open_vv (k : nat) (z : atom) (vl : var_like) : var_like :=
   | var_like_loc l => l
   end.
 
-Fixpoint open_ve_rec (k : nat) (z : atom) (c : cse) (Γ : exp)  {struct Γ} : exp :=
+Fixpoint open_ve_rec (k : nat) (z : var_like) (c : cse) (Γ : exp)  {struct Γ} : exp :=
   match Γ with
   | exp_var_like v => open_vv k z v
   | λ (t) e1 => λ (open_ct_rec k c t) (open_ve_rec (S k) z c e1)
@@ -114,7 +118,7 @@ Fixpoint open_ve_rec (k : nat) (z : atom) (c : cse) (Γ : exp)  {struct Γ} : ex
   | Λ [t] e1 => exp_tabs (open_ct_rec k c t) (open_ve_rec (S k) z c e1)
   | x @ [t] => exp_tapp (open_vv k z x) (open_ct_rec k c t)
   | box x => box open_vv k z x
-  | C ⟜ x => open_cse k (cse_fvar z) C ⟜ open_vv k z x
+  | C ⟜ x => open_cse k (var_cv z) C ⟜ open_vv k z x
   end.
 
 Definition open_tt T U := open_tt_rec 0 U T.
@@ -281,7 +285,7 @@ Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
       wf_store_ctx S ->
       wf_ctx E S ->
       wf_cse E S Q ->
-      subcapt E S cse_top Q
+      subcapt E S Q cse_top
   | subcapt_bot : forall E S Q,
       wf_store_ctx S ->
       wf_ctx E S ->
@@ -480,35 +484,35 @@ Inductive red : state -> state -> Prop :=
       l `Notin` Store.dom S ->
           ⟨ S | k :: K | v ⟩
       --> ⟨ [(l, store v)] ++ S | K | open_ve k l (cse_loc l)⟩
-  (* | red_let_var : forall (x : atom) v k S K, *)
-  (*     stores S x v -> *)
-  (*         ⟨ S | k :: K | x ⟩ *)
-  (*     --> ⟨ S | K | open_ve k x (cse_fvar x) ⟩ *)
-  (* | red_let_val : forall x v k S K, *)
-  (*     value v -> *)
-  (*     x ∉ dom S -> *)
-  (*         ⟨ S | K | let= v in k ⟩ *)
-  (*     --> ⟨ [(x, store v )] ++ S | K | open_ve k x (cse_fvar x) ⟩ *)
-  (* | red_let_exp : forall e k (k_scope : scope k) S K, *)
-  (*         ⟨ S | K | let= e in k ⟩ *)
-  (*     --> ⟨ S | k :: K | e ⟩ *)
-  (* | red_app : forall f x U e v S K, *)
-  (*     stores S f (λ (U) e) -> *)
-  (*     stores S x v -> *)
-  (*         ⟨ S | K | f @ x ⟩ *)
-  (*     --> ⟨ S | K | open_ve e x (cse_fvar x) ⟩ *)
-  (* | red_tapp : forall x R U e S K, *)
-  (*     stores S x (Λ [U] e) -> *)
-  (*     pure_type R -> *)
-  (*         ⟨ S | K | x @ [R] ⟩ *)
-  (*     --> ⟨ S | K | open_te e R ⟩ *)
-  (* | red_open : forall C x y S K, *)
-  (*     stores S x (box y) -> *)
-  (*         ⟨ S | K | C ⟜ x ⟩ *)
-  (*     --> ⟨ S | K | y ⟩ *)
+  | red_let_var : forall (l : loc) v k S K,
+      stores S l v ->
+          ⟨ S | k :: K | l ⟩
+      --> ⟨ S | K | open_ve k l (cse_loc l) ⟩
+  | red_let_val : forall l v k S K,
+      value v ->
+      l `Notin` Store.dom S ->
+          ⟨ S | K | let= v in k ⟩
+      --> ⟨ [(l, store v )] ++ S | K | open_ve k l (cse_loc l) ⟩
+  | red_let_exp : forall e k (k_scope : scope k) S K,
+          ⟨ S | K | let= e in k ⟩
+      --> ⟨ S | k :: K | e ⟩
+  | red_app : forall f l U e v S K,
+      stores S f (λ (U) e) ->
+      stores S l v ->
+          ⟨ S | K | f @ l ⟩
+      --> ⟨ S | K | open_ve e l (cse_loc l) ⟩
+  | red_tapp : forall l R U e S K,
+      stores S l (Λ [U] e) ->
+      pure_type R ->
+          ⟨ S | K | l @ [R] ⟩
+      --> ⟨ S | K | open_te e R ⟩
+  | red_open : forall C l y S K,
+      stores S l (box y) ->
+          ⟨ S | K | C ⟜ l ⟩
+      --> ⟨ S | K | y ⟩
 where "Σ1 --> Σ2" := (red Σ1 Σ2).
-*)
-Hint Constructors type pure_type expr cset wf_cse wf_typ wf_ctx wf_store_ctx value sub subcapt typing : core.
+
+Hint Constructors type pure_type expr cset wf_cse wf_typ wf_ctx wf_store_ctx value sub subcapt typing fvar_like : core.
 Hint Resolve sub_top sub_refl_tvar sub_arr sub_all sub_box : core.
 Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_sub : core.
 
