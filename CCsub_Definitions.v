@@ -477,7 +477,6 @@ Inductive state_typing : state -> typ -> Prop :=
       typing E S e (C1 # R1) ->
       state_typing (mk_state StoreEnv Sf e) (C2 # R2).
 
-(*
 Inductive red : state -> state -> Prop :=
   | red_lift : forall l v k S K,
       value v ->
@@ -543,3 +542,4 @@ Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_su
 (* Ltac cset_unfold_union := repeat cset_unfold_union0. *)
 (**)
 (* Ltac _csetsimpl_hook ::= cset_unfold_union. *)
+
