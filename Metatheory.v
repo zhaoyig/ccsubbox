@@ -33,6 +33,8 @@ Notation "x == y" :=
   (eq_atom_dec x y) (at level 67) : metatheory_scope.
 Notation "i === j" :=
   (Peano_dec.eq_nat_dec i j) (at level 67) : metatheory_scope.
+Notation "x ==== y" :=
+  (eq_loc_dec x y) (at level 67) : metatheory_scope.
 
 (** Common set operations may be written using infix notation. *)
 

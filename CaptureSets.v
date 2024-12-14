@@ -243,6 +243,10 @@ Lemma cse_fvars_join_union : forall (C1: cse) (C2: cse),
   `cse_fvars` (cse_join C1 C2) = AtomSet.F.union (`cse_fvars` C1) (`cse_fvars` C2).
 Proof. auto. Qed.
 
+Lemma cse_locs_join_union : forall (C1: cse) (C2: cse),
+  `cse_locs` (cse_join C1 C2) = LocSet.F.union (`cse_locs` C1) (`cse_locs` C2).
+Proof. auto. Qed.
+
 Lemma subst_cse_fresh : forall x C1 C2,
   x `notin` (cse_fvars C1) ->
   C1 = subst_cse x C2 C1.
