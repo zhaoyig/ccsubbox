@@ -604,17 +604,9 @@ Qed.
 (* ********************************************************************** *)
 (** * #<a name="regularity"></a># Regularity of relations *)
 
-Lemma subcapt_env_wf : forall Γ C D S,
-  subcapt Γ S C D ->
-  wf_ctx Γ S.
-Proof with eauto.
-  intros * SubCapt.
-  induction SubCapt...
-Qed.
-
 Lemma subcapt_regular : forall Γ C D S,
   subcapt Γ S C D ->
-  wf_cse Γ S C /\ wf_cse Γ S D.
+  wf_store_ctx S /\ wf_ctx Γ S /\ wf_cse Γ S C /\ wf_cse Γ S D.
 Proof with eauto*.
   intros * SubCapt.
   dependent induction SubCapt; subst...
@@ -802,7 +794,6 @@ Proof with simpl_env; auto*.
   - Case "typing_loc".
     repeat split...
     assert (wf_typ nil S (C # R)) by eauto using wf_typ_from_wf_store_ctx.
-    Print wf_typ_weakening.
     assert (wf_typ (nil ++ Γ ++ nil) S (C # R)). apply (wf_typ_weakening (C # R) nil Γ nil S)...
     apply ok_from_wf_ctx in H0...
     simpl_env in H3...
@@ -948,13 +939,14 @@ Qed.
 
 Hint Extern 1 (wf_cse ?E ?S ?C) =>
   match goal with
-  | H: subcapt _ _ C _ |- _ => apply (proj1 (subcapt_regular _ _ _ _ H))
-  | H: subcapt _ _ _ C |- _ => apply (proj2 (subcapt_regular _ _ _ _ H))
+  | H: subcapt _ _ C _ |- _ => apply (proj1 (proj2 (proj2 (subcapt_regular _ _ _ _ H))))
+  | H: subcapt _ _ _ C |- _ => apply (proj2 (proj2 (proj2 (subcapt_regular _ _ _ _ H))))
   end
 : core.
 
 Hint Extern 1 (wf_ctx ?E ?S) =>
   match goal with
+  | H: subcapt _ _ _ _ |- _ => apply (proj1 (proj2 (subcapt_regular _ _ _ _ H)))
   | H: sub _ _ _ _ |- _ => apply (proj1 (proj2 (sub_regular _ _ _ _ H)))
   | H: typing _ _ _ _ |- _ => apply (proj1 (proj2 (typing_regular _ _ _ _ H)))
   end

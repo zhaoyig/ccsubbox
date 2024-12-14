@@ -108,14 +108,14 @@ Fixpoint subst_te (Z : atom) (U : typ) (e : exp) {struct e} : exp :=
   | C ⟜ x => C ⟜ x
   end.
 
-Definition subst_vv (z : atom) (u : atom) (v : var_like) : var_like :=
+Definition subst_vv (z : atom) (u : var_like) (v : var_like) : var_like :=
   match v with
   | var_like_var (var_f x) => if x == z then u else v
   | var_like_var (var_b i) => i
   | var_like_loc x =>  x
   end.
 
-Fixpoint subst_ve (z : atom) (u : atom) (c : cse) (e : exp) {struct e} : exp :=
+Fixpoint subst_ve (z : atom) (u : var_like) (c : cse) (e : exp) {struct e} : exp :=
   match e with
   | exp_var_like (var_like_var v) => subst_vv z u v
   | exp_var_like (var_like_loc l) => l
@@ -125,7 +125,7 @@ Fixpoint subst_ve (z : atom) (u : atom) (c : cse) (e : exp) {struct e} : exp :=
   | Λ [t] e1 => Λ [subst_ct z c t] (subst_ve z u c e1)
   | x @ [t] => subst_vv z u x @ [subst_ct z c t]
   | box x => box (subst_vv z u x)
-  | C ⟜ x => subst_cse z (cse_fvar u) C ⟜ subst_vv z u x
+  | C ⟜ x => subst_cse z (var_cv u) C ⟜ subst_vv z u x
   end. 
 
 Definition subst_tb (Z : atom) (P : typ) (b : binding) : binding :=
@@ -1015,11 +1015,13 @@ Qed.
 
 Lemma subst_vv_open_vv : forall x u k y v,
   y <> x ->
+  fvar_like u ->
   subst_vv x u (open_vv k y v) = open_vv k y (subst_vv x u v).
 Proof with eauto*.
-  intros * Neq.
+  intros * Neq Fvar.
   destruct v. destruct v; simpl. 
-  - destruct (a == x); simpl...
+  - destruct (a == x); simpl; subst...
+    inversion Fvar; subst...
   - destruct (k === n); simpl...
     destruct (y == x); simpl; subst...
   - reflexivity.
@@ -1048,26 +1050,28 @@ Qed.
 
 Lemma subst_ve_open_ve_rec : forall e x y u c1 c2 k,
   y <> x ->
+  fvar_like u ->
   cset c1 ->
   subst_ve x u c1 (open_ve_rec k y c2 e) =
     open_ve_rec k y (subst_cse x c1 c2) (subst_ve x u c1 e).
 Proof with auto using subst_vv_open_vv, subst_ct_open_rec, subst_cset_open_cset_fresh.
-  intros * Neq Capt.
+  intros * Neq Fvar Capt.
   revert k.
-  induction e; intros k; simpl; f_equal... destruct v. destruct v... simpl.
-  - simpl. destruct (a == x); subst...
+  induction e; intros k; simpl; f_equal... destruct v. destruct v...
+  - simpl. destruct (a == x); inversion Fvar; subst...
   - simpl. destruct (k === n); subst... destruct (y == x); subst... fsetdec.
   - simpl. f_equal; apply subst_cset_open_cset_fresh; auto.
+  - destruct u; simpl in *; inversion Fvar; subst...
 Qed.
 
-Lemma subst_ve_open_ve_var : forall (x y u : atom) c e,
+Lemma subst_ve_open_ve_var : forall (x y : atom) u c e,
   y <> x ->
-  expr u ->
+  fvar_like u ->
   cset c ->
   open_ve (subst_ve x u c e) y (cse_fvar y) =
   subst_ve x u c (open_ve e y (cse_fvar y)).
 Proof with auto*.
-  intros x y u c e Neq Wu Wc.
+  intros x y u c e Neq Fvar Wc.
   unfold open_ve.
   rewrite subst_ve_open_ve_rec...
   simpl.

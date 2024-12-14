@@ -132,6 +132,16 @@ Ltac wf_cse_simpl instantiate_ext :=
     end
   end.
 
+Lemma wf_cse_fvars_from_ctx : forall Γ S C,
+  wf_cse Γ S C ->
+   (cse_fvars C) `subset` (dom Γ).
+Proof with eauto.
+  intros * Hwf.
+  induction Hwf; simpl in *; try fsetdec...
+  apply binds_In in H...
+  fsetdec.
+Qed.
+
 Lemma wf_cse_weakening : forall F E G S C,
   wf_cse (G ++ E) S C ->
   ok (G ++ F ++ E) ->
@@ -812,16 +822,6 @@ Proof with eauto using wf_typ_ignores_sub_bindings, wf_typ_ignores_typ_bindings.
     inversion WfCtx; subst; simpl_env in *...
 Qed.
 
-(* Lemma wf_typ_weaken_head : forall T Γ Δ S, *)
-(*   wf_typ Γ S T -> *)
-(*   ok (Δ ++ Γ) -> *)
-(*   wf_typ (Δ ++ Γ) S T. *)
-(* Proof. *)
-(*   intros. *)
-(*   rewrite_env (nil ++ Δ ++ Γ). *)
-(*   apply wf_typ_weakening; eauto || fsetdec. *)
-(* Qed. *)
-
 Lemma ok_from_wf_store_ctx : forall S,
   wf_store_ctx S ->
   Store.ok S.
@@ -852,8 +852,6 @@ Proof with eauto.
   apply wf_cse_weaken_store_tail...
 Qed.
 
-(* Lemma wf_ty *)
-
 Lemma wf_store_ctx_strengthen : forall S1 S2,
   wf_store_ctx (S1 ++ S2) ->
   wf_store_ctx S2.
@@ -864,7 +862,6 @@ Proof with eauto.
   rewrite (Store.cons_concat_assoc _ l t S1 S2) in H.
   inversion H; subst...
 Qed.
-
 
 Lemma wf_typ_from_wf_store_ctx : forall S C R l,
   wf_store_ctx S ->
@@ -878,3 +875,14 @@ Proof with eauto 5 using wf_typ_weaken_store_tail.
     destruct (l ==== l0); subst...
     inversion H2; subst...
 Qed.
+
+Lemma wf_pair_from_wf_store_ctx : forall S C R l,
+  wf_store_ctx S ->
+  Store.binds l (C # R) S ->
+  wf_cse nil S C /\ wf_typ nil S (C # R).
+Proof with eauto.
+  intros * Hwf Hbinds.
+  epose proof (wf_typ_from_wf_store_ctx S C R l Hwf Hbinds) as H.
+  inversion H; subst...
+Qed.
+
