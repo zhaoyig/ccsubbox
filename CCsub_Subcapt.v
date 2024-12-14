@@ -4,173 +4,198 @@ Require Export CCsub_Hints.
 Require Export CCsub_Lemmas.
 
 (* Needed *)
-Lemma subcapt_weakening : forall Γ Θ Δ C D,
-  (Δ ++ Γ) ⊢ₛ C <: D ->
-  (Δ ++ Θ ++ Γ) ⊢ wf ->
-  (Δ ++ Θ ++ Γ) ⊢ₛ C <: D.
-Proof with eauto using wf_cset_weakening.
+Lemma subcapt_weakening : forall Γ Θ Δ C D S,
+  subcapt (Δ ++ Γ) S C D ->
+  wf_ctx (Δ ++ Θ ++ Γ) S ->
+  subcapt (Δ ++ Θ ++ Γ) S C D.
+Proof with eauto using wf_cse_weakening.
   intros * Hsc Hwf.
   remember (Δ ++ Γ).
   remember (Δ ++ Θ ++ Γ).
   induction Hsc; subst...
 Qed.
 
-Lemma wf_cse_top: forall Γ,
-  Γ ⊢ₛ cse_top wf.
+Lemma wf_cse_top: forall Γ S,
+  wf_cse Γ S cse_top.
 Proof with eauto.
   intros *.
   constructor...
 Qed.
 
-Lemma wf_cse_bot: forall Γ,
-  Γ ⊢ₛ cse_bot wf.
+Lemma wf_cse_bot: forall Γ S,
+  wf_cse Γ S cse_bot.
 Proof with eauto.
   intros *.
   constructor...
 Qed.
-
-
 
 Hint Resolve wf_cse_top : core.
 Hint Resolve wf_cse_bot : core.
 
 (* Needed *)
-Lemma subcapt_reflexivity : forall Γ C,
-  Γ ⊢ wf ->
-  Γ ⊢ₛ C wf ->
-  Γ ⊢ₛ C <: C.
+Lemma subcapt_reflexivity : forall Γ S C,
+  wf_store_ctx S ->
+  wf_ctx Γ S ->
+  wf_cse Γ S C ->
+  subcapt Γ S C C.
 Proof with eauto.
-  intros * WfE WfC.
-  induction WfC. 
-  - constructors... 
-  - constructors... 
-  - apply subcset_join_elim. auto. auto.
-  - auto. 
+  intros * WfS WfE WfC.
+  induction WfC; eauto.
+  apply subcapt_join_elim. auto. auto.
 Qed.
 
-Lemma subcset_join_split : forall E R1 R2 T,
-  E ⊢ₛ (cse_join R1 R2) <: T ->
-  E ⊢ₛ R1 <: T /\ E ⊢ₛ R2 <: T.
+Lemma subcapt_join_split : forall E S R1 R2 T,
+  subcapt E S (cse_join R1 R2) T ->
+  subcapt E S R1 T /\ subcapt E S R2 T.
 Proof with eauto.
   intros * Sub.
   dependent induction Sub; try solve [intuition eauto]...
-  - apply wf_cset_over_join in H0. destruct H0. split; constructor...
+  - split; constructor; inversion H1...
   - edestruct IHSub...
   - edestruct IHSub...
+Qed.
+
+Lemma subcapt_top_top : forall E S C D,
+  wf_cse E S D ->
+  subcapt E S cse_top C ->
+  subcapt E S D C.
+Proof with eauto.
+  intros * WfD Sub.
+  assert (wf_store_ctx S) by (apply subcapt_regular in Sub; destruct Sub; auto).
+  dependent induction Sub...
 Qed.
 
 (* Needed *)
-Lemma subcapt_transitivity : forall E S Q T,
-  E ⊢ₛ S <: Q ->
-  E ⊢ₛ Q <: T ->
-  E ⊢ₛ S <: T.
+Lemma subcapt_transitivity : forall E S R Q T,
+  subcapt E S R Q ->
+  subcapt E S Q T ->
+  subcapt E S R T.
 Proof with eauto with fsetdec.
-  intros E S Q T SsubQ QsubT.
+  intros E S R Q T RsubQ QsubT.
   generalize dependent T.
-  induction SsubQ.
-  - intros T QsubT... dependent induction QsubT...
-  - intros T QsubT...
-  - intros T QsubT...
-  - intros T' QsubT...
-  - intros T QsubT... eapply subcset_join_split in QsubT as [SubL SubR]...
-  - intros T QsubT... eapply subcset_join_split in QsubT as [SubL SubR]...
-  - intros T QsubT...
+  induction RsubQ; intros T' QsubT...
+  - apply subcapt_top_top with (D := Q) in QsubT...
+  - eapply subcapt_join_split in QsubT as [SubL SubR]...
+  - eapply subcapt_join_split in QsubT as [SubL SubR]...
 Qed.
 
+Lemma wf_store_cse_no_fvar: forall S x R T l,
+  wf_store_ctx S ->
+  Store.binds l (R # T) S ->
+  x `notin` `cse_fvars` R.
+Proof with eauto.
+  intros * WfS HBinds.
+  induction WfS...
+  - inversion HBinds.
+  - Store.binds_cases HBinds.
+    + apply (IHWfS H1).
+    + inversion H3. subst.
+      inversion H; subst.
+      inversion H4; subst...
+      -- inversion H1.
+      -- apply wf_cse_fvars_from_ctx in H4.
+         fsetdec.
+Qed.
 
 (* Needed, line 664 *)
 (* Substituting the same capture set preserves subcapturing *)
-Lemma subcapt_through_subst_cset : forall x D Q C Δ Γ C1 C2 ,
-  (Δ ++ [(x, bind_typ (D # Q))] ++ Γ) ⊢ₛ C1 <: C2 ->
-  (* (Δ ++ [(x, bind_typ (D # Q))] ++ Γ) ⊢ wf -> *)
-  Γ ⊢ₛ C <: D ->
-  (map (subst_cb x C) Δ ++ Γ) ⊢ₛ (subst_cse x C C1) <: (subst_cse x C C2).
-Proof with eauto using wf_env_subst_cb, wf_cset_subst_cb with fsetdec.
-  eauto 4 using wf_env_subst_cb, wf_cset_subst_cb, wf_cset_weaken_head.
-  intros x D T C Δ Γ C1 C2 C1subC2 CsubD.
+Lemma subcapt_through_subst_cse : forall x D Q C Δ Γ S C1 C2 ,
+  subcapt (Δ ++ [(x, bind_typ (D # Q))] ++ Γ) S C1 C2 ->
+  subcapt Γ S C D ->
+  subcapt (map (subst_cb x C) Δ ++ Γ) S (subst_cse x C C1) (subst_cse x C C2).
+Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
+  eauto 4 using wf_ctx_subst_cb, wf_cse_subst_cb, wf_cse_weaken_head.
+  intros x D T C Δ Γ S C1 C2 C1subC2 CsubD.
   remember (Δ ++ [(x, bind_typ (D # T))] ++ Γ).
   generalize dependent Δ.
   induction C1subC2; intros G ET; subst; simpl subst_cse; eauto.
-  - apply subcapt_regular' in CsubD; destruct CsubD. destruct H2.
-    eapply subcset_top. eapply wf_env_subst_cb...
-    eapply wf_cset_subst_cb. apply H0. apply H. auto.
-  - apply subcapt_regular' in CsubD; destruct CsubD. destruct H2.
-    eapply subcset_bot. eapply wf_env_subst_cb... auto. eapply wf_cset_subst_cb.
-    apply H0. assumption. assumption.
-  - apply subcapt_regular' in CsubD; destruct CsubD. destruct H2.
+  - apply subcapt_regular in CsubD; destruct CsubD as [WfS [WfCtx [WfC WfD]]].
+    eapply subcapt_top...
+  - apply subcapt_regular in CsubD; destruct CsubD as [WfS [WfCtx [WfC WfD]]].
+    eapply subcapt_bot...
+  - apply subcapt_regular in CsubD; destruct CsubD as [WfS [WfCtx [WfC WfD]]].
     destruct (x == X).
-    + apply subcapt_reflexivity... apply wf_cset_weaken_head...
-    + apply subcapt_reflexivity... inversion H0. subst.
-      binds_cases H6.
+    + apply subcapt_reflexivity... apply wf_cse_weaken_head...
+    + apply subcapt_reflexivity... inversion H1. subst.
+      binds_cases H5.
       * eauto.
       * econstructor.
         assert (binds X (bind_typ T0) (G ++ Γ)). {
           apply binds_head...
         }
         assert (binds X (subst_cb x C (bind_typ T0)) (map (subst_cb x C) G ++ Γ)).
-        { apply (binds_map binding binding X (bind_typ T0) (subst_cb x C) (G ++ Γ)) in H4.
+        { apply (binds_map binding binding X (bind_typ T0) (subst_cb x C) (G ++ Γ)) in H2.
           auto. }
-        apply H6.
+        apply H4.
+  - constructor...
+    apply (wf_cse_subst_cb Γ G (D # T) x (cse_loc l) C S)...
   - destruct (x == X).
-    + subst. 
-      eapply (subcapt_transitivity (map (subst_cb X C) G ++ Γ) C D (subst_cse X C Q)).
+    + subst.
+      eapply (subcapt_transitivity (map (subst_cb X C) G ++ Γ) S C D (subst_cse X C Q)).
       * rewrite_env (nil ++ (map (subst_cb X C) G ++ Γ)).
         apply subcapt_weakening...
-        eapply wf_env_subst_cb. apply subcapt_regular' in C1subC2.
-        destruct C1subC2. apply H0. apply subcapt_regular' in CsubD.
-        destruct CsubD as [H0 [H1 H2]]...
+        eapply wf_ctx_subst_cb. apply subcapt_regular in C1subC2.
+        destruct C1subC2 as [WfS [WfCtx _]]. apply WfCtx. apply subcapt_regular in CsubD.
+        destruct CsubD as [_ [_ [H3 _]]]...
       * rewrite (subst_cse_fresh X D C).
         -- binds_cases H.
         ++ simpl in Fr0. fsetdec. (* X in Γ *)
         ++ inversion H0. subst. apply IHC1subC2... (* X in [(X, bind_typ (D # T))] *)
         ++ (* X in G, contradiciton, environment is not ok *)
-           assert (wf_env (G ++ [(X, bind_typ (D # T))] ++ Γ)) as Hwf.
-           { apply subcapt_regular' in C1subC2. destruct C1subC2 as [hwf _]... }
-           apply ok_from_wf_env in Hwf.
-           apply fresh_mid_head in Hwf.
+           assert (wf_ctx (G ++ [(X, bind_typ (D # T))] ++ Γ) S) as HCtx.
+           { apply subcapt_regular in C1subC2. destruct C1subC2 as [_ [hwf _]]... }
+           apply ok_from_wf_ctx in HCtx.
+           apply fresh_mid_head in HCtx.
            apply binds_In in H1.
-           unfold not in Hwf. apply Hwf in H1. inversion H1.
-        -- apply (notin_fv_wf_cse Γ).
-          ++ apply subcapt_regular' in CsubD. destruct CsubD as [_ [_ Dwf]]...
-          ++ assert (wf_env (G ++ [(X, bind_typ (D # T))] ++ Γ)).
-             { apply subcapt_regular' in C1subC2. destruct C1subC2 as [hwf _]... }
-             apply ok_from_wf_env in H0.
+           unfold not in HCtx. apply HCtx in H1. inversion H1.
+        -- apply (notin_fv_wf_cse Γ) with (S := S).
+          ++ apply subcapt_regular in CsubD. destruct CsubD as [_ [_ [_ Dwf]]]...
+          ++ assert (wf_ctx (G ++ [(X, bind_typ (D # T))] ++ Γ) S).
+             { apply subcapt_regular in C1subC2. destruct C1subC2 as [_ [hwf _]]... }
+             apply ok_from_wf_ctx in H0.
              apply fresh_mid_tail in H0. assumption.
     + binds_cases H.
-      * apply (subcset_trans_var (subst_cse x C R) (map (subst_cb x C) G ++ Γ) (subst_cse x C Q) X (subst_ct x C T0)).
+      * apply (subcapt_trans_var (subst_cse x C R) S (map (subst_cb x C) G ++ Γ) (subst_cse x C Q) X (subst_ct x C T0)).
         -- apply binds_tail.
-          ++ rewrite (map_subst_cb_id Γ x C).
+          ++ rewrite (map_subst_cb_id Γ x C S).
              apply binds_map with (f:=(subst_cb x C)) in H. simpl in H...
-             apply subcapt_regular' in CsubD. destruct CsubD...
-             apply subcapt_regular' in C1subC2. destruct C1subC2 as [Hwf _].
-             apply ok_from_wf_env in Hwf. apply fresh_mid_tail in Hwf... 
+             apply subcapt_regular in CsubD. destruct CsubD...
+             apply subcapt_regular in C1subC2. destruct C1subC2 as [_ [HCtx _]].
+             apply ok_from_wf_ctx in HCtx. apply fresh_mid_tail in HCtx... 
           ++ rewrite dom_map...
         -- apply IHC1subC2... 
-      * assert ((map (subst_cb x C) G ++ Γ) ⊢ₛ cse_fvar X <: subst_cse x C R).
-        { apply (subcset_trans_var (subst_cse x C R) (map (subst_cb x C) G ++ Γ) (subst_cse x C R) X (subst_ct x C T0)).
-          - assert (HH := H1).  
+      * assert (subcapt (map (subst_cb x C) G ++ Γ) S (cse_fvar X) (subst_cse x C R)).
+        { apply (subcapt_trans_var (subst_cse x C R) S (map (subst_cb x C) G ++ Γ) (subst_cse x C R) X (subst_ct x C T0)).
+          - assert (HH := H1).
             apply binds_map with (f:=(subst_cb x C)) in H1. simpl in H1.
-            apply subcapt_regular' in C1subC2. destruct C1subC2 as [Hwf _].
-            apply ok_from_wf_env in Hwf. apply ok_remove_mid in Hwf.
+            apply subcapt_regular in C1subC2. destruct C1subC2 as [_ [HCtx _]].
+            apply ok_from_wf_ctx in HCtx. apply ok_remove_mid in HCtx.
             apply binds_head with (E:=Γ) in H1...
-          - assert (HH := IHC1subC2 G).
-            apply subcapt_regular' in HH. destruct HH as [HH1 [HH2 HH3]].
+          - assert (HH := IHC1subC2 CsubD G ltac:(fsetdec)).
+            apply subcapt_regular in HH. destruct HH as [HH1 [HH2 [HH3 HH4]]].
             apply subcapt_reflexivity.
-            auto. auto. auto. 
+            auto. auto. auto.
         }
         eapply subcapt_transitivity. apply H. apply IHC1subC2...
+  - specialize (IHC1subC2 CsubD G ltac:(fsetdec)).
+    epose proof (subcapt_regular _ _ _ _ CsubD) as [WfS [WfCtx [WfC _]]].
+    epose proof (subcapt_regular _ _ _ _ C1subC2) as [_ [WfCtx2 _]].
+    epose proof (wf_store_cse_no_fvar _ x _ _ _ WfS H) as HR.
+    assert (subcapt (map (subst_cb x C) G ++ Γ) S (cse_loc X) (subst_cse x C R)). {
+      apply subcapt_trans_loc with (R := R) (T := T0)...
+      rewrite <- (subst_cse_fresh x R C)...
+      apply subcapt_reflexivity...
+      epose proof (wf_pair_from_wf_store_ctx S R T0 X WfS H) as [WfR _]...
+      rewrite_env ((map (subst_cb x C) G ++ Γ) ++ nil).
+      apply wf_cse_weaken_head with (Δ := (map (subst_cb x C) G ++ Γ))...
+      simpl_env.
+      apply ok_from_wf_ctx in WfCtx2.
+      apply ok_remove_mid in WfCtx2.
+      apply ok_map_app_l with (f := (subst_cb x C)) in WfCtx2...
+    }
+    eapply subcapt_transitivity with (Q := (subst_cse x C R)) ...
   - constructor...
-    eapply wf_cset_subst_cb. apply H.
-    apply subcapt_regular' in C1subC2.
-    destruct C1subC2 as [wf1 [wf2 wf3]]...
-    apply subcapt_regular' in CsubD.
-    destruct CsubD as [wf1 [wf2 wf3]]...
-  - apply subcset_join_inr...
-    eapply wf_cset_subst_cb. apply H.
-    apply subcapt_regular' in C1subC2.
-    destruct C1subC2 as [wf1 [wf2 wf3]]...
-    apply subcapt_regular' in CsubD.
-    destruct CsubD as [wf1 [wf2 wf3]]...
+  - apply subcapt_join_inr...
 Qed.
 
 Tactic Notation "subst_mem_singleton" hyp(H) :=
@@ -184,56 +209,55 @@ Tactic Notation "subst_mem_singleton" "<-" hyp(H) :=
   end.
 
 (* Needed *)
-Lemma subcapt_through_subst_tt : forall Γ P Q Δ X C D,
-  (* (Δ ++ [(X, bind_sub Q)] ++ Γ) ⊢ wf -> *)
-  (Δ ++ [(X, bind_sub Q)] ++ Γ) ⊢ₛ C <: D ->
-  Γ ⊢ P <: Q ->
-  (map (subst_tb X P) Δ ++ Γ) ⊢ₛ C <: D.
-Proof with simpl_env.
-  eauto 4 using wf_env_subst_tb, wf_cset_subst_tb, wf_typ_subst_tb, wf_cset_weaken_head, sub_regular, subcapt_reflexivity with fsetdec.
-  intros E P Q F Z S T SsubT PsubQ.
-  assert (Envwf: wf_env (F ++ [(Z, bind_sub Q)] ++ E)).
-  { apply subcapt_regular' in SsubT. destruct SsubT as [ewf _]. auto. }
+Lemma subcapt_through_subst_tt : forall Γ P Q Δ X C D S,
+  subcapt (Δ ++ [(X, bind_sub Q)] ++ Γ) S C D ->
+  sub Γ S P Q ->
+  subcapt (map (subst_tb X P) Δ ++ Γ) S C D.
+Proof with simpl_env; eauto.
+  eauto 4 using wf_ctx_subst_tb, wf_cse_subst_tb, wf_typ_subst_tb, wf_cse_weaken_head, sub_regular, subcapt_reflexivity with fsetdec.
+  intros E P Q F Z R T S SsubT PsubQ.
+  assert (WfCtx: wf_ctx (F ++ [(Z, bind_sub Q)] ++ E) S).
+  { apply subcapt_regular in SsubT. destruct SsubT as [_ [ewf _]]. auto. }
   assert (PureQ : pure_type Q).
-  { apply wf_env_tail in Envwf.
-    inversion Envwf. auto. }
-  assert (PureP : pure_type P) by (apply (proj2 (sub_pure_type _ _ _ PsubQ) PureQ)).
+  { apply wf_ctx_tail in WfCtx.
+    inversion WfCtx. auto. }
+  assert (PureP : pure_type P) by (apply (proj2 (sub_pure_type _ _ _ S PsubQ) PureQ)).
   remember (F ++ [(Z, bind_sub Q)] ++ E) as G in |-.
-  rewrite <- HeqG in SsubT. rewrite <- HeqG in Envwf.
+  rewrite <- HeqG in SsubT. rewrite <- HeqG in WfCtx.
   generalize dependent F.
   induction SsubT; intros G EQ; subst; simpl...
-  - apply subcset_top; 
-    (try eapply wf_cset_subst_tb; try eapply wf_env_subst_tb; 
-    try apply H0; try apply Envwf; apply sub_regular in PsubQ;
-    destruct PsubQ as [subwf1 [subwf2 subwf3]]; auto; auto).
-  - apply subcset_bot; 
-    (try eapply wf_cset_subst_tb; try eapply wf_env_subst_tb; 
-    try apply H0; try apply Envwf; apply sub_regular in PsubQ;
-    destruct PsubQ as [subwf1 [subwf2 subwf3]]; auto; auto).
-  - apply subcset_refl_var;
-    (try eapply wf_cset_subst_tb; try eapply wf_env_subst_tb; 
-    try apply H0; try apply Envwf; apply sub_regular in PsubQ;
-    destruct PsubQ as [subwf1 [subwf2 subwf3]]; auto; auto).
-  - apply (subcset_trans_var R (map (subst_tb Z P) G ++ E) Q0 X (subst_tt Z P T))...
+  - apply subcapt_top;
+    (try eapply wf_cse_subst_tb; try eapply wf_ctx_subst_tb; 
+    try apply H0; try apply WfCtx; apply sub_regular in PsubQ;
+    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto). apply H1.
+  - apply subcapt_bot;
+    (try eapply wf_cse_subst_tb; try eapply wf_ctx_subst_tb; 
+    try apply H0; try apply WfCtx; apply sub_regular in PsubQ;
+    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto). apply H1.
+  - apply subcapt_refl_var;
+    (try eapply wf_cse_subst_tb; try eapply wf_ctx_subst_tb; 
+    try apply H0; try apply WfCtx; apply sub_regular in PsubQ;
+    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto). apply H1.
+  - apply subcapt_refl_loc;
+    (try eapply wf_cse_subst_tb; try eapply wf_ctx_subst_tb; 
+    try apply H0; try apply WfCtx; apply sub_regular in PsubQ;
+    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto). apply H1.
+  - apply (subcapt_trans_var R S (map (subst_tb Z P) G ++ E) Q0 X (subst_tt Z P T))...
     binds_cases H. 
     + (* X in E *)
       apply binds_tail. eapply binds_map with (f := subst_tb Z P) in H. simpl in H.
       erewrite <- map_subst_tb_id in H. apply H. eauto.
-      apply binding_uniq_from_wf_env in Envwf. auto.
-      apply binding_uniq_from_wf_env in Envwf. auto.
+      apply binding_uniq_from_wf_ctx in WfCtx. auto.
+      apply binding_uniq_from_wf_ctx in WfCtx. auto.
     + (* X in G *)
       apply binds_head.
       eapply binds_map with (f := subst_tb Z P) in H1. simpl in H1.
       apply H1.
-    + auto.
-  - apply subcset_join_inl; auto.
-    eapply wf_cset_subst_tb.
-    apply H. apply sub_regular in PsubQ as [_ [Pwf _]]. auto.
-    auto.
-  - apply subcset_join_inr; auto.
-    eapply wf_cset_subst_tb.
-    apply H. apply sub_regular in PsubQ as [_ [Pwf _]]. auto.
-    auto.
-  - apply subcset_join_elim; auto.
+  - apply subcapt_join_inl; auto.
+    eapply wf_cse_subst_tb.
+    apply H. apply sub_regular in PsubQ as [_ [_ [Pwf _]]]...
+  - apply subcapt_join_inr; auto.
+    eapply wf_cse_subst_tb.
+    apply H. apply sub_regular in PsubQ as [_ [_ [Pwf _]]]...
 Qed.
 
