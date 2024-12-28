@@ -34,12 +34,11 @@ Hint Resolve wf_cse_bot : core.
 
 (* Needed *)
 Lemma subcapt_reflexivity : forall Γ S C,
-  wf_store_ctx S ->
   wf_ctx Γ S ->
   wf_cse Γ S C ->
   subcapt Γ S C C.
 Proof with eauto.
-  intros * WfS WfE WfC.
+  intros * WfE WfC.
   induction WfC; eauto.
   apply subcapt_join_elim. auto. auto.
 Qed.
@@ -50,7 +49,7 @@ Lemma subcapt_join_split : forall E S R1 R2 T,
 Proof with eauto.
   intros * Sub.
   dependent induction Sub; try solve [intuition eauto]...
-  - split; constructor; inversion H1...
+  - split; constructor; inversion H0...
   - edestruct IHSub...
   - edestruct IHSub...
 Qed.
@@ -116,17 +115,17 @@ Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
   - apply subcapt_regular in CsubD; destruct CsubD as [WfS [WfCtx [WfC WfD]]].
     destruct (x == X).
     + apply subcapt_reflexivity... apply wf_cse_weaken_head...
-    + apply subcapt_reflexivity... inversion H1. subst.
-      binds_cases H5.
+    + apply subcapt_reflexivity... inversion H0. subst.
+      binds_cases H4.
       * eauto.
       * econstructor.
         assert (binds X (bind_typ T0) (G ++ Γ)). {
           apply binds_head...
         }
         assert (binds X (subst_cb x C (bind_typ T0)) (map (subst_cb x C) G ++ Γ)).
-        { apply (binds_map binding binding X (bind_typ T0) (subst_cb x C) (G ++ Γ)) in H2.
+        { apply (binds_map binding binding X (bind_typ T0) (subst_cb x C) (G ++ Γ)) in H1.
           auto. }
-        apply H4.
+        apply H3.
   - constructor...
     apply (wf_cse_subst_cb Γ G (D # T) x (cse_loc l) C S)...
   - destruct (x == X).
@@ -174,7 +173,7 @@ Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
           - assert (HH := IHC1subC2 CsubD G ltac:(fsetdec)).
             apply subcapt_regular in HH. destruct HH as [HH1 [HH2 [HH3 HH4]]].
             apply subcapt_reflexivity.
-            auto. auto. auto.
+            auto. auto.
         }
         eapply subcapt_transitivity. apply H. apply IHC1subC2...
   - specialize (IHC1subC2 CsubD G ltac:(fsetdec)).
@@ -229,19 +228,19 @@ Proof with simpl_env; eauto.
   - apply subcapt_top;
     (try eapply wf_cse_subst_tb; try eapply wf_ctx_subst_tb; 
     try apply H0; try apply WfCtx; apply sub_regular in PsubQ;
-    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto). apply H1.
+    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto).
   - apply subcapt_bot;
     (try eapply wf_cse_subst_tb; try eapply wf_ctx_subst_tb; 
     try apply H0; try apply WfCtx; apply sub_regular in PsubQ;
-    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto). apply H1.
+    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto).
   - apply subcapt_refl_var;
     (try eapply wf_cse_subst_tb; try eapply wf_ctx_subst_tb; 
     try apply H0; try apply WfCtx; apply sub_regular in PsubQ;
-    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto). apply H1.
+    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto).
   - apply subcapt_refl_loc;
     (try eapply wf_cse_subst_tb; try eapply wf_ctx_subst_tb; 
     try apply H0; try apply WfCtx; apply sub_regular in PsubQ;
-    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto). apply H1.
+    destruct PsubQ as [subwf1 [subwf2 [subwf3 subwf4]]]; auto; auto).
   - apply (subcapt_trans_var R S (map (subst_tb Z P) G ++ E) Q0 X (subst_tt Z P T))...
     binds_cases H. 
     + (* X in E *)
