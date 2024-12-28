@@ -832,6 +832,16 @@ Qed.
 
 Hint Resolve ok_from_wf_store_ctx : core.
 
+Lemma wf_store_ctx_from_wf_ctx : forall S Γ,
+  wf_ctx Γ S ->
+  wf_store_ctx S.
+Proof with eauto.
+  intros * H.
+  induction H...
+Qed.
+
+Hint Resolve wf_store_ctx_from_wf_ctx : core.
+
 Lemma wf_cse_weaken_store_tail: forall C Γ S1 S2,
   wf_cse Γ S2 C ->
   Store.ok (S1 ++ S2) ->
