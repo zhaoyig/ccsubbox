@@ -522,6 +522,17 @@ Proof.
   exact H0.
 Qed.
 
+Lemma wf_cse_loc_from_binds : forall C R l Γ S,
+  wf_ctx Γ S ->
+  Store.binds l (C # R) S ->
+  wf_cse Γ S (cse_loc l).
+Proof.
+  intros.
+  econstructor.
+  instantiate (1 := (C # R)).
+  exact H0.
+Qed.
+
 Lemma wf_typ_ctx_bind_typ : forall x U Γ S,
   wf_ctx Γ S ->
   binds x (bind_typ U) Γ ->
@@ -873,7 +884,7 @@ Proof with eauto.
   inversion H; subst...
 Qed.
 
-Lemma wf_typ_from_wf_store_ctx : forall S C R l,
+Lemma wf_typ_from_wf_store_ctx_nil : forall S C R l,
   wf_store_ctx S ->
   Store.binds l (C # R) S ->
   wf_typ nil S (C # R).
@@ -886,13 +897,56 @@ Proof with eauto 5 using wf_typ_weaken_store_tail.
     inversion H2; subst...
 Qed.
 
-Lemma wf_pair_from_wf_store_ctx : forall S C R l,
+Lemma wf_typ_from_wf_store_ctx : forall Γ S C R l,
   wf_store_ctx S ->
   Store.binds l (C # R) S ->
-  wf_cse nil S C /\ wf_typ nil S (C # R).
+  wf_ctx Γ S ->
+  wf_typ Γ S (C # R).
+Proof with eauto 5 using wf_typ_weaken_store_tail.
+  intros * Hwf Hbinds WfCtx.
+  enough (wf_typ nil S (C # R)) as H.
+  apply wf_typ_weaken_head with (Δ := Γ) in H; simpl_env in *...
+
+  apply wf_typ_from_wf_store_ctx_nil with (l := l)...
+Qed.
+
+Lemma wf_pair_from_wf_store_ctx : forall Γ S C R l,
+  wf_store_ctx S ->
+  wf_ctx Γ S ->
+  Store.binds l (C # R) S ->
+  wf_cse Γ S C /\ wf_typ Γ S (C # R).
 Proof with eauto.
-  intros * Hwf Hbinds.
-  epose proof (wf_typ_from_wf_store_ctx S C R l Hwf Hbinds) as H.
+  intros * Hwf HwfCtx Hbinds.
+  epose proof (wf_typ_from_wf_store_ctx Γ S C R l Hwf Hbinds HwfCtx) as H.
   inversion H; subst...
+Qed.
+
+Lemma wf_cse_weakening_store : forall Γ S1 S2 S3 C,
+  wf_cse Γ (S1 ++ S3) C ->
+  wf_store_ctx (S1 ++ S2 ++ S3) ->
+  wf_cse Γ (S1 ++ S2 ++ S3) C.
+Proof with eauto.
+  intros * Hwf Hok.
+  dependent induction Hwf...
+Qed.
+
+Lemma wf_typ_weakening_store : forall Γ S1 S2 S3 T,
+  wf_typ Γ (S1 ++ S3) T ->
+  wf_store_ctx (S1 ++ S2 ++ S3) ->
+  wf_typ Γ (S1 ++ S2 ++ S3) T.
+Proof with eauto.
+  intros * Hwf Hok.
+  dependent induction Hwf...
+  apply wf_typ_capt...
+  apply wf_cse_weakening_store...
+Qed.
+
+Lemma wf_ctx_weakening_store : forall Γ S1 S2 S3,
+  wf_ctx Γ (S1 ++ S3) ->
+  wf_store_ctx (S1 ++ S2 ++ S3) ->
+  wf_ctx Γ (S1 ++ S2 ++ S3).
+Proof with eauto using wf_cse_weakening_store, wf_typ_weakening_store.
+  intros * Hwf Hok.
+  dependent induction Hwf...
 Qed.
 

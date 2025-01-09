@@ -422,14 +422,14 @@ Inductive answer : exp -> Prop :=
 Inductive store_frame : Set :=
   | store (v : exp) : store_frame.
 
-Definition store_env : Set := list (loc * store_frame).
-Definition stores (S : store_env) (x : loc) (v : exp) : Prop := 
+Notation store_env := (list (loc * store_frame)).
+Definition stores (S : store_env) (x : loc) (v : exp) : Prop :=
     Store.binds x (store v) S.
 
 Inductive scope (k : exp) : Type :=
   | mk_scope : forall L, (forall x, x ∉ L -> expr (open_ve k x (cse_fvar x))) -> scope k.
 
-Definition stack_frame : Set := (list exp).
+Notation stack_frame := (list exp).
 
 Inductive state : Set :=
   | mk_state : store_env -> stack_frame -> exp -> state.
@@ -441,32 +441,32 @@ Inductive state_final : state -> Prop :=
       answer a ->
       state_final ⟨ S | nil | a ⟩.
  
-Inductive store_typing : store_ctx -> store_env -> Prop :=
+Inductive store_typing : store_env -> store_ctx  -> Prop :=
   | typing_store_nil:
       store_typing nil nil
   | typing_store_cons : forall l C R v E S,
-      store_typing S E ->
+      store_typing E S ->
       value v ->
       typing nil S v (C # R) ->
       l `Notin` Store.dom S ->
-      store_typing ((l, (C # R)):: S) ((l, store v) :: E).
+      store_typing ((l, store v) :: E) ((l, (C # R)):: S).
 
-Inductive eval_typing (E: ctx) (S: store_ctx) : stack_frame -> typ -> typ -> Prop :=
+Inductive eval_typing (Γ: ctx) (S: store_ctx) : stack_frame -> typ -> typ -> Prop :=
   | typing_eval_nil : forall C1 R1 C2 R2,
-      sub E S (C1 # R1) (C2 # R2) ->
-      eval_typing E S nil (C1 # R1) (C2 # R2)
+      sub Γ S (C1 # R1) (C2 # R2) ->
+      eval_typing Γ S nil (C1 # R1) (C2 # R2)
   | typing_eval_cons : forall L k Sf C1 R1 C2 R2 C3 R3,
       scope k ->
       (forall x, x ∉ L ->
-        typing ([(x, bind_typ (C1 # R1))] ++ E) S (open_ve k x (cse_fvar x)) (C2 # R2)) ->
-      eval_typing E S Sf (C2 # R2) (C3 # R3) ->
-      eval_typing E S (k :: Sf) (C1 # R1) (C3 # R3).
+        typing ([(x, bind_typ (C1 # R1))] ++ Γ) S (open_ve k x (cse_fvar x)) (C2 # R2)) ->
+      eval_typing Γ S Sf (C2 # R2) (C3 # R3) ->
+      eval_typing Γ S (k :: Sf) (C1 # R1) (C3 # R3).
 
 Inductive state_typing : state -> typ -> Prop :=
-  | typing_state : forall S StoreEnv E Sf C1 R1 C2 R2 e,
-      store_typing S StoreEnv ->
-      eval_typing E S Sf (C1 # R1) (C2 # R2) ->
-      typing E S e (C1 # R1) ->
+  | typing_state : forall S StoreEnv Sf C1 R1 C2 R2 e,
+      store_typing StoreEnv S ->
+      eval_typing nil S Sf (C1 # R1) (C2 # R2) ->
+      typing nil S e (C1 # R1) ->
       state_typing (mk_state StoreEnv Sf e) (C2 # R2).
 
 Inductive red : state -> state -> Prop :=
