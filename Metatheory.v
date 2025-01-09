@@ -90,11 +90,21 @@ Notation "E `\`N x" := (NatSet.F.remove x E) (at level 69, right associativity) 
 Notation "x `in`N F" := (NatSet.F.In x F) (at level 69) : set_scope.
 Notation "x `~in`N F" := (~ NatSet.F.In x F) (at level 69) : set_scope.
 
+Notation "E `u`L F" :=
+  (LocSet.F.union E F) (at level 69, right associativity, format "E  `u`L  '/' F") : set_scope.
+Notation "E `c`L F" := (LocSet.F.Subset E F) (at level 68) : set_scope.
+Notation "E `\`L x" := (LocSet.F.remove x E) (at level 69, right associativity) : set_scope.
+Notation "x `in`L F" := (LocSet.F.In x F) (at level 69) : set_scope.
+Notation "x `~in`L F" := (~ LocSet.F.In x F) (at level 69) : set_scope.
+
 Notation "{ x }A" := (AtomSet.F.singleton x) (at level 0, format "{ x }A") : set_scope.
 Notation "{}A" := (AtomSet.F.empty) (at level 0) : set_scope.
 
 Notation "{ x }N" := (NatSet.F.singleton x) (at level 0, format "{ x }N") : set_scope.
 Notation "{}N" := (NatSet.F.empty) (at level 0) : set_scope.
+
+Notation "{ x }L" := (LocSet.F.singleton x) (at level 0, format "{ x }L") : set_scope.
+Notation "{}L" := (LocSet.F.empty) (at level 0) : set_scope.
 
 (* Open Scope set_scope. *)
 (* Open Scope metatheory_scope. *)

@@ -50,6 +50,21 @@ Proof with simpl_env;
     apply wf_cse_weakening... 
 Qed.
 
+Lemma typing_weakening_store : forall Γ e T S1 S2 S3,
+  typing Γ (S1 ++ S3) e T ->
+  wf_store_ctx (S1 ++ S2 ++ S3) ->
+  typing Γ (S1 ++ S2 ++ S3) e T.
+Proof with eauto using 
+  wf_typ_weakening_store,
+  wf_cse_weakening_store,
+  wf_ctx_weakening_store,
+  sub_weakening_store,
+  subcapt_weakening_store.
+  intros * Typ. remember (S1 ++ S3).
+  generalize dependent S1.
+  induction Typ; intros S1 EQ Ok; subst...
+Qed.
+
 (************************************************************************ *)
 (** ** Narrowing for typing (7) *)
 

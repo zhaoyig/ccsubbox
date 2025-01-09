@@ -51,6 +51,18 @@ Proof with simpl_env; eauto using wf_typ_weakening, subcapt_weakening, wf_cse_we
     apply IH...
 Qed.
 
+Lemma sub_weakening_store : forall Γ S1 S2 S3 T U,
+  sub Γ (S1 ++ S3) T U ->
+  wf_store_ctx (S1 ++ S2 ++ S3) ->
+  sub Γ (S1 ++ S2 ++ S3) T U.
+Proof with eauto using
+  wf_ctx_weakening_store,
+  wf_typ_weakening_store,
+  subcapt_weakening_store.
+  intros * Sub Ok.
+  dependent induction Sub...
+Qed.
+
 (* ********************************************************************** *)
 (** ** Strengthening (3) *)
 
