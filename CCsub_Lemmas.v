@@ -664,9 +664,18 @@ Proof with eauto*.
   destruct (x == a); destruct (a == x); simpl...
 Qed.
 
-Lemma subst_cse_cv_commutes_with_susbt_ve : forall x u e,
-    subst_cse x (cse_fvar u) (exp_cv e)
-  = exp_cv (subst_ve x u (cse_fvar u) e).
+Lemma subst_cse_cv_loc_commutes_with_subst_vv : forall x l v,
+  subst_cse x (cse_loc l) (var_cv v)
+  = var_cv (subst_vv x l v).
+Proof with eauto*.
+  intros.
+  destruct v; try destruct v; simpl...
+  destruct (x == a); destruct (a == x); simpl...
+Qed.
+
+Lemma subst_cse_cv_commutes_with_subst_ve : forall x l e,
+    subst_cse x (cse_loc l) (exp_cv e)
+  = exp_cv (subst_ve x l (cse_loc l) e).
 Proof with auto using subst_cse_cv_var_commutes_with_subst_vv.
   intros.
   induction e; simpl...
@@ -678,13 +687,15 @@ Proof with auto using subst_cse_cv_var_commutes_with_subst_vv.
     + destruct v; simpl... destruct (x == a); destruct (a == x); fsetdec.
     + destruct v; simpl... destruct (x == a); destruct (a == x); fsetdec.
   - rewrite <- IHe1, <- IHe2...
-  - assert ((subst_cse x (cse_fvar u) (remove_all_bvars c)) = remove_all_bvars (subst_cse x (cse_fvar u) c)).
+  - destruct v; try destruct v; simpl...
+    destruct (x == a); destruct (a == x); fsetdec.
+  - assert ((subst_cse x (cse_loc l) (remove_all_bvars c)) = remove_all_bvars (subst_cse x (cse_loc l) c)).
     {
       induction c; simpl...
       - destruct (x == a); destruct (a == x); simpl...
       - rewrite IHc1, IHc2...
     }
-    rewrite H, subst_cse_cv_var_commutes_with_subst_vv...
+    rewrite H, subst_cse_cv_loc_commutes_with_subst_vv...
 Qed.
 
 Lemma subst_cset_empty : forall x c,
