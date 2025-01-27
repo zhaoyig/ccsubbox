@@ -1219,7 +1219,6 @@ Ltac closed_type :=
 (** More substitution lemmas *)
 Lemma subst_ct_open_tt_rec : forall c z P t k,
   cset c ->
-  z ∉ fv_tt P ->
   subst_ct z c (open_tt_rec k P t) = open_tt_rec k (subst_ct z c P) (subst_ct z c t).
 Proof with eauto.
   induction t ; intros ; simpl ; f_equal...
@@ -1229,7 +1228,6 @@ Qed.
 
 Lemma subst_ct_open_tt : forall x c t1 t2,
   cset c ->
-  x ∉ fv_tt t2 ->
   subst_ct x c (open_tt t1 t2) = (open_tt (subst_ct x c t1) (subst_ct x c t2)).
 Proof with auto using open_cse_cset, open_ct_rec_type, subst_ct_open_tt_rec.
   intros.
