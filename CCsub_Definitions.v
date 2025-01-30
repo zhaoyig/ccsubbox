@@ -176,7 +176,9 @@ Inductive expr : exp -> Prop :=
       type T ->
       (forall x : atom, x ∉ L -> expr (open_ve e1 x (cse_fvar x))) ->
       expr (λ (T) e1)
-  | expr_app : forall (f x : atom),
+  | expr_app : forall (f x : var_like),
+      fvar_like f ->
+      fvar_like x ->
       expr (f @ x)
   | expr_let : forall L e1 e2,
       expr e1 ->
@@ -186,12 +188,15 @@ Inductive expr : exp -> Prop :=
       pure_type R ->
       (forall X : atom, X ∉ L -> expr (open_te e1 X)) ->
       expr (Λ [R] e1)
-  | expr_tapp : forall (x : atom) R,
+  | expr_tapp : forall (x : var_like) R,
+      fvar_like x ->
       pure_type R ->
       expr (x @ [R])
-  | expr_box : forall x : atom,
+  | expr_box : forall x : var_like,
+      fvar_like x ->
       expr (box x)
-  | expr_unbox : forall C (x : atom),
+  | expr_unbox : forall C (x : var_like),
+      fvar_like x ->
       cset C ->
       expr (C ⟜ x).
 
@@ -369,10 +374,12 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
       (forall x : atom, x ∉ L ->
         typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve e1 x (cse_fvar x)) (open_ct T1 (cse_fvar x))) ->
       typing Γ S (λ (C # R) e1) (exp_cv e1 # ∀ (C # R) T1)
-  | typing_app : forall D Q Γ (f x : atom) T C S,
+  | typing_app : forall D Q Γ (f x : var_like) T C S,
+      fvar_like f ->
+      fvar_like x ->
       typing Γ S f (C # (∀ (D # Q) T)) ->
       typing Γ S x (D # Q) ->
-      typing Γ S (f @ x) (open_ct T (cse_fvar x))
+      typing Γ S (f @ x) (open_ct T (exp_cv x))
   | typing_let : forall L C1 T1 T2 Γ e k S,
       typing Γ S e (C1 # T1) ->
       (forall x : atom, x ∉ L ->
@@ -384,15 +391,18 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
       (forall X : atom, X ∉ L ->
         typing ([(X, bind_sub V)] ++ Γ) S (open_te e1 X) (open_tt T1 X)) ->
       typing Γ S (Λ [V] e1) (exp_cv e1 # ∀ [V] T1)
-  | typing_tapp : forall Γ (x : atom) P Q T C S,
+  | typing_tapp : forall Γ (x : var_like) P Q T C S,
+      fvar_like x ->
       typing Γ S x (C # ∀ [P] T) ->
       sub Γ S P Q ->
       typing Γ S (x @ [P]) (open_tt T Q)
-  | typing_box : forall Γ S (x : atom) C R,
+  | typing_box : forall Γ S (x : var_like) C R,
+      fvar_like x ->
       typing Γ S x (C # R) ->
       wf_cse Γ S C ->
       typing Γ S (box x) ({} # □ (C # R))
-  | typing_unbox : forall Γ S (x : atom) C R,
+  | typing_unbox : forall Γ S (x : var_like) C R,
+      fvar_like x ->
       typing Γ S x ({} # □ (C # R)) ->
       wf_cse Γ S C ->
       typing Γ S (C ⟜ x) (C # R)
