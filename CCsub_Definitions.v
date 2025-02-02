@@ -393,9 +393,9 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
       typing Γ S (Λ [V] e1) (exp_cv e1 # ∀ [V] T1)
   | typing_tapp : forall Γ (x : var_like) P Q T C S,
       fvar_like x ->
-      typing Γ S x (C # ∀ [P] T) ->
+      typing Γ S x (C # ∀ [Q] T) ->
       sub Γ S P Q ->
-      typing Γ S (x @ [P]) (open_tt T Q)
+      typing Γ S (x @ [P]) (open_tt T P)
   | typing_box : forall Γ S (x : var_like) C R,
       fvar_like x ->
       typing Γ S x (C # R) ->
