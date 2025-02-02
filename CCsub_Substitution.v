@@ -506,6 +506,7 @@ Proof with eauto*.
     + eapply IHTyp...
     + apply sub_through_subst_ct with (CU := C) (U := R)...
 Qed.
+*)
 
 Lemma wf_typ_free_in_ctx : forall x Γ S T,
   wf_typ Γ S T ->
@@ -610,26 +611,35 @@ Proof with simpl_env;
       apply wf_ctx_typ...
       reflexivity.
   - Case "typing_app".
-    assert (Z <> x).
-    { destruct (typing_var_implies_binds_typ _ _ _ _ _ Typ2) as [C' [R' [Binds _]]].
-      binds_cases Binds; simpl_env in *...
-      assert (Z ∉ dom Δ) by (eapply fresh_mid_head; eauto* ).
-      apply binds_In in H0.
-      fsetdec.
-    }
-    replace (subst_tt Z P (open_ct T (cse_fvar x)))
-       with (open_ct (subst_tt Z P T) (cse_fvar x))
-         by (apply open_ct_subst_tt; eauto* )...
-  - Case "typing_let".
-    pick fresh y and apply typing_let...
-    rewrite <- subst_te_open_ve...
-    rewrite_env (map (subst_tb Z P) ([(y, bind_typ (C1 # T1))] ++ Δ) ++ Γ).
-    apply H0.
-    clear - Fr; fsetdec.
-    assumption.
-    2: reflexivity.
-    assert (WfC1T1 : wf_typ (Δ ++ [(Z, bind_sub Q)] ++ Γ) S (C1 # T1)) by applys typing_regular Typ.
-    apply wf_ctx_typ...
+    destruct x...
+    + destruct v... 2: inversion H0... 
+      assert (Z <> a).
+      { destruct (typing_var_implies_binds_typ _ _ _ _ _ Typ2) as [C' [R' [Binds _]]].
+        binds_cases Binds; simpl_env in *...
+        assert (Z ∉ dom Δ) by (eapply fresh_mid_head; eauto* ).
+        apply binds_In in H2.
+        fsetdec.
+      }
+      simpl.
+      replace (subst_tt Z P (open_ct T (cse_fvar a)))
+         with (open_ct (subst_tt Z P T) (cse_fvar a))
+           by (apply open_ct_subst_tt; eauto* )...
+      eapply typing_app...
+    + simpl.
+      replace (subst_tt Z P (open_ct T (cse_loc l)))
+         with (open_ct (subst_tt Z P T) (cse_loc l))
+           by (apply open_ct_subst_tt; eauto* )...
+      eapply typing_app...
+    - Case "typing_let".
+      pick fresh y and apply typing_let...
+      rewrite <- subst_te_open_ve...
+      rewrite_env (map (subst_tb Z P) ([(y, bind_typ (C1 # T1))] ++ Δ) ++ Γ).
+      apply H0.
+      clear - Fr; fsetdec.
+      assumption.
+      2: reflexivity.
+      assert (WfC1T1 : wf_typ (Δ ++ [(Z, bind_sub Q)] ++ Γ) S (C1 # T1)) by applys typing_regular Typ.
+      apply wf_ctx_typ...
   - Case "typing_tabs".
     replace (exp_cv e1)
        with (exp_cv (subst_te Z P e1))
@@ -663,6 +673,7 @@ Proof with simpl_env;
     apply sub_reflexivity...
 Qed.
 
+(*
 Lemma typing_through_open_ve_typing : forall Γ S (x y : atom) U e T,
   y ∉ (fv_ct T `u`A fv_ve e `u`A fv_ce e) ->
   typing ([(y, bind_typ U)] ++ Γ) S (open_ve e y (cse_fvar y)) T ->
@@ -718,6 +729,7 @@ Proof with eauto*.
     applys sub_pure_type QsubR...
   - eapply typing_var...
 Qed.
+ *)
 
 Lemma typing_through_open_te : forall Γ S (Y : atom) e T P Q,
   Y ∉ (fv_tt T `u`A fv_ct T `u`A fv_te e `u`A fv_ce e) ->
@@ -735,7 +747,6 @@ Proof with eauto*.
      by (symmetry; apply subst_tt_intro; clear - NotIn; fsetdec).
   apply typing_through_subst_te with (Q := Q)...
 Qed.
- *)
 
  Lemma subst_vv_saves_fvar_like : forall z u v,
    fvar_like v ->
@@ -957,14 +968,13 @@ Proof with eauto*.
       destruct (a == x); subst; simpl.
       * destruct (x == x); try fsetdec.
         unshelve epose proof (IHTyp Γ Δ x C R _ _ _ _ _ _ D Q0 _ _ _ _ _ _ _ _ _ _ _ _) as IH...
-        rewrite subst_ct_open_tt.
-        eapply typing_tapp with (C := subst_cse x (cse_loc l) C0); try auto.
+        rewrite subst_ct_open_tt; try auto.
+        eapply typing_tapp with (C := subst_cse x (cse_loc l) C0) (Q := subst_ct x (cse_loc l) Q); try auto.
         simpl in IH; destruct (x == x); try fsetdec...
         eapply sub_through_subst_ct...
-        constructor.
       * rewrite subst_ct_open_tt...
         destruct (a == x); subst; try fsetdec.
-        eapply typing_tapp with (C := subst_cse x (cse_loc l) C0). auto. auto.
+        eapply typing_tapp with (C := subst_cse x (cse_loc l) C0) (Q := subst_ct x (cse_loc l) Q). auto. auto.
         -- replace (subst_cse x (cse_loc l) C0 # ∀ [subst_ct x (cse_loc l) P] subst_ct x (cse_loc l) T) with (subst_ct x (cse_loc l) (C0 # ∀ [P] T)) by reflexivity.
            replace (exp_var_like a) with (subst_ve x l (cse_loc l) a).
            eapply IHTyp...
@@ -1034,6 +1044,30 @@ Proof with eauto*.
   replace T
      with (subst_ct y (cse_loc l) T)
        by (rewrite <- subst_ct_fresh; auto).
+  eapply typing_loc_through_subst_ve with (C := cse_loc l) (R := Q).
+  - eapply typing_narrowing_typ with (D := C) (Q := R)...
+    apply sub_capt...
+    applys sub_pure_type QsubR...
+  - eapply typing_loc...
+Qed.
+
+Lemma typing_through_open_ve_typing_open_loc : forall Γ S (y : atom) (l : loc) U e T,
+  y ∉ (fv_ct T `u`A fv_ve e `u`A fv_ce e) ->
+  typing ([(y, bind_typ U)] ++ Γ) S (open_ve e y (cse_fvar y)) (open_ct T (cse_fvar y)) ->
+  typing Γ S l U ->
+  typing Γ S (open_ve e l (cse_loc l)) (open_ct T (cse_loc l)).
+Proof with eauto*.
+  intros * NotIn Typ lTyp.
+  assert (WfCtx : wf_ctx ([(y, bind_typ U)] ++ Γ) S) by applys typing_regular Typ.
+  inversion WfCtx; subst.
+  destruct (typing_loc_implies_binds _ _ _ _ _ lTyp) as [D [Q [Binds [lsubC [WfD [QsubR PureR]]]]]].
+  rewrite_env (map (subst_cb y (cse_loc l)) ∅ ++ Γ).
+  replace (open_ve e l (cse_loc l))
+     with (subst_ve y l (cse_loc l) (open_ve e y (cse_fvar y)))
+       by (rewrite <- subst_ve_intro; auto).
+  replace (open_ct T (cse_loc l))
+     with (subst_ct y (cse_loc l) (open_ct T (cse_fvar y)))
+       by (rewrite <- subst_ct_intro; auto).
   eapply typing_loc_through_subst_ve with (C := cse_loc l) (R := Q).
   - eapply typing_narrowing_typ with (D := C) (Q := R)...
     apply sub_capt...
