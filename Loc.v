@@ -166,6 +166,62 @@ Proof.
   rewrite <- InA_iff_In. auto using elements_1.
 Qed.
 
+(* ********************************************************************** *)
+(** ** #<a name="pick_fresh"></a># Picking a fresh location *)
+
+(** We define three tactics which, when combined, provide a simple
+    mechanism for picking a fresh atom.  We demonstrate their use
+    below with an example, the [example_pick_fresh] tactic.
+
+   [(gather_atoms_with F)] returns the union of [(F x)], where [x]
+   ranges over all objects in the context such that [(F x)] is
+   well typed.  The return type of [F] should be [atoms].  The
+   complexity of this tactic is due to the fact that there is no
+   support in [Ltac] for folding a function over the context. *)
+
+Ltac gather_locs_with F :=
+  let rec gather V :=
+    match goal with
+    | H: ?S |- _ =>
+      let FH := constr:(F H) in
+      match V with
+      | empty => gather FH
+      | context [FH] => fail 1
+      | _ => gather (union FH V)
+      end
+    | _ => V
+    end in
+  let L := gather empty in eval simpl in L.
+
+(** [(beautify_fset V)] takes a set [V] built as a union of finite
+    sets and returns the same set with empty sets removed and union
+    operations associated to the right.  Duplicate sets are also
+    removed from the union. *)
+
+Ltac beautify_fset V :=
+  let rec go Acc E :=
+     match E with
+     | union ?E1 ?E2 => let Acc1 := go Acc E2 in go Acc1 E1
+     | empty => Acc
+     | ?E1 => match Acc with
+              | empty => E1
+              | context [E1] => Acc
+              | _ => constr:(union E1 Acc)
+              end
+     end
+  in go empty V.
+
+(** The tactic [(pick fresh Y for L)] takes a finite set of atoms [L]
+    and a fresh name [Y], and adds to the context an atom with name
+    [Y] and a proof that [(~ In Y L)], i.e., that [Y] is fresh for
+    [L].  The tactic will fail if [Y] is already declared in the
+    context. *)
+
+Tactic Notation "pick" "lfresh" ident(Y) "for" constr(L) :=
+  let Fr := fresh "Fr" in
+  let L := beautify_fset L in
+  (destruct (loc_fresh_for_set L) as [Y Fr]).
+
 
 Lemma locset_subset_union : forall A1 A2 B1 B2,
   LocSet.F.Subset A1 A2 ->
