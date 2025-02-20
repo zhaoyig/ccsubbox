@@ -485,7 +485,7 @@ Inductive red : state -> state -> Prop :=
       l `Notin` Store.dom S ->
           ⟨ S | k :: K | v ⟩
       --> ⟨ [(l, store v)] ++ S | K | open_ve k l (cse_loc l)⟩
-  | red_let_var : forall (l : loc) v k S K,
+  | red_loc : forall (l : loc) v k S K,
       stores S l v ->
           ⟨ S | k :: K | l ⟩
       --> ⟨ S | K | open_ve k l (cse_loc l) ⟩
