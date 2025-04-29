@@ -29,7 +29,6 @@ Inductive cse : Set :=
   | cse_top : cse
   | cse_bvar : nat -> cse
   | cse_fvar : atom -> cse
-  | cse_loc : loc -> cse
   | cse_join : cse -> cse -> cse
   | cse_bot : cse
 .
@@ -77,17 +76,6 @@ Fixpoint cse_uvar C :=
 Notation "`cse_uvar` C" := (cse_uvar C)
                                 (at level 10, C at level 9) : cse_shorthand.
 
-Fixpoint cse_locs C :=
-  match C with
-  | cse_loc l => LocSet.F.singleton l
-  | cse_join c1 c2 => LocSet.F.union (cse_locs c1) (cse_locs c2)
-  | _ => LocSet.F.empty  
-  end.
-
-Notation "`cse_locs` C" := (cse_locs C)
-                                (at level 10, C at level 9) : cse_shorthand.
-
-
 (** ************************************************** *)
 (** Operations *)
 (** ************************************************** *)
@@ -117,7 +105,6 @@ Fixpoint remove_bvar (k : nat) (C : cse) :=
   match C with
   | cse_top => C
   | cse_fvar a => C
-  | cse_loc l => C
   | cse_join c1 c2 => cse_join (remove_bvar k c1) (remove_bvar k c2)
   | cse_bvar k' => if (k === k') then cse_bot else C
   | cse_bot => C
@@ -127,14 +114,11 @@ Fixpoint remove_all_bvars (C : cse) :=
   match C with
   | cse_top => C
   | cse_fvar a => C
-  | cse_loc l => C
   | cse_join c1 c2 => cse_join (remove_all_bvars c1) (remove_all_bvars c2)
   | cse_bvar _ => cse_bot
   | cse_bot => C
   end.
 
-(* Notation "C A`\` x" := (remove_fvar x C) *)
-(*                          (at level 69) : cset_shorthand. *)
 Notation "x A`in` C" := (AtomSet.F.In x (`cse_fvars` C))
                           (at level 69) : cse_shorthand.
 Notation "x A`mem` C" := (AtomSet.F.mem x (`cse_fvars` C)) (at level 69) : cse_shorthand.
@@ -145,12 +129,6 @@ Notation "k N`in` C" := (NatSet.F.In k (`cse_bvars` C))
                           (at level 69) : cse_shorthand.
 Notation "k N`mem` C" := (NatSet.F.mem k (`cse_bvars` C))
                            (at level 69) : cse_shorthand.
-
-(* Notation "`* mem` C" := (`cse_uvar` C) *)
-(*                            (at level 10, only parsing) : cse_shorthand. *)
-(* Notation "`* in` C" := (`cse_uvar` C = true) *)
-(*                            (at level 10) : cse_shorthand. *)
-
 
 Notation "`cse_references_bvar` k c" :=
   (k N`in` c)
@@ -172,25 +150,12 @@ Notation "`cse_references_fvar_dec` a c" :=
   (a A`mem` c)
     (at level 10, a at level 9, c at level 9, only parsing) : cse_shorthand.
 
-(* Inductive cse_all_not_top: cse -> Prop := *)
-(*   | cse_all_not_top_fvar: forall a, *)
-(*       cse_all_not_top (cse_fvar a) *)
-(*   | cse_all_not_top_bvar: forall n, *)
-(*       cse_all_not_top (cse_bvar n) *)
-(*   | cse_all_not_top_join: forall c1 c2, *)
-(*       cse_all_not_top c1 -> *)
-(*       cse_all_not_top c2 -> *)
-(*       cse_all_not_top (cse_join c1 c2) *)
-(*   | cse_all_not_top_bot: *)
-(*     cse_all_not_top cse_bot. *)
-
 Fixpoint open_cse (k : nat) (c : cse) (d : cse) : cse :=
   match d with
   | cse_top => cse_top
   | cse_bot => cse_bot
   | cse_bvar k' => if k === k' then c else d
   | cse_fvar _ => d
-  | cse_loc _ => d
   | cse_join d1 d2 => cse_join (open_cse k c d1) (open_cse k c d2)
 end.
 
@@ -199,15 +164,9 @@ Fixpoint subst_cse (a : atom) (c : cse) (d: cse) : cse :=
   | cse_top => cse_top
   | cse_bot => cse_bot
   | cse_bvar _ => d
-  | cse_loc _ => d
   | cse_fvar a' => if a == a' then c else d
   | cse_join d1 d2 => cse_join (subst_cse a c d1) (subst_cse a c d2)
 end.
-
-
-
-(* Check (fun x =>  fun N => x N`in` N). *)
-(* Check (fun C D x => (cset_union D (cset_remove_fvar x C))). *)
 
 Declare Scope experimental_set_scope.
 
@@ -219,8 +178,6 @@ Inductive cset : cse -> Prop :=
       cset cse_top
   | cset_fvar : forall (X : atom),
       cset (cse_fvar X)
-  | cset_loc : forall (l : loc),
-      cset (cse_loc l)
   | cset_join : forall Q1 Q2,
       cset Q1 ->
       cset Q2 ->
@@ -241,10 +198,6 @@ Inductive cset : cse -> Prop :=
 
 Lemma cse_fvars_join_union : forall (C1: cse) (C2: cse),
   `cse_fvars` (cse_join C1 C2) = AtomSet.F.union (`cse_fvars` C1) (`cse_fvars` C2).
-Proof. auto. Qed.
-
-Lemma cse_locs_join_union : forall (C1: cse) (C2: cse),
-  `cse_locs` (cse_join C1 C2) = LocSet.F.union (`cse_locs` C1) (`cse_locs` C2).
 Proof. auto. Qed.
 
 Lemma subst_cse_fresh : forall x C1 C2,
