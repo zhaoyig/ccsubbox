@@ -333,7 +333,7 @@ Inductive typing : ctx -> exp -> typ -> Prop :=
       (forall x : atom, x ∉ L ->
         typing ([(x, bind_typ (C # R))] ++ Γ) (open_ve e1 x (cse_fvar x)) (open_ct T1 (cse_fvar x))) ->
       typing Γ (λ (C # R) e1) (exp_cv e1 # ∀ (C # R) T1)
-  | typing_app : forall D Q Γ (f x : var) T C,
+  | typing_app : forall D Q Γ (f x : atom) T C,
       typing Γ f (C # (∀ (D # Q) T)) ->
       typing Γ x (D # Q) ->
       typing Γ (f @ x) (open_ct T (exp_cv x))
@@ -348,15 +348,15 @@ Inductive typing : ctx -> exp -> typ -> Prop :=
       (forall X : atom, X ∉ L ->
         typing ([(X, bind_sub V)] ++ Γ) (open_te e1 X) (open_tt T1 X)) ->
       typing Γ (Λ [V] e1) (exp_cv e1 # ∀ [V] T1)
-  | typing_tapp : forall Γ (x : var) P Q T C,
+  | typing_tapp : forall Γ (x : atom) P Q T C,
       typing Γ x (C # ∀ [Q] T) ->
       sub Γ P Q ->
       typing Γ (x @ [P]) (open_tt T P)
-  | typing_box : forall Γ (x : var) C R,
+  | typing_box : forall Γ (x : atom) C R,
       typing Γ x (C # R) ->
       wf_cse Γ C ->
       typing Γ (box x) ({} # □ (C # R))
-  | typing_unbox : forall Γ (x : var) C R,
+  | typing_unbox : forall Γ (x : atom) C R,
       typing Γ x ({} # □ (C # R)) ->
       wf_cse Γ C ->
       typing Γ (C ⟜ x) (C # R)
@@ -420,83 +420,6 @@ Inductive state_final : state -> Prop :=
   | final_state : forall SS a,
       answer a ->
       state_final ⟨ a | SS | nil ⟩.
-
-Inductive env_well_typed : ctx -> store_ctx -> env -> Prop :=
-  | ee_empty : forall Γ S,
-      wf_ctx Γ ->
-      wf_store_ctx S ->
-      env_well_typed Γ S nil
-  | ee_cons : forall Γ Γ' S E x l T U,
-      env_well_typed Γ S E ->
-      binds x (bind_typ T) Γ ->
-      Store.binds l (U, Γ') S ->
-      sub Γ U T ->
-      env_well_typed Γ S ((x, l)::E).
-
-Inductive store_typing : store_env -> store_ctx  -> Prop :=
-  | typing_store_nil:
-      store_typing nil nil
-  | typing_store_cons : forall l C R v Γ SS E S,
-      store_typing SS S ->
-      value (v, E) ->
-      typing Γ v (C # R) ->
-      env_well_typed Γ S E ->
-      l `Notin` Store.dom S ->
-      store_typing ((l, store (v , E)) :: SS) ((l, (C # R, Γ)) :: S).
-
-Inductive eval_typing (Γ: ctx) (S: store_ctx) : cont -> typ -> typ -> Prop :=
-  | typing_eval_nil : forall C1 R1 C2 R2,
-      sub Γ (C1 # R1) (C2 # R2) ->
-      eval_typing Γ S nil (C1 # R1) (C2 # R2)
-  | typing_eval_cons : forall L e K C1 R1 C2 R2 C3 R3 E,
-      scope e ->
-      (forall x, x ∉ L ->
-        typing ([(x, bind_typ (C1 # R1))] ++ Γ) (open_ve e x (cse_fvar x)) (C2 # R2)) ->
-      env_well_typed Γ S E ->
-      eval_typing Γ S K (C2 # R2) (C3 # R3) ->
-      eval_typing Γ S ((let_body (e, E)) :: K) (C1 # R1) (C3 # R3).
-
-Inductive state_typing : state -> typ -> Prop :=
-  | typing_state : forall Γ S E SS K C1 R1 C2 R2 e,
-      store_typing SS S ->
-      eval_typing Γ S K (C1 # R1) (C2 # R2) ->
-      typing Γ e (C1 # R1) ->
-      env_well_typed Γ S E ->
-      state_typing (mk_state (e, E) SS K) (C2 # R2).
-
-Inductive red : state -> state -> Prop :=
-  | red_var : forall (x : atom) l SS K Γ eE,
-      binds x l Γ ->
-      stores l eE SS ->
-      red ⟨ (exp_var x, Γ) | SS | K ⟩
-          ⟨ eE | SS | K ⟩
-  | red_app : forall (x y z: atom) T e1 lx ly v Γ SS K Γ',
-      binds x lx Γ ->
-      binds y ly Γ ->
-      stores lx (λ (T) e1,  Γ') SS ->
-      stores ly v SS ->
-      z `notin` dom Γ' ->
-      red ⟨ (exp_app x y, Γ) | SS | K ⟩
-          ⟨ (open_ve e1 z (cse_fvar z), (z, ly) :: Γ') | SS | K ⟩
-  | red_tapp : forall (x : atom) T l R e1 Γ Γ' SS K,
-      binds x l Γ ->
-      stores l (Λ [R] e1, Γ') SS ->
-      red ⟨ (x @ [T], Γ) | SS | K ⟩
-          ⟨ (open_te e1 T, Γ') | SS | K ⟩
-  | red_let : forall b e Γ SS K,
-      red ⟨ (let= b in e, Γ) | SS | K ⟩
-          ⟨ (b, Γ) | SS | (let_body (e, Γ)) :: K ⟩
-  | red_let_val : forall (z: atom) Γ K e v SS l,
-      z `notin` dom Γ ->
-      l `Notin` Store.dom SS ->
-      value v ->
-      red ⟨ v | SS | (let_body (e, Γ)) :: K ⟩
-          ⟨ (open_ve e z (cse_fvar z), (z, l) :: Γ) | (l, store v) :: SS | K ⟩
-  | red_open : forall (x : atom) l x y C Γ Γ' SS K,
-      binds x l Γ ->
-      stores l (box y, Γ') SS ->
-      red ⟨ (C ⟜ x, Γ) | SS | K ⟩
-          ⟨ ((exp_var y), Γ) | SS | K ⟩.
 
 Hint Constructors type pure_type expr cset wf_cse wf_typ wf_ctx wf_store_ctx value sub subcapt typing : core.
 Hint Resolve sub_top sub_refl_tvar sub_arr sub_all sub_box : core.

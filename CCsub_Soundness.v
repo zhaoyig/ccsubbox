@@ -5,10 +5,9 @@ Require Import CCsub_Subcapt.
 Require Import CCsub_Subtyping.
 Require Import CCsub_Typing.
 Require Import CCsub_Substitution.
+Require Import LibTactics.
 
 Set Nested Proofs Allowed.
-
-Hint Constructors store_typing eval_typing state_typing : core.
 
 (* ********************************************************************** *)
 (** * #<a name="preservation"></a># Preservation *)
@@ -32,9 +31,107 @@ Proof with eauto*.
 Qed.
 *)
 
+Inductive env_well_typed : ctx -> store_ctx -> env -> Prop :=
+  | ee_empty : forall S,
+      (* wf_ctx Γ -> *)
+      wf_store_ctx S ->
+      env_well_typed nil S nil
+  | ee_cons : forall Γ Γ' S E x l C R,
+      env_well_typed Γ S E ->
+      (* binds x (bind_typ T) Γ -> *)
+      x `notin` dom Γ ->
+      (* wf_typ Γ T -> *)
+      Store.binds l (C # R, Γ') S ->
+      (* sub Γ U T -> *)
+      env_well_typed ((x, bind_typ (C # R)) :: Γ) S ((x, l)::E).
+
+Inductive store_typing : store_env -> store_ctx  -> Prop :=
+  | typing_store_nil:
+      store_typing nil nil
+  | typing_store_cons : forall l C R v Γ SS E S,
+      store_typing SS S ->
+      value (v, E) ->
+      typing Γ v (C # R) ->
+      env_well_typed Γ S E ->
+      l `Notin` Store.dom S ->
+      store_typing ((l, store (v , E)) :: SS) ((l, (C # R, Γ)) :: S).
+
+Inductive eval_typing (S : store_ctx) : cont -> typ -> typ -> Prop :=
+  | typing_eval_nil : forall Γ C1 R1 C2 R2,
+      sub Γ (C1 # R1) (C2 # R2) ->
+      eval_typing S nil (C1 # R1) (C2 # R2)
+  | typing_eval_cons : forall Γ L e K C1 R1 C2 R2 C3 R3 E,
+      scope e ->
+      (forall x, x ∉ L ->
+        typing ([(x, bind_typ (C1 # R1))] ++ Γ) (open_ve e x (cse_fvar x)) (C2 # R2)) ->
+      env_well_typed Γ S E ->
+      eval_typing S K (C2 # R2) (C3 # R3) ->
+      eval_typing S ((let_body (e, E)) :: K) (C1 # R1) (C3 # R3).
+
+Inductive state_typing : state -> typ -> Prop :=
+  | typing_state : forall Γ S E SS K C1 R1 C2 R2 e,
+      store_typing SS S ->
+      eval_typing S K (C1 # R1) (C2 # R2) ->
+      typing Γ e (C1 # R1) ->
+      env_well_typed Γ S E ->
+      state_typing ⟨ (e, E) | SS | K ⟩ (C2 # R2).
+
+Inductive red : state -> state -> Prop :=
+  | red_var : forall (x : atom) l SS K E eE,
+      binds x l E ->
+      stores l eE SS ->
+      red ⟨ (exp_var x, E) | SS | K ⟩
+          ⟨ eE | SS | K ⟩
+  | red_app : forall (x y z: atom) T e1 lx ly v E SS K E',
+      binds x lx E ->
+      binds y ly E ->
+      stores lx (λ (T) e1,  E') SS ->
+      stores ly v SS ->
+      z `notin` dom E' ->
+      red ⟨ (exp_app x y, E) | SS | K ⟩
+          ⟨ (open_ve e1 z (cse_fvar z), (z, ly) :: E') | SS | K ⟩
+  | red_tapp : forall (x : atom) T l R e1 E E' SS K,
+      binds x l E ->
+      stores l (Λ [R] e1, E') SS ->
+      red ⟨ (x @ [T], E) | SS | K ⟩
+          ⟨ (open_te e1 T, E') | SS | K ⟩
+  | red_let : forall b e E SS K,
+      red ⟨ (let= b in e, E) | SS | K ⟩
+          ⟨ (b, E) | SS | (let_body (e, E)) :: K ⟩
+  | red_let_val : forall (z: atom) E K e v SS l,
+      z `notin` dom E ->
+      l `Notin` Store.dom SS ->
+      value v ->
+      red ⟨ v | SS | (let_body (e, E)) :: K ⟩
+          ⟨ (open_ve e z (cse_fvar z), (z, l) :: E) | (l, store v) :: SS | K ⟩
+  | red_open : forall (x : atom) l x y C E E' SS K,
+      binds x l E ->
+      stores l (box y, E') SS ->
+      red ⟨ (C ⟜ x, E) | SS | K ⟩
+          ⟨ ((exp_var y), E) | SS | K ⟩.
+
+Hint Constructors store_typing eval_typing state_typing : core.
+
+(*
+Lemma eval_typing_regular : forall S K T U,
+  eval_typing S K T U ->
+  exists Γ,
+    wf_ctx Γ /\ wf_typ Γ T /\ wf_typ Γ U.
+Proof with eauto*.
+  intros * EvalTyp.
+  induction EvalTyp.
+  - rename select (sub _ _ _) into Sub.
+    apply sub_regular in Sub as [WfE [WfT' WfT]].
+    repeat split...
+  - pick fresh x and specialize H.
+    destructs typing_regular H as [wf_xTE _].
+    inversion wf_xTE; subst.
+Qed.
+ *)
+
 Lemma env_implies_value : forall S E l v,
   store_typing E S ->
-  stores E l v ->
+  stores l v E ->
   value v.
 Proof with eauto*.
   intros * StoreTyp Stores.
@@ -42,14 +139,15 @@ Proof with eauto*.
   destruct (l ==== l0); subst...
 Qed.
 
+(*
 Lemma stores_preserves_typing : forall S E l v C P,
   store_typing E S ->
-  stores E l v ->
-  typing nil S l (C # P) ->
-  exists D Q, typing nil S v (exp_cv v # Q)
+  stores l v E ->
+  typing nil l (C # P) ->
+  exists D Q, typing nil v (exp_cv v # Q)
          /\ Store.binds l (D # Q) S
-         /\ subcapt nil S (exp_cv v) D
-         /\ sub nil S Q P.
+         /\ subcapt nil (exp_cv v) D
+         /\ sub nil Q P.
 Proof with eauto*.
   intros * StoreTyp lStores.
   revert C P.
@@ -115,24 +213,24 @@ Proof with eauto*.
 Qed.
 
 Lemma eval_typing_sub : forall Γ S K R1 R2 T1 T2,
-  sub Γ S R2 R1 ->
-  eval_typing Γ S K R1 T1 ->
-  sub Γ S T1 T2 ->
-  eval_typing Γ S K R2 T2.
+  sub Γ R2 R1 ->
+  eval_typing S K R1 T1 ->
+  sub Γ T1 T2 ->
+  eval_typing S K R2 T2.
 Proof with eauto*.
   intros * R2SubR1 EvalTyp T1SubT2.
   revert R2 T2 R2SubR1 T1SubT2.
   induction EvalTyp; intros R4 T2 R2subC1R1 C2R2subT2.
   - Case "typing_eval_nil".
-    rename select (sub Γ S (C1 # R1) (C2 # R2)) into C1R1subC2R2.
-    destruct (proj1 (sub_capt_type _ _ _ _ C2R2subT2) ltac:(eauto)) as [D2 [Q2 Eq]]; subst.
-    destruct (proj2 (sub_capt_type _ _ _ _ R2subC1R1) ltac:(eauto)) as [D1 [Q1 Eq]]; subst.
+    rename select (sub Γ0 (C1 # R1) (C2 # R2)) into C1R1subC2R2.
+    destruct (proj1 (sub_capt_type _ _ _ C2R2subT2) ltac:(eauto)) as [D2 [Q2 Eq]]; subst.
+    destruct (proj2 (sub_capt_type _ _ _ R2subC1R1) ltac:(eauto)) as [D1 [Q1 Eq]]; subst.
     apply typing_eval_nil...
     apply sub_transitivity with (Q := C1 # R1)...
     apply sub_transitivity with (Q := C2 # R2)...
-  - Case "typing_eval_cons".  
-    destruct (proj1 (sub_capt_type _ _ _ _ C2R2subT2) ltac:(eauto)) as [D2 [Q2 Eq]]; subst.
-    destruct (proj2 (sub_capt_type _ _ _ _ R2subC1R1) ltac:(eauto)) as [D1 [Q1 Eq]]; subst.
+  - Case "typing_eval_cons".
+    destruct (proj1 (sub_capt_type _ _ _ C2R2subT2) ltac:(eauto)) as [D2 [Q2 Eq]]; subst.
+    destruct (proj2 (sub_capt_type _ _ _ R2subC1R1) ltac:(eauto)) as [D1 [Q1 Eq]]; subst.
     apply typing_eval_cons with (L := L) (C2 := C2) (R2 := R2)...
     + intros x xNotIn.
       rewrite_nil_concat.
@@ -141,52 +239,56 @@ Proof with eauto*.
       apply sub_reflexivity...
       applys eval_typing_regular EvalTyp.
 Qed.
+ *)
 
-Lemma eval_typing_weakening : forall Γ Δ Θ S E T U,
-  eval_typing (Δ ++ Γ) S E T U ->
-  wf_ctx (Δ ++ Θ ++ Γ) S ->
-  eval_typing (Δ ++ Θ ++ Γ) S E T U.
-Proof with eauto*.
-  intros * EvalTyp WfCtx.
-  induction EvalTyp.
-  - Case "typing_eval_nil".
-    apply typing_eval_nil...
-    apply sub_weakening...
-  - Case "typing_eval_cons".
-    apply typing_eval_cons with (L := L `u`A dom (Δ ++ Θ ++ Γ)) (C2 := C2) (R2 := R2)...
-    intros x xNotIn.
-    rename select (forall x, x ∉ L -> typing _ _ _ _) into Typ.
-    specialize (Typ x ltac:(fsetdec)).
-    rewrite <- concat_assoc in Typ.
-    apply typing_weakening with (Θ := Θ) in Typ.
-    + apply Typ.
-    + simpl_env.
-      apply wf_ctx_typ...
-      assert (WfCtx' : wf_ctx (([(x, bind_typ (C1 # R1))] ++ Δ) ++ Γ) S) by applys typing_regular Typ.
-      inversion WfCtx'; subst.
-      apply wf_typ_weakening...
-Qed.
+(* Lemma eval_typing_weakening : forall Γ Δ Θ S K T U, *)
+(*   eval_typing (Δ ++ Γ) S K T U -> *)
+(*   wf_ctx (Δ ++ Θ ++ Γ) -> *)
+(*   eval_typing (Δ ++ Θ ++ Γ) S K T U. *)
+(* Proof with eauto*. *)
+(*   intros * EvalTyp WfCtx. *)
+(*   induction EvalTyp. *)
+(*   - Case "typing_eval_nil". *)
+(*     apply typing_eval_nil... *)
+(*     apply sub_weakening... *)
+(*   - Case "typing_eval_cons". *)
+(*     apply typing_eval_cons with (L := L `u`A dom (Δ ++ Θ ++ Γ)) (C2 := C2) (R2 := R2)... *)
+(*     intros x xNotIn. *)
+(*     rename select (forall x, x ∉ L -> typing _ _ _) into Typ. *)
+(*     specialize (Typ x ltac:(fsetdec)). *)
+(*     rewrite <- concat_assoc in Typ. *)
+(*     apply typing_weakening with (Θ := Θ) in Typ. *)
+(*     + apply Typ. *)
+(*     + simpl_env. *)
+(*       apply wf_ctx_typ... *)
+(*       assert (WfCtx' : wf_ctx (([(x, bind_typ (C1 # R1))] ++ Δ) ++ Γ)) by applys typing_regular Typ. *)
+(*       inversion WfCtx'; subst. *)
+(*       apply wf_typ_weakening... *)
+(*     + inversion H0; subst; try econstructor... *)
+(*       eapply ee_cons... *)
+(*       apply wf_typ_weakening... *)
+(* Qed. *)
 
-Lemma eval_typing_weakening_store : forall Γ S1 S2 S3 E T U,
-  eval_typing Γ (S1 ++ S2) E T U ->
-  wf_store_ctx (S1 ++ S3 ++ S2) ->
-  eval_typing Γ (S1 ++ S3 ++ S2) E T U.
-Proof with eauto*.
-  intros * EvalTyp WfCtx.
-  induction EvalTyp.
-  - Case "typing_eval_nil".
-    apply typing_eval_nil...
-    apply sub_weakening_store...
-  - Case "typing_eval_cons".
-    apply typing_eval_cons with (L := L) (C2 := C2) (R2 := R2)...
-    intros x xNotIn.
-    specialize (H x xNotIn).
-    apply typing_weakening_store with (S2 := S3) in H...
-Qed.
+(* Lemma eval_typing_weakening_store : forall Γ S1 S2 S3 E T U, *)
+(*   eval_typing Γ (S1 ++ S2) E T U -> *)
+(*   wf_store_ctx (S1 ++ S3 ++ S2) -> *)
+(*   eval_typing Γ (S1 ++ S3 ++ S2) E T U. *)
+(* Proof with eauto*. *)
+(*   intros * EvalTyp WfCtx. *)
+(*   induction EvalTyp. *)
+(*   - Case "typing_eval_nil". *)
+(*     apply typing_eval_nil... *)
+(*     apply sub_weakening_store... *)
+(*   - Case "typing_eval_cons". *)
+(*     apply typing_eval_cons with (L := L) (C2 := C2) (R2 := R2)... *)
+(*     intros x xNotIn. *)
+(*     specialize (H x xNotIn). *)
+(*     apply typing_weakening_store with (S2 := S3) in H... *)
+(* Qed. *)
 
-Lemma store_typing_preserves_dom : forall E S,
-  store_typing E S ->
-  Store.dom E = Store.dom S.
+Lemma store_typing_preserves_dom : forall SS S,
+  store_typing SS S ->
+  Store.dom SS = Store.dom S.
 Proof with eauto*.
   intros * StoreTyp.
   induction StoreTyp...
@@ -194,31 +296,31 @@ Proof with eauto*.
   rewrite IHStoreTyp...
 Qed.
 
-Lemma typing_inv_app : forall Γ S (f l : loc) T,
-  typing Γ S (f @ l) T ->
-  exists C D Q U, typing Γ S f (C # (∀ (D # Q) U))
-               /\ typing Γ S l (D # Q)
-               /\ sub Γ S (open_ct U (cse_loc l)) T.
+Lemma typing_inv_app : forall Γ (f x : atom) T,
+  typing Γ (f @ x) T ->
+  exists C D Q U, typing Γ f (C # (∀ (D # Q) U))
+               /\ typing Γ x (D # Q)
+               /\ sub Γ (open_ct U (cse_fvar x)) T.
 Proof with eauto*.
   intros * Typ.
-  forwards (WfStore & WfCtx & _ & WfT): typing_regular Typ.
+  forwards (WfCtx & _ & WfT): typing_regular Typ.
   dependent induction Typ.
   - Case "typing_app".
     repeat eexists...
     apply sub_reflexivity...
   - Case "typing_sub".
-    rename select (sub Γ S R T) into Sub.
-    assert (WfR : wf_typ Γ S R) by applys sub_regular Sub.
-    destruct (IHTyp f l ltac:(reflexivity) WfStore WfCtx WfR) as [C [D [Q [U [fTyp [xTyp Sub']]]]]].
+    rename select (sub Γ R T) into Sub.
+    assert (WfR : wf_typ Γ R) by applys sub_regular Sub.
+    destruct (IHTyp f x ltac:(reflexivity) WfCtx WfR) as [C [D [Q [U [fTyp [xTyp Sub']]]]]].
     repeat eexists...
     apply sub_transitivity with (Q := R)...
 Qed.
 
-Lemma typing_inv_tapp : forall Γ S (l : loc) V T,
-  typing Γ S (l @ [V]) T ->
-  exists C R U, typing Γ S l (C # (∀ [R] U))
-             /\ sub Γ S V R
-             /\ sub Γ S (open_tt U V) T.
+Lemma typing_inv_tapp : forall Γ (x : atom) V T,
+  typing Γ (x @ [V]) T ->
+  exists C R U, typing Γ x (C # (∀ [R] U))
+             /\ sub Γ V R
+             /\ sub Γ (open_tt U V) T.
 Proof with eauto*.
   intros * Typ.
   dependent induction Typ.
@@ -226,10 +328,10 @@ Proof with eauto*.
     exists C, Q, T.
     repeat split...
     apply sub_reflexivity...
-    forwards (WfStore & WCtx & _ & WfCQT): typing_regular Typ.
+    forwards (WCtx & _ & WfCQT): typing_regular Typ.
     inversion WfCQT; subst.
-    inversion select (wf_typ Γ S (∀ [Q] T)); subst.
-    rename select (forall X : atom, X ∉ L -> wf_typ _ _ _) into WfT.
+    inversion select (wf_typ Γ (∀ [Q] T)); subst.
+    rename select (forall X : atom, X ∉ L -> wf_typ _ _) into WfT.
     pick fresh Y and specialize WfT.
     replace (open_tt T V) with (subst_tt Y V (open_tt T Y)) by (rewrite <- subst_tt_intro; eauto).
     rewrite_env (map (subst_tb Y V) nil ++ Γ).
@@ -237,67 +339,296 @@ Proof with eauto*.
     + applys sub_pure_type...
     + apply ok_cons...
   - Case "typing_sub".
-    destruct (IHTyp l V eq_refl) as [C [R' [U [fTyp [lTyp Sub]]]]].
+    destruct (IHTyp x V eq_refl) as [C [R' [U [fTyp [lTyp Sub]]]]].
     exists C, R', U.
     repeat split...
     apply sub_transitivity with (Q := R)...
 Qed.
 
-Lemma typing_inv_box : forall Γ S l T,
-  typing Γ S (box l) T ->
-  exists C R, typing Γ S l (C # R)
+Lemma typing_inv_box : forall Γ x T,
+  typing Γ (box x) T ->
+  exists C R, typing Γ x (C # R)
            /\ `cse_fvars` C ⊆ dom Γ
-           /\ sub Γ S ({} # □ (C # R)) T.
+           /\ sub Γ ({} # □ (C # R)) T.
 Proof with eauto*.
   intros * Typ.
-  forwards (WfStore & WfCtx & _ & WfT): typing_regular Typ.
+  forwards (WfCtx & _ & WfT): typing_regular Typ.
   dependent induction Typ...
   - Case "typing_box".
     exists C, R.
     repeat split...
     + intros x InC.
-      apply wf_cse_free_vars_bound with (X := x) in H0...
-      destruct H0 as [T Binds].
+      apply wf_cse_free_vars_bound with (X := x) in H...
+      destruct H as [T Binds].
       apply binds_In with (a := bind_typ T)...
     + apply sub_reflexivity...
   - Case "typing_sub".
-    rename select (sub Γ S R T) into Sub.
-    assert (WfR : wf_typ Γ S R) by applys sub_regular Sub.
-    destruct (IHTyp l eq_refl WfStore WfCtx WfR) as [C [R' [lTyp [xSubΓ CRsubS]]]].
+    rename select (sub Γ R T) into Sub.
+    assert (WfR : wf_typ Γ R) by applys sub_regular Sub.
+    destruct (IHTyp x eq_refl WfCtx WfR) as [C [R' [lTyp [xSubΓ CRsubS]]]].
     exists C, R'.
     repeat split...
     apply sub_transitivity with (Q := R)...
 Qed.
 
-Lemma typing_inv_unbox : forall Γ S C l T,
-  typing Γ S (exp_unbox C l) T ->
-  exists R, typing Γ S l ({} # (□ (C # R)))
-         /\ sub Γ S (C # R) T.
+Lemma typing_inv_unbox : forall Γ C x T,
+  typing Γ (exp_unbox C x) T ->
+  exists R, typing Γ x ({} # (□ (C # R)))
+         /\ sub Γ (C # R) T.
 Proof with eauto*.
   intros * Typ.
-  forwards (WfStore & WfCtx & _ & WfT): typing_regular Typ.
+  forwards (WfCtx & _ & WfT): typing_regular Typ.
   dependent induction Typ...
   - Case "typing_unbox".
     exists R.
     repeat split...
     apply sub_reflexivity...
   - Case "typing_sub".
-    rename select (sub Γ S R T) into Sub.
-    assert (WfR : wf_typ Γ S R) by applys sub_regular Sub.
-    destruct (IHTyp _ _ eq_refl WfStore WfCtx WfR) as [R' [xTyp CRsubS]].
+    rename select (sub Γ R T) into Sub.
+    assert (WfR : wf_typ Γ R) by applys sub_regular Sub.
+    destruct (IHTyp _ _ eq_refl WfCtx WfR) as [R' [xTyp CRsubS]].
     exists R'.
     repeat split...
     apply sub_transitivity with (Q := R)...
 Qed.
 
+Lemma typed_store_ctx_wf : forall S SS,
+  store_typing SS S ->
+  wf_store_ctx S.
+Proof with eauto.
+  intros. dependent induction H...
+  constructor...
+Qed.
+
+Lemma wf_store_ctx_ok : forall S,
+  wf_store_ctx S ->
+  Store.ok S.
+Proof with eauto.
+  intros. dependent induction H...
+Qed.
+
+Lemma typed_store_ok : forall SS S,
+  store_typing SS S ->
+  Store.ok SS.
+Proof with eauto.
+  intros. dependent induction H...
+  constructor...
+  rewrite store_typing_preserves_dom with (S := S)...
+Qed.
+
+Lemma env_well_typed_store_ctx_wf : forall Γ S E,
+  env_well_typed Γ S E ->
+  wf_store_ctx S.
+Proof with eauto.
+  intros. dependent induction H...
+Qed.
+
+Lemma env_well_typed_ctx_wf : forall Γ S E,
+  env_well_typed Γ S E ->
+  wf_ctx Γ.
+Proof with eauto.
+  intros. dependent induction H...
+  rewrite_env ([(x, bind_typ (C # R))] ++ Γ).
+  constructor...
+  apply env_well_typed_store_ctx_wf in H.
+  Admitted.
+(*   inversion H... *)
+(* Qed. *)
+
+Hint Resolve typed_store_ctx_wf : core.
+
+Lemma env_well_typed_weaken_store : forall Γ S1 S2 S3 E,
+  env_well_typed Γ (S1 ++ S3) E ->
+  wf_store_ctx (S1 ++ S2 ++ S3) ->
+  env_well_typed Γ (S1 ++ S2 ++ S3) E.
+Proof with eauto.
+  intros * EnvTyp WfStore.
+  dependent induction EnvTyp.
+  - constructor...
+  - econstructor...
+    apply wf_store_ctx_ok in WfStore.
+    Store.binds_cases H0...
+Qed.
+
+Lemma store_typing_equivalent : forall S SS l,
+  store_typing SS S ->
+  (exists U Γ, Store.binds l (U, Γ) S) <-> (exists v E, stores l (v, E) SS).
+Proof with eauto.
+  intros * StoreTyp.
+  split; intros.
+  {
+    dependent induction StoreTyp.
+    - destruct H as [U [Γ Binds]].
+      inversion Binds.
+    - destruct H3 as [U [Γ' Binds]].
+      rewrite_env ([(l0, (C # R, Γ))] ++ S) in Binds.
+      apply Store.binds_concat_inv in Binds.
+      destruct Binds; simpl in *...
+      + destruct H3.
+        assert (exists (U : typ) (Γ : ctx), Store.binds l (U, Γ) S). {
+          exists U, Γ'...
+        }
+        destruct (IHStoreTyp H5) as [v0 [E0 Stores]].
+        exists v0, E0.
+        apply Store.binds_tail with (F := [(l0, store (v, E))]) in Stores.
+        simpl in Stores...
+        simpl; flsetdec.
+      + apply Store.binds_singleton_inv in H3.
+        destruct H3; inversion H4; subst.
+        exists v, E.
+        rewrite_env ([(l0, store (v, E))] ++ SS).
+        apply Store.binds_head, Store.binds_singleton.
+   }
+  {
+    dependent induction StoreTyp.
+    - destruct H as [U [Γ Binds]].
+      inversion Binds.
+    - destruct H3 as [v0 [E0 Binds]].
+      rewrite_env ([(l0, store (v, E))] ++ SS) in Binds.
+      apply Store.binds_concat_inv in Binds.
+      destruct Binds; simpl in *...
+      + destruct H3.
+        assert (exists v E, stores l (v, E) SS) by (exists v0, E0; eauto).
+        destruct (IHStoreTyp H5) as [U [Γ' Stores]].
+        exists U, Γ'.
+        apply Store.binds_tail with (F := [(l0, (C # R, Γ))]) in Stores.
+        simpl in Stores...
+        simpl; flsetdec.
+      + apply Store.binds_singleton_inv in H3.
+        destruct H3; inversion H4; subst.
+        exists (C # R), Γ.
+        rewrite_env ([(l0, (C # R, Γ))] ++ S).
+        apply Store.binds_head, Store.binds_singleton.
+  }
+Qed.
+
+Lemma store_typing_inversion : forall Γ S SS E l v U,
+  store_typing SS S ->
+  Store.binds l (U, Γ) S ->
+  stores l (v, E) SS ->
+  typing Γ v U /\ env_well_typed Γ S E.
+Proof with eauto.
+  intros * StoreTyp lBindsU lBindsv.
+  dependent induction StoreTyp.
+  inversion lBindsU.
+  assert (WfStore : wf_store_ctx S) by applys typed_store_ctx_wf StoreTyp.
+  rewrite_env ([(l0, (C # R, Γ0))] ++ S) in lBindsU.
+  apply Store.binds_concat_inv in lBindsU.
+  destruct lBindsU; simpl in *...
+  - destruct H3.
+    rewrite_env ([(l0, store (v0, E0))] ++ SS) in lBindsv.
+    apply Store.binds_concat_inv in lBindsv.
+    destruct lBindsv.
+    + destruct H5...
+      destruct (IHStoreTyp H4 H6); split...
+      rewrite_env (nil ++ [(l0, (C # R, Γ0))] ++ S).
+      eapply env_well_typed_weaken_store...
+      constructor...
+    + apply Store.binds_singleton_inv in H5...
+      destruct H5; clear - H3 H5; flsetdec.
+  - apply Store.binds_singleton_inv in H3...
+    destruct H3; subst.
+    rewrite_env ([(l0, store (v0, E0))] ++ SS) in lBindsv.
+    apply Store.binds_concat_inv in lBindsv.
+    destruct lBindsv.
+    + clear - H3; destruct H3; simpl in *; flsetdec.
+    + apply Store.binds_singleton_inv in H3...
+      destruct H3.
+      inversion H4; inversion H5; subst...
+      split...
+      rewrite_env (nil ++ [(l0, (C # R, Γ0))] ++ S).
+      eapply env_well_typed_weaken_store...
+      constructor...
+Qed.
+
+(* Lemma typing_invariant_under_typed_ctx : forall Γ Γ' S E (x : atom) C R, *)
+(*   x `in` dom E -> *)
+(*   env_well_typed Γ S E -> *)
+(*   typing Γ x (C # R) -> *)
+(*   env_well_typed Γ' S E -> *)
+(*   typing Γ' x (C # R). *)
+(* Proof with eauto. *)
+(*   intros. generalize dependent Γ. *)
+(*   dependent induction H2; intros... *)
+(*   simpl in H; fsetdec. *)
+(**)
+(*   simpl in H. destruct (x == x0); subst... *)
+(*   - inversion H4; subst. *)
+(*     pose proof (env_well_typed_store_ctx_wf _ _ _ H2). *)
+(*     apply wf_store_ctx_ok in H6. *)
+(*     pose proof (Store.binds_unique _ _ _ _ _ H6 H1 H13). *)
+(*     inversion H7; subst... *)
+(*     admit. *)
+(*   - assert (x `in` dom E) by fsetdec. *)
+(*     inversion H4; subst... *)
+
+Lemma store_type_same_as_ctx : forall Γ Γ' S E x l T1 T2,
+  binds x l E ->
+  Store.binds l (T1, Γ') S ->
+  binds x (bind_typ T2) Γ ->
+  env_well_typed Γ S E ->
+  T1 = T2.
+Proof with eauto.
+  intros * BindsxE BindslS BindsxΓ EnvTyp.
+  dependent induction EnvTyp.
+  inversion BindsxE.
+  simpl in *.
+  rewrite_env ([(x0, l0)] ++ E) in BindsxE.
+  binds_cases BindsxE; subst.
+  - apply IHEnvTyp... admit.
+  - pose proof (env_well_typed_store_ctx_wf _ _ _ EnvTyp).
+    pose proof (env_well_typed_ctx_wf _ _ _ EnvTyp).
+    apply wf_store_ctx_ok in H1.
+    apply ok_from_wf_ctx in H2.
+    (* pose proof (binds_unique _ _ _ _ BindsxΓ H). *)
+    (* pose proof (Store.binds_unique _ _ _ _ _ H1 BindslS H0). *)
+    (* inversion H3; inversion H4; subst... *)
+    Admitted.
+(* Qed. *)
+
+Lemma typing_inv_var : forall Γ (x : atom) T,
+  typing Γ x T ->
+  exists C R, binds x (bind_typ (C # R)) Γ
+           /\ sub Γ (C # R) T.
+Proof.
+Admitted.
+
 Lemma preservation : forall Σ Σ' V,
   state_typing Σ V ->
-  Σ --> Σ' ->
+  red Σ Σ' ->
   state_typing Σ' V.
 Proof with eauto*.
-  intros * [S E e C1 R1 C2 R2 v StoreTyp EvalTyp Typ] Red.
-  forwards (WfStore & WfCtx & WfC1R1 & WfC2R2): eval_typing_regular EvalTyp.
+  intros * [Γ S E SS K C1 R1 C2 R2 e StoreTyp EvalTyp Typing EnvTyp] Red.
+  (* forwards (WfCtx & WfC1R1 & WfC2R2): eval_typing_regular EvalTyp. *)
   dependent induction Red.
+  - Case "red_var".
+    destruct eE as [e E0].
+    (* inversion StoreTyp; subst. inversion H0. *)
+    pose proof (proj2 (store_typing_equivalent _ _ l StoreTyp)).
+    assert (exists (v : exp) (E : env), stores l (v, E) SS)
+      by (exists e, E0; eauto).
+    destruct (H1 H2) as [U0 [Γ0 Binds]].
+    pose proof (store_typing_inversion _ _ _ _ _ _ _ StoreTyp Binds H0).
+    destruct (typing_inv_var _ _ _ Typing) as [C [R [Binds' Sub]]].
+    (* destruct H99 as [D [Q [Binds' [Subcapt [_ [Sub _]]]]]]. *)
+    eapply typing_state...
+    unshelve epose proof (store_type_same_as_ctx Γ Γ0 S E x l U0 (C # R) _ _ _ _); subst...
+    destruct H3; eapply typing_sub...
+    admit.
+
+    (* admit. *)
+  - Case "red_app".
+    destruct v as [e E0].
+    destruct (proj2 (store_typing_equivalent _ _ lx StoreTyp)) as [U [Γ0 Stores]].
+    exists (λ (T) e1), E'...
+    destruct (store_typing_inversion _ _ _ _ _ _ _ StoreTyp Stores H1).
+    eapply typing_state...
+    epose proof (typing_inv_abs _ _ _ _ H4 _ _ _ _).
+    destruct H6 as [_ [S2 [L ?]]].
+
+
+
+
   - Case "red_lift".
     inversion EvalTyp; subst.
     rename select (forall x, x ∉ L -> typing _ _ _ _) into Typ'.

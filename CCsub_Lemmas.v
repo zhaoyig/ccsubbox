@@ -690,7 +690,6 @@ Proof with simpl_env; eauto*.
     apply wf_typ_open_cse with (R := D # Q)...
     destruct IHTyp2 as [WfCtx _].
     apply ok_from_wf_ctx in WfCtx...
-    destruct x; simpl...
     apply typing_var_implies_binds in Typ2.
     destruct Typ2 as [C' [R' Binds]].
     apply (wf_cse_term_fvar  (C' # R') _)...
@@ -754,20 +753,6 @@ Proof with simpl_env; eauto*.
     destruct IHTyp as [HwfΓ [Hex Hwf]].
     repeat split...
     eapply sub_regular; eassumption.
-Qed.
-
-Lemma eval_typing_regular : forall Γ S K T U,
-  eval_typing Γ S K T U ->
-  wf_ctx Γ /\ wf_typ Γ T /\ wf_typ Γ U.
-Proof with eauto*.
-  intros * EvalTyp.
-  induction EvalTyp.
-  - rename select (sub _ _ _) into Sub.
-    apply sub_regular in Sub as [WfE [WfT' WfT]].
-    repeat split...
-  - pick fresh x and specialize H.
-    destructs typing_regular H as [wf_xTE _].
-    inversion wf_xTE; subst...
 Qed.
 
 (* *********************************************************************** *)
