@@ -43,11 +43,11 @@ Proof with simpl_env;
     apply typing_box...
     simpl_env in H.
     assert (Δ ++ Γ = Δ ++ Γ) by reflexivity.
-    specialize (IHTyp Δ H1 Ok).
+    specialize (IHTyp Δ H0 Ok).
     inversion IHTyp...
   - Case "typing_unbox".
     apply typing_unbox...
-    apply wf_cse_weakening... 
+    apply wf_cse_weakening...
 Qed.
 
 Lemma typing_weakening_store : forall Γ e T S1 S2 S3,
@@ -88,8 +88,6 @@ Proof with eauto using wf_ctx_narrowing, wf_typ_ignores_sub_bindings, sub_narrow
   induction Typ; intros Δ EQ WfCtx; subst.
   - Case "typing_var".
     binds_cases H0...
-  - Case "typing_loc".
-    apply typing_loc with (R := R) (C := C)...
   - Case "typing_abs".
     pick fresh y and apply typing_abs...
     rewrite <- concat_assoc.
@@ -147,9 +145,6 @@ Proof with eauto*.
            eapply wf_ctx_narrowing_typ...
     + apply typing_var with (C := C0)...
       eapply wf_ctx_narrowing_typ...
-  - Case "typing_loc".
-    apply typing_loc with (R := R) (C := C0)...
-    eapply wf_ctx_narrowing_typ...
   - Case "typing_abs".
     pick fresh y and apply typing_abs...
     + simpl_env in *.
@@ -240,16 +235,16 @@ Proof with simpl_env; auto.
     eauto using (sub_transitivity T).
 Qed.
 
-Lemma typing_inv_let : forall Γ e k T S,
-  typing Γ S (let= e in k) T ->
+Lemma typing_inv_let : forall Γ e k T1 T2 S,
+  typing Γ S (let= e : T1 in k) T2 ->
   exists C R,
     typing Γ S e (C # R)
     /\ exists L, forall x, x ∉ L ->
-      typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve k x (cse_fvar x)) T.
+      typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve k x (cse_fvar x)) T2.
 Proof with eauto*.
   intros * Typ.
   dependent induction Typ...
-  destruct (IHTyp e k ltac:(reflexivity)) as [C [R0 [eTyp [L kTyp]]]].
+  destruct (IHTyp e k T1 ltac:(reflexivity)) as [C [R0 [eTyp [L kTyp]]]].
   exists C, R0.
   split...
   exists (L `u`A dom Γ).
