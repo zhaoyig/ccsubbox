@@ -23,6 +23,8 @@ CCsub_Hints.v
 CCsub_Subcapt.v
 CCsub_Subtyping.v
 CCsub_Typing.v
+CCsub_Inversion.v
 CCsub_Red.v
 CCsub_Substitution.v
+CCsub_RuntimeInversion.v
 CCsub_Soundness.v

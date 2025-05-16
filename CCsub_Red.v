@@ -92,9 +92,9 @@ Inductive eval_typing (Γ : ctx) (S : store_ctx) : cont -> typ -> typ -> Prop :=
       eval_typing Γ S ((let_body (e, E) (C1 # R1)) :: K) (C1 # R1) (C3 # R3).
 
 Inductive state_typing : state -> typ -> Prop :=
-  | typing_state : forall Γ S E SS K C1 R1 C2 R2 e,
+  | typing_state : forall Γ Γ' S E SS K C1 R1 C2 R2 e,
       store_typing SS S ->
-      eval_typing Γ S K (C1 # R1) (C2 # R2) ->
+      eval_typing Γ' S K (C1 # R1) (C2 # R2) ->
       typing Γ S e (C1 # R1) ->
       env_well_typed S E Γ ->
       state_typing ⟨ (e, E) | SS | K ⟩ (C2 # R2).
@@ -113,19 +113,13 @@ Inductive state_typing : state -> typ -> Prop :=
 (*       typing Γ S (box e1) (C # R) -> *)
 (*       ee_typing S ((box e1), E) (C # R). *)
 
-
 Inductive red : state -> state -> Prop :=
-  | red_var : forall (x : atom) l C R SS K E eE,
-      binds x (C # R, l) E ->
-      stores l eE SS ->
-      red ⟨ (exp_var x, E) | SS | K ⟩
-          ⟨ eE | SS | K ⟩
   | red_app : forall (x y z: atom) T C1 R1 C2 R2 e1 lx ly v E SS K E',
       binds x (C1 # R1, lx) E ->
       binds y (C2 # R2, ly) E ->
       stores lx (λ (T) e1,  E') SS ->
       stores ly v SS ->
-      z `notin` dom E' ->
+      (forall L, z `notin` L) ->
       red ⟨ (exp_app x y, E) | SS | K ⟩
           ⟨ (open_ve e1 z (cse_fvar z), (z,  (C2 # R2, ly)) :: E') | SS | K ⟩
   | red_tapp : forall (x : atom) T C R l T0 e1 E E' SS K,
