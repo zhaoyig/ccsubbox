@@ -191,22 +191,21 @@ Definition allbound (Γ : ctx) (fvars : atoms) : Prop :=
     x `in`A fvars ->
     exists C R, binds x (bind_typ (C # R)) Γ.
 
-(* Change the order of ctx, store_ctx *)
 Inductive wf_cse : ctx -> store_ctx -> cse -> Prop :=
-  | wf_cse_top : forall E S,
-      wf_cse E S cse_top
-  | wf_cse_term_fvar : forall T S E (x : atom),
-      binds x (bind_typ T) E ->
-      wf_cse E S (cse_fvar x)
-  | wf_cse_term_loc : forall S T E (l : loc),
+  | wf_cse_top : forall Γ S,
+      wf_cse Γ S cse_top
+  | wf_cse_term_fvar : forall T S Γ (x : atom),
+      binds x (bind_typ T) Γ ->
+      wf_cse Γ S (cse_fvar x)
+  | wf_cse_term_loc : forall S T Γ (l : loc),
       Store.binds l T S ->
-      wf_cse E S (cse_loc l)
-  | wf_cse_join : forall E S Q1 Q2,
-      wf_cse E S Q1 ->
-      wf_cse E S Q2 ->
-      wf_cse E S (cse_join Q1 Q2)
-  | wf_cse_bot : forall E S,
-      wf_cse E S cse_bot.
+      wf_cse Γ S (cse_loc l)
+  | wf_cse_join : forall Γ S Q1 Q2,
+      wf_cse Γ S Q1 ->
+      wf_cse Γ S Q2 ->
+      wf_cse Γ S (cse_join Q1 Q2)
+  | wf_cse_bot : forall Γ S,
+      wf_cse Γ S cse_bot.
 
 Inductive wf_typ : ctx -> store_ctx -> typ -> Prop :=
   | wf_typ_var : forall Γ S X T,
@@ -262,42 +261,42 @@ Inductive wf_ctx : ctx -> store_ctx -> Prop :=
       wf_ctx ([(x, bind_typ (C # R))] ++ Γ) S.
 
 Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
-  | subcapt_top : forall E S Q,
-      wf_ctx E S ->
-      wf_cse E S Q ->
-      subcapt E S Q cse_top
-  | subcapt_bot : forall E S Q,
-      wf_ctx E S ->
-      wf_cse E S Q ->
-      subcapt E S cse_bot Q
-  | subcapt_refl_var : forall E S X,
-      wf_ctx E S ->
-      wf_cse E S (cse_fvar X) ->
-      subcapt E S (cse_fvar X) (cse_fvar X)
-  | subcapt_refl_loc : forall E S l,
-      wf_ctx E S ->
-      wf_cse E S (cse_loc l) ->
-      subcapt E S (cse_loc l) (cse_loc l)
-  | subcapt_trans_var : forall R S E Q X T,
-      binds X (bind_typ (typ_capt R T)) E ->
-      subcapt E S R Q ->
-      subcapt E S (cse_fvar X) Q
-  | subcapt_trans_loc : forall E R S Q X T,
+  | subcapt_top : forall Γ S Q,
+      wf_ctx Γ S ->
+      wf_cse Γ S Q ->
+      subcapt Γ S Q cse_top
+  | subcapt_bot : forall Γ S Q,
+      wf_ctx Γ S ->
+      wf_cse Γ S Q ->
+      subcapt Γ S cse_bot Q
+  | subcapt_refl_var : forall Γ S X,
+      wf_ctx Γ S ->
+      wf_cse Γ S (cse_fvar X) ->
+      subcapt Γ S (cse_fvar X) (cse_fvar X)
+  | subcapt_refl_loc : forall Γ S l,
+      wf_ctx Γ S ->
+      wf_cse Γ S (cse_loc l) ->
+      subcapt Γ S (cse_loc l) (cse_loc l)
+  | subcapt_trans_var : forall R S Γ Q X T,
+      binds X (bind_typ (typ_capt R T)) Γ ->
+      subcapt Γ S R Q ->
+      subcapt Γ S (cse_fvar X) Q
+  | subcapt_trans_loc : forall Γ R S Q X T,
       Store.binds X (typ_capt R T) S ->
-      subcapt E S R Q ->
-      subcapt E S (cse_loc X) Q
-  | subcapt_join_inl : forall E S R1 R2 Q,
-      subcapt E S Q R1 ->
-      wf_cse E S R2 ->
-      subcapt E S Q (cse_join R1 R2)
-  | subcapt_join_inr : forall E S R1 R2 Q,
-      wf_cse E S R1 ->
-      subcapt E S Q R2 ->
-      subcapt E S Q (cse_join R1 R2)
-  | subcapt_join_elim : forall E S R1 R2 Q,
-      subcapt E S R1 Q ->
-      subcapt E S R2 Q ->
-      subcapt E S (cse_join R1 R2) Q.
+      subcapt Γ S R Q ->
+      subcapt Γ S (cse_loc X) Q
+  | subcapt_join_inl : forall Γ S R1 R2 Q,
+      subcapt Γ S Q R1 ->
+      wf_cse Γ S R2 ->
+      subcapt Γ S Q (cse_join R1 R2)
+  | subcapt_join_inr : forall Γ S R1 R2 Q,
+      wf_cse Γ S R1 ->
+      subcapt Γ S Q R2 ->
+      subcapt Γ S Q (cse_join R1 R2)
+  | subcapt_join_elim : forall Γ S R1 R2 Q,
+      subcapt Γ S R1 Q ->
+      subcapt Γ S R2 Q ->
+      subcapt Γ S (cse_join R1 R2) Q.
 
 Inductive sub : ctx -> store_ctx -> typ -> typ -> Prop :=
   | sub_refl_tvar : forall Γ (S: store_ctx) (X : atom),
