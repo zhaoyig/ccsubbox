@@ -6,7 +6,7 @@ Require Import CCsub_Typing.
    Notational conventions:
    ctx: Γ (var -> type)
    store_ctx: S (loc -> type)
-   env: E (var -> loc)
+   env: E (var -> (type, loc))
    exp_env: eE (val)
    store_env: SS (loc -> val)
    frame: k (exp_env, typ with a hole)
@@ -19,12 +19,15 @@ Definition exp_env: Set := (exp * env).
 Inductive value : exp_env -> Prop :=
   | value_abs : forall T E e1,
       expr (λ (T) e1) ->
+      fv_ve e1 = dom E ->
       value ((λ (T) e1), E)
   | value_tabs : forall T E e1,
       expr (Λ [T] e1) ->
+      fv_ve e1 = dom E ->
       value ((Λ [T] e1), E)
   | value_box : forall E e1,
       expr (box e1) ->
+      fv_ve e1 = dom E ->
       value ((box e1), E).
 
 Inductive answer : exp_env -> Prop :=
@@ -47,7 +50,6 @@ Inductive state : Set :=
   | mk_state : exp_env -> store_env -> cont -> state.
 Notation "⟨ eE | SS | K ⟩" := (mk_state eE SS K) (at level 1).
 
-(* TODO : might want many more restrictions here based on the paper *)
 Inductive state_final : state -> Prop :=
   | final_state : forall SS a,
       answer a ->
@@ -60,7 +62,6 @@ Inductive env_well_typed : store_ctx -> env -> ctx -> Prop :=
   | env_cons : forall Γ S E x l C R,
       env_well_typed S E Γ ->
       x `notin` dom Γ ->
-      wf_typ Γ S (C # R) ->
       Store.binds l (C # R) S ->
       env_well_typed S ([(x,  (C # R, l))] ++ E) ([(x, bind_typ (C # R))] ++ Γ).
 
