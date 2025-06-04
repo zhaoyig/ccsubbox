@@ -2,7 +2,7 @@ Require Import Coq.Program.Equality.
 
 Require Export CCsub_Infrastructure.
 Require Export CCsub_Wellformedness.
-Require Import Atom.
+Require Import Meta.MetatheoryAtom.
 
 Require Import LibTactics.
 

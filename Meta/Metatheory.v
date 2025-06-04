@@ -245,7 +245,7 @@ Hint Resolve
 
 (* SCW: this export must be at the end of the file so that eq_dec refers to
    the type class member, not KeySetFacts.eq_dec. *)
-Require Export SystemMP.Meta.CoqEqDec.
+Require Export CoqEqDec.
 
 (** We prefer that "==" refer to decidable equality at [eq], as
     defined by the [EqDec_eq] class from the CoqEqDec library. *)

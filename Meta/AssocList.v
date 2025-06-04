@@ -32,7 +32,7 @@ Require Import Coq.Strings.String.
 Require Import String.
 
 Require Import CoqFSetDecide.
-Require Import CCoqListFacts.
+Require Import CoqListFacts.
 Require Import LibTactics.
 Require Import CoqFSetInterface.
 
@@ -86,7 +86,7 @@ Create HintDb rewr_list.
 
 Require Import Coq.Classes.Equivalence.
 Require Import Coq.Classes.EquivDec.
-Require Import SystemMP.Meta.CoqEqDec.
+Require Import CoqEqDec.
 
 
 Module Make

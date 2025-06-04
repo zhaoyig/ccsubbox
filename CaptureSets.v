@@ -8,7 +8,7 @@ Require Import Tactics.
 Require Import OrderedTypeEx.
 Require Import OrderedType.
 Require Import FSetFacts.
-Require Import Atom.
+Require Import Meta.MetatheoryAtom.
 Require Import Nat.
 Require Import Loc.
 Require Export Bool.
