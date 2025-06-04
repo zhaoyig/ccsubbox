@@ -10,10 +10,10 @@ Require Export Coq.Arith.Arith.
 Require Export Coq.FSets.FSets.
 Require Export Coq.Lists.List.
 
-Require Export SystemMP.Meta.AssocList.
-Require Export SystemMP.Meta.CoqListFacts.
-Require Export SystemMP.Meta.LibTactics.
-Require Export SystemMP.Meta.MetatheoryAtom.
+Require Export AssocList.
+Require Export CoqListFacts.
+Require Export LibTactics.
+Require Export MetatheoryAtom.
 
 
 (* ********************************************************************** *)

@@ -7,8 +7,8 @@
 
 (** A library of code for supporting LNgen. *)
 
-Require Export SystemMP.Meta.LibDefaultSimp.
-Require Import SystemMP.Meta.Metatheory.
+Require Export LibDefaultSimp.
+Require Import Metatheory.
 Require Import Lia.
 
 (* Suppress warnings about Hint Resolve *)

@@ -8,7 +8,7 @@
 
 Require Import Coq.FSets.FSets.
 
-Require Import SystemMP.Meta.CoqFSetInterface.
+Require Import CoqFSetInterface.
 
 
 (* *********************************************************************** *)

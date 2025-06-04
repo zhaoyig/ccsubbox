@@ -9,7 +9,7 @@ Require Import Coq.Arith.Peano_dec.
 Require Import Coq.Lists.SetoidList.
 Require Import Lia.
 
-Require Import SystemMP.Meta.CoqUniquenessTac.
+Require Import CoqUniquenessTac.
 
 
 (* *********************************************************************** *)

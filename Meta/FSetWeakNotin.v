@@ -14,7 +14,7 @@
 
 Require Import Coq.FSets.FSetInterface.
 
-Require Import SystemMP.Meta.CoqFSetDecide.
+Require Import CoqFSetDecide.
 
 
 (* Suppress warnings about Hint Resolve *)

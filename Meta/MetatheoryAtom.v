@@ -12,10 +12,10 @@ Require Import Coq.Lists.List.
 Require Import Coq.Structures.Equalities.
 
 Require Import Coq.FSets.FSets.
-Require Import SystemMP.Meta.CoqListFacts.
-Require Import SystemMP.Meta.FSetExtra.
-Require Import SystemMP.Meta.FSetWeakNotin.
-Require Import SystemMP.Meta.LibTactics.
+Require Import CoqListFacts.
+Require Import FSetExtra.
+Require Import FSetWeakNotin.
+Require Import LibTactics.
 
 Require Import Lia.
 

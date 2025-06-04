@@ -31,10 +31,10 @@ Require Import Coq.Strings.String.
 
 Require Import String.
 
-Require Import SystemMP.Meta.CoqFSetDecide.
-Require Import SystemMP.Meta.CoqListFacts.
-Require Import SystemMP.Meta.LibTactics.
-Require Import SystemMP.Meta.CoqFSetInterface.
+Require Import CoqFSetDecide.
+Require Import CCoqListFacts.
+Require Import LibTactics.
+Require Import CoqFSetInterface.
 
 
 (* Suppress warnings about Hint Resolve *)

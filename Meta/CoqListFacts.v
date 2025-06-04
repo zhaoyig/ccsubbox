@@ -10,7 +10,7 @@
 Require Import Coq.Lists.List.
 Require Import Coq.Lists.SetoidList.
 
-Require Import SystemMP.Meta.CoqUniquenessTac.
+Require Import CoqUniquenessTac.
 
 Open Scope list_scope.
 
