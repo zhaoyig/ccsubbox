@@ -14,6 +14,7 @@ Require Export AssocList.
 Require Export CoqListFacts.
 Require Export LibTactics.
 Require Export MetatheoryAtom.
+Require Export MetatheoryLoc.
 
 
 (* ********************************************************************** *)
@@ -23,6 +24,8 @@ Require Export MetatheoryAtom.
     convenient notations. *)
 
 Declare Scope set_scope.
+
+(* Notation for atoms *)
 
 Notation "E [=] F" :=
   (AtomSetImpl.Equal E F)
@@ -59,6 +62,43 @@ Notation "E `union` F" :=
   (at level 65, right associativity, format "E  `union`  '/' F")
   : set_hs_scope.
 
+(* Notation for locs *)
+
+Notation "E [=]l F" :=
+  (LocSetImpl.Equal E F)
+  (at level 70, no associativity)
+  : set_scope.
+
+Notation "E [<=]l F" :=
+  (LocSetImpl.Subset E F)
+  (at level 70, no associativity)
+  : set_scope.
+
+Notation "{}l" :=
+  (LocSetImpl.empty)
+  : set_scope.
+
+Notation "{{  x  }}l" :=
+  (LocSetImpl.singleton x)
+  : set_scope.
+
+Declare Scope set_hs_scope.
+
+Notation "x `in`l E" :=
+  (LocSetImpl.In x E)
+  (at level 70)
+  : set_hs_scope.
+
+Notation "x `notin`l E" :=
+  (~ LocSetImpl.In x E)
+  (at level 70)
+  : set_hs_scope.
+
+Notation "E `union`l F" :=
+  (LocSetImpl.union E F)
+  (at level 65, right associativity, format "E  `union`l  '/' F")
+  : set_hs_scope.
+
 (** We define some abbreviations for the empty set, singleton
     sets, and the union of two sets. *)
 
@@ -67,7 +107,14 @@ Notation empty := AtomSetImpl.empty.
 Notation remove := AtomSetImpl.remove.
 Notation singleton := AtomSetImpl.singleton.
 Notation union := AtomSetImpl.union.
+Ltac fsetdec := AtomSetDecide.fsetdec.
 
+Notation ladd := LocSetImpl.add.
+Notation lempty := LocSetImpl.empty.
+Notation lremove := LocSetImpl.remove.
+Notation lsingleton := LocSetImpl.singleton.
+Notation lunion := LocSetImpl.union.
+Ltac flsetdec := LocSetDecide.fsetdec.
 (** Open the notation scopes declared above. *)
 
 Open Scope set_scope.
@@ -86,6 +133,7 @@ Module Export EnvImpl := AssocList.Make Atom AtomSetImpl.
 
 (** We provide alternative names for the tactics on association lists
     to reflect our use of association lists for environments. *)
+
 
 Ltac simpl_env :=
   simpl_alist.
@@ -303,6 +351,6 @@ Ltac apply_fresh_base H gather_vars atom_name :=
   pick fresh x excluding L and apply H.
 
 (* SCW added this one for list support *)
-Set Implicit Arguments.
+(* Set Implicit Arguments.
 Definition union_map (A:Set) (f:A -> vars) (l:list A) :=
- (List.fold_right (fun t acc => f t \u acc) {}) l.
+ (List.fold_right (fun t acc => f t \u acc) {}) l. *)

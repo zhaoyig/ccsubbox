@@ -14,6 +14,7 @@ Meta/LibLNgen.v
 Meta/LibTactics.v
 Meta/Metatheory.v
 Meta/MetatheoryAtom.v
+Meta/MetatheoryLoc.v
 CaptureSets.v
 CCsub_Definitions.v
 CCsub_Infrastructure.v

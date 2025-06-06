@@ -20,44 +20,44 @@ Require Import LibTactics.
 Require Import Lia.
 
 (* ********************************************************************** *)
-(** * Defining atoms *)
+(** * Defining locs *)
 
-(** Atoms are structureless objects such that we can always generate
-    one fresh from a finite collection.  Equality on atoms is [eq] and
+(** Locs are structureless objects such that we can always generate
+    one fresh from a finite collection.  Equality on locs is [eq] and
     decidable.  We use Coq's module system to make abstract the
-    implementation of atoms. *)
+    implementation of locs. *)
 
-Module Type ATOM <: UsualDecidableType.
+Module Type LOC <: UsualDecidableType.
 
-  Parameter atom : Set.
-  Definition t := atom.
+  Parameter loc : Set.
+  Definition t := loc.
 
-  Parameter eq_dec : forall x y : atom, {x = y} + {x <> y}.
+  Parameter eq_dec : forall x y : loc, {x = y} + {x <> y}.
 
-  Parameter atom_fresh_for_list :
-    forall (xs : list t), {x : atom | ~ List.In x xs}.
+  Parameter loc_fresh_for_list :
+    forall (xs : list t), {x : loc | ~ List.In x xs}.
 
-  Parameter fresh : list atom -> atom.
+  Parameter fresh : list loc -> loc.
 
   Parameter fresh_not_in : forall l, ~ In (fresh l) l.
 
-  Parameter nat_of : atom -> nat.
+  Parameter nat_of : loc -> nat.
 
   #[global]
   Hint Resolve eq_dec : core.
 
   Include HasUsualEq <+ UsualIsEq <+ UsualIsEqOrig.
 
-End ATOM.
+End LOC.
 
 (** The implementation of the above interface is hidden for
     documentation purposes. *)
 
-Module Atom : ATOM.
+Module Loc : LOC.
 
   (* begin hide *)
-  Definition atom := nat.
-  Definition t := atom.
+  Definition loc := nat.
+  Definition t := loc.
 
   Definition eq_dec := eq_nat_dec.
 
@@ -81,74 +81,75 @@ Module Atom : ATOM.
       auto using max_lt_r.
   Qed.
 
-  Lemma atom_fresh_for_list :
+  Lemma loc_fresh_for_list :
     forall (xs : list nat), { n : nat | ~ List.In n xs }.
   Proof.
     intros xs. destruct (nat_list_max xs) as [x H].
     exists (S x). intros J. lapply (H (S x)). lia. trivial.
   Qed.
 
-  Definition fresh (l : list atom) :=
-    match atom_fresh_for_list l with
+  Definition fresh (l : list loc) :=
+    match loc_fresh_for_list l with
       (exist _ x _) => x
     end.
 
   Lemma fresh_not_in : forall l, ~ In (fresh l) l.
   Proof.
     intro l. unfold fresh.
-    destruct atom_fresh_for_list. auto.
+    destruct loc_fresh_for_list. auto.
   Qed.
 
-  Definition nat_of := fun (x : atom) => x.
+  Definition nat_of := fun (x : loc) => x.
 
   Include HasUsualEq <+ UsualIsEq <+ UsualIsEqOrig.
 
   (* end hide *)
 
-End Atom.
+End Loc.
 
-(** We make [atom], [fresh], [fresh_not_in] and [atom_fresh_for_list] available
+(** We make [loc], [fresh], [fresh_not_in] and [loc_fresh_for_list] available
     without qualification. *)
 
-Notation atom := Atom.atom.
-Notation fresh := Atom.fresh.
-Notation fresh_not_in := Atom.fresh_not_in.
-Notation atom_fresh_for_list := Atom.atom_fresh_for_list.
+Notation loc := Loc.loc.
+Notation fresh := Loc.fresh.
+Notation fresh_not_in := Loc.fresh_not_in.
+Notation loc_fresh_for_list := Loc.loc_fresh_for_list.
 
-(* Automatically unfold Atom.eq *)
-Global Arguments Atom.eq /.
+(* Automatically unfold Loc.eq *)
+Global Arguments Loc.eq /.
 
-(** It is trivial to declare an instance of [EqDec] for [atom]. *)
+(** It is trivial to declare an instance of [EqDec] for [loc]. *)
 
-#[export] Instance EqDec_atom : @EqDec atom eq eq_equivalence.
-Proof. exact Atom.eq_dec. Defined.
+#[export] Instance EqDec_loc : @EqDec loc eq eq_equivalence.
+Proof. exact Loc.eq_dec. Defined.
 
 
 (* ********************************************************************** *)
-(** * Finite sets of atoms *)
+(** * Finite sets of locs *)
 
-(** We use our implementation of atoms to obtain an implementation of
-    finite sets of atoms.  We give the resulting type an intuitive
+(** We use our implementation of locs to obtain an implementation of
+    finite sets of locs.  We give the resulting type an intuitive
     name, as well as import names of set operations for use within
-    this library. *)
+    this library.  In order to avoid polluting Coq's namespace, we do
+    not use [Module Export]. *)
 
-Module Import AtomSetImpl : FSetExtra.WSfun Atom :=
-  FSetExtra.Make Atom.
+Module Import LocSetImpl : FSetExtra.WSfun Loc :=
+  FSetExtra.Make Loc.
 
-Notation atoms :=
-  AtomSetImpl.t.
+Notation locs :=
+  LocSetImpl.t.
 
-(** The [AtomSetDecide] module provides the [fsetdec] tactic for
-    solving facts about finite sets of atoms. *)
+(** The [LocSetDecide] module provides the [fsetdec] tactic for
+    solving facts about finite sets of locs. *)
 
 
-Module Export AtomSetDecide := Coq.FSets.FSetDecide.WDecide_fun Atom AtomSetImpl.
+Module Export LocSetDecide := Coq.FSets.FSetDecide.WDecide_fun Loc LocSetImpl.
 
-(** The [AtomSetNotin] module provides the [destruct_notin] and
+(** The [LocSetNotin] module provides the [destruct_notin] and
     [solve_notin] for reasoning about non-membership in finite sets of
-    atoms, as well as a variety of lemmas about non-membership. *)
+    locs, as well as a variety of lemmas about non-membership. *)
 
-Module Export AtomSetNotin := FSetWeakNotin.Notin_fun Atom AtomSetImpl.
+Module Export LocSetNotin := FSetWeakNotin.Notin_fun Loc LocSetImpl.
 
 (** Given the [fsetdec] tactic, we typically do not need to refer to
     specific lemmas about finite sets.  However, instantiating
@@ -158,35 +159,35 @@ Module Export AtomSetNotin := FSetWeakNotin.Notin_fun Atom AtomSetImpl.
     [Equal] relation on finite sets) in propositions about finite
     sets. *)
 
-Module AtomSetFacts := FSetFacts.WFacts_fun Atom AtomSetImpl.
-Module AtomSetProperties := FSetProperties.WProperties_fun Atom AtomSetImpl.
+Module LocSetFacts := FSetFacts.WFacts_fun Loc LocSetImpl.
+Module LocSetProperties := FSetProperties.WProperties_fun Loc LocSetImpl.
 
-Export AtomSetFacts.
+Export LocSetFacts.
 
 (* ********************************************************************** *)
 (** * Properties *)
 
-(** For any given finite set of atoms, we can generate an atom fresh
+(** For any given finite set of locs, we can generate an loc fresh
     for it. *)
 
-Lemma atom_fresh : forall L : atoms, { x : atom | ~ In x L }.
+Lemma loc_fresh : forall L : locs, { x : loc | ~ In x L }.
 Proof.
-  intros L. destruct (atom_fresh_for_list (elements L)) as [a H].
+  intros L. destruct (loc_fresh_for_list (elements L)) as [a H].
   exists a. intros J. contradiction H.
   rewrite <- CoqListFacts.InA_iff_In. auto using elements_1.
 Qed.
 
 
 (* ********************************************************************** *)
-(** * Tactic support for picking fresh atoms *)
+(** * Tactic support for picking fresh locs *)
 
 (* begin hide *)
 
-(** The auxiliary tactic [simplify_list_of_atom_sets] takes a list of
-    finite sets of atoms and unions everything together, returning the
+(** The auxiliary tactic [simplify_list_of_loc_sets] takes a list of
+    finite sets of locs and unions everything together, returning the
     resulting single finite set. *)
 
-Ltac simplify_list_of_atom_sets L :=
+Ltac simplify_list_of_loc_sets L :=
   let L := eval simpl in L in
   let L := ltac_remove_dups L in
   let L := eval simpl in (List.fold_right union empty L) in
@@ -196,11 +197,11 @@ Ltac simplify_list_of_atom_sets L :=
 
 (* end hide *)
 
-(** [gather_atoms_with F] returns the union of all the finite sets
+(** [gather_locs_with F] returns the union of all the finite sets
     [F x] where [x] is a variable from the context such that [F x]
     type checks. *)
 
-Ltac gather_atoms_with F :=
+Ltac gather_locs_with F :=
   let apply_arg x :=
     match type of F with
       | _ -> _ -> _ -> _ => constr:(@F _ _ x)
@@ -235,48 +236,48 @@ Ltac beautify_fset V :=
      end
   in go empty V.
 
-(** The tactic [pick fresh Y for L] takes a finite set of atoms [L]
-    and a fresh name [Y], and adds to the context an atom with name
+(** The tactic [pick fresh Y for L] takes a finite set of locs [L]
+    and a fresh name [Y], and adds to the context an loc with name
     [Y] and a proof that [~ In Y L], i.e., that [Y] is fresh for [L].
     The tactic will fail if [Y] is already declared in the context.
 
     The variant [pick fresh Y] is similar, except that [Y] is fresh
-    for "all atoms in the context."  This version depends on the
-    tactic [gather_atoms], which is responsible for returning the set
-    of "all atoms in the context."  By default, it returns the empty
+    for "all locs in the context."  This version depends on the
+    tactic [gather_locs], which is responsible for returning the set
+    of "all locs in the context."  By default, it returns the empty
     set, but users are free (and expected) to redefine it. *)
 
-Ltac gather_atoms :=
+Ltac gather_locs :=
   constr:(empty).
 
 Tactic Notation "pick" "fresh" ident(Y) "for" constr(L) :=
   let Fr := fresh "Fr" in
   let L := beautify_fset L in
-  (destruct (atom_fresh L) as [Y Fr]).
+  (destruct (loc_fresh L) as [Y Fr]).
 
 Tactic Notation "pick" "fresh" ident(Y) :=
-  let L := gather_atoms in
+  let L := gather_locs in
   pick fresh Y for L.
 
 Ltac pick_fresh y :=
   pick fresh y.
 
-(** Example: We can redefine [gather_atoms] to return all the
-    "obvious" atoms in the context using the [gather_atoms_with] thus
+(** Example: We can redefine [gather_locs] to return all the
+    "obvious" locs in the context using the [gather_locs_with] thus
     giving us a "useful" version of the "[pick fresh]" tactic. *)
 
-Ltac gather_atoms ::=
-  let A := gather_atoms_with (fun x : atoms => x) in
-  let B := gather_atoms_with (fun x : atom => singleton x) in
+Ltac gather_locs ::=
+  let A := gather_locs_with (fun x : locs => x) in
+  let B := gather_locs_with (fun x : loc => singleton x) in
   constr:(union A B).
 
-Lemma example_pick_fresh_use : forall (x y z : atom) (L1 L2 L3: atoms), True.
+Lemma example_pick_fresh_use : forall (x y z : loc) (L1 L2 L3: locs), True.
 (* begin show *)
 Proof.
   intros x y z L1 L2 L3.
   pick fresh k.
 
-  (** At this point in the proof, we have a new atom [k] and a
+  (** At this point in the proof, we have a new loc [k] and a
       hypothesis [Fr] that [k] is fresh for [x], [y], [z], [L1], [L2],
       and [L3]. *)
 
