@@ -26,6 +26,7 @@ CCsub_Typing.v
 CCsub_Inversion.v
 CCsub_Substitution.v
 CCsub_Red.v
-CCsub_RuntimeInversion.v
 CCsub_Precise.v
+CCsub_RuntimeInversion.v
+CCsub_PreciseSubstitution.v
 CCsub_Soundness.v

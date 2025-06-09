@@ -214,3 +214,56 @@ Proof with eauto 5 using sub_reflexivity, binds_unique, subcapt_reflexivity, sub
   - eapply sub_transitivity with (Q := R)...
 Qed.
 
+Hint Extern 1 (wf_typ ?E ?S ?T) =>
+  match goal with
+  | H: prec_typing ?E ?S _ ?T |- _ => apply (proj2 (proj2 (proj2 (prec_typing_regular _ _ _ _ H))))
+  end
+: core.
+
+Hint Extern 1 (wf_ctx ?E ?S) =>
+  match goal with
+  | H: prec_typing _ _ _ _ |- _ => apply (proj1 (proj2 (prec_typing_regular _ _ _ _ H)))
+  end
+: core.
+
+Lemma prec_typing_weakening : forall Γ Θ Δ e T S,
+  prec_typing (Δ ++ Γ) S e T ->
+  wf_ctx (Δ ++ Θ ++ Γ) S ->
+  prec_typing (Δ ++ Θ ++ Γ) S e T.
+Proof with simpl_env;
+           eauto using wf_typ_weakening,
+                       wf_typ_from_wf_ctx_typ,
+                       sub_weakening,
+                       subcapt_weakening.
+  intros * PTyp. remember (Δ ++ Γ).
+  generalize dependent Δ.
+  induction PTyp; intros Δ EQ Ok; subst...
+  - Case "typing_abs".
+    pick fresh X and apply prec_typing_abs...
+    lapply (H0 X); [intros K | auto].
+    simpl_env in *.
+    rewrite <- concat_assoc.
+    apply H1...
+  - Case "typing_let".
+    pick fresh X and apply prec_typing_let...
+    lapply (H X); [intros K | auto].
+    simpl_env in *.
+    rewrite <- concat_assoc.
+    apply (H0 X)...
+  - Case "typing_tabs".
+    pick fresh X and apply prec_typing_tabs...
+    lapply (H1 X); [intros K | auto].
+    simpl_env in *.
+    rewrite <- concat_assoc.
+    apply H2...
+  - Case "typing_box".
+    apply prec_typing_box...
+    simpl_env in H.
+    assert (Δ ++ Γ = Δ ++ Γ) by reflexivity.
+    specialize (IHPTyp Δ H0 Ok).
+    inversion IHPTyp...
+  - Case "typing_unbox".
+    apply prec_typing_unbox...
+    apply wf_cse_weakening...
+Qed.
+

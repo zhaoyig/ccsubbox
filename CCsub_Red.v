@@ -120,7 +120,7 @@ Inductive red : state -> state -> Prop :=
       binds y (C2 # R2, ly) E ->
       stores lx (λ (T) e1,  E') SS ->
       stores ly v SS ->
-      (forall L, z `notin` L) ->
+      z `notin` dom E' ->
       red ⟨ (exp_app x y, E) | SS | K ⟩
           ⟨ (open_ve e1 z (cse_fvar z), (z,  (C2 # R2, ly)) :: E') | SS | K ⟩
   | red_tapp : forall (x : atom) T C R l T0 e1 E E' SS K,
