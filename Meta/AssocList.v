@@ -156,6 +156,12 @@ Fixpoint get
 (** [binds] is a ternary predicate that holds when a key-value pair
     appears somewhere in the given association list. *)
 
+Inductive ok (A: Type) : list (X.t * A) -> Prop :=
+  | ok_nil :
+      ok nil
+  | ok_cons : forall (E : list (X.t * A)) (x : X.t) (a : A),
+      ok E -> ~ In x (dom E) -> ok ((x, a) :: E).
+
 Definition binds
   (A : Type) (x : X.t) (a : A) (E : list (X.t*A))
   : Prop :=
