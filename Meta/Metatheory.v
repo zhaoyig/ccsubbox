@@ -255,6 +255,32 @@ Tactic Notation
           idtac
       end.
 
+Tactic Notation
+    "pick" "fresh" ident(atom_name)
+    "excluding" constr(L)
+    "and" "destruct" constr(H) :=
+  let L := beautify_fset L in
+  pick fresh atom_name for L;
+  first [ destruct (@H atom_name ltac:(fsetdec))
+        | edestruct (@H atom_name ltac:(fsetdec))].
+
+Tactic Notation
+    "pick" "fresh" ident(atom_name)
+    "excluding" constr(L)
+    "and" "destruct" constr(H) "as" simple_intropattern(pat) :=
+  let L := beautify_fset L in
+  pick fresh atom_name for L;
+  first [ destruct (@H atom_name ltac:(fsetdec)) as pat
+        | edestruct (@H atom_name ltac:(fsetdec)) as pat].
+
+Tactic Notation
+    "pick" "fresh" ident(atom_name)
+    "excluding" constr(L)
+    "and" "specialize" constr(H) :=
+  let L := beautify_fset L in
+  pick fresh atom_name for L;
+  specialize (@H atom_name ltac:(fsetdec)).
+
 (** The following variant of the tactic excludes the set of atoms
     returned by the [gather_atoms] tactic.  Redefine [gather_atoms] if
     you wish to modify the behavior of this tactic. *)
