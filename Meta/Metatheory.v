@@ -28,42 +28,42 @@ Declare Scope set_scope.
 
 (* Notation for atoms *)
 
-Notation "E [=] F" :=
+Notation "E [=]a F" :=
   (AtomSetImpl.Equal E F)
   (at level 70, no associativity)
   : set_scope.
 
-Notation "E [<=] F" :=
+Notation "E [<=]a F" :=
   (AtomSetImpl.Subset E F)
   (at level 70, no associativity)
   : set_scope.
 
-Notation "{}" :=
+Notation "{}a" :=
   (AtomSetImpl.empty)
   : set_scope.
 
-Notation "{{  x  }}" :=
+Notation "{{  x  }}a" :=
   (AtomSetImpl.singleton x)
   : set_scope.
 
 Declare Scope set_hs_scope.
 
-Notation "x `in` E" :=
+Notation "x `in`a E" :=
   (AtomSetImpl.In x E)
   (at level 70)
   : set_hs_scope.
 
-Notation "x `notin` E" :=
+Notation "x `notin`a E" :=
   (~ AtomSetImpl.In x E)
   (at level 70)
   : set_hs_scope.
 
-Notation "E `union` F" :=
+Notation "E `union`a F" :=
   (AtomSetImpl.union E F)
-  (at level 65, right associativity, format "E  `union`  '/' F")
+  (at level 65, right associativity, format "E  `union`a  '/' F")
   : set_hs_scope.
 
-Notation "E `subset` F" :=
+Notation "E `subset`a F" :=
   (AtomSetImpl.Subset E F)
   (at level 68)
   : set_scope.
@@ -220,6 +220,8 @@ Notation "[ x ]" := (EnvImpl.one x) : env_scope.
 
 Open Scope env_scope.
 
+Module Export StoreImpl := AssocList.Make Loc LocSetImpl.
+
 
 (* ********************************************************************** *)
 (** * Cofinite quantification *)
@@ -245,9 +247,9 @@ Tactic Notation
   :=
     first [apply (@H L) | eapply (@H L)];
       match goal with
-        | |- forall _, _ `notin` _ -> _ =>
+        | |- forall _, _ `notin`a _ -> _ =>
           let Fr := fresh "Fr" in intros atom_name Fr
-        | |- forall _, _ `notin` _ -> _ =>
+        | |- forall _, _ `notin`a _ -> _ =>
           fail 1 "because" atom_name "is already defined"
         | _ =>
           idtac
@@ -326,7 +328,7 @@ Ltac hint_extern_solve_notin :=
 Hint Extern 1 (_ <> _ :> _) => hint_extern_solve_notin : core.
 
 #[global]
-Hint Extern 1 (_ `notin` _) => hint_extern_solve_notin : core.
+Hint Extern 1 (_ `notin`a _) => hint_extern_solve_notin : core.
 
 (** The next block of hints are occasionally useful when reasoning
     about finite sets.  In some instances, they obviate the need to
@@ -380,17 +382,17 @@ Notation "x  ===  y" :=
 Declare Scope set_sl_scope.
 
 Notation "x \in s" :=
-  (x `in` s)
+  (x `in`a s)
   (at level 70, only parsing)
   : set_sl_scope.
 
 Notation "x \notin s" :=
-  (x `notin` s)
+  (x `notin`a s)
   (at level 70, only parsing)
   : set_sl_scope.
 
 Notation "s \u t" :=
-  (s `union` t)
+  (s `union`a t)
   (at level 65, right associativity, only parsing)
   : set_sl_scope.
 
