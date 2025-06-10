@@ -15,6 +15,7 @@ Require Export CoqListFacts.
 Require Export LibTactics.
 Require Export MetatheoryAtom.
 Require Export MetatheoryLoc.
+Require Export MetatheoryNat.
 
 
 (* ********************************************************************** *)
@@ -62,6 +63,11 @@ Notation "E `union` F" :=
   (at level 65, right associativity, format "E  `union`  '/' F")
   : set_hs_scope.
 
+Notation "E `subset` F" :=
+  (AtomSetImpl.Subset E F)
+  (at level 68)
+  : set_scope.
+
 (* Notation for locs *)
 
 Notation "E [=]l F" :=
@@ -99,6 +105,43 @@ Notation "E `union`l F" :=
   (at level 65, right associativity, format "E  `union`l  '/' F")
   : set_hs_scope.
 
+  (* Notation for nats *)
+
+Notation "E [=]n F" :=
+  (NatSetImpl.Equal E F)
+  (at level 70, no associativity)
+  : set_scope.
+
+Notation "E [<=]n F" :=
+  (NatSetImpl.Subset E F)
+  (at level 70, no associativity)
+  : set_scope.
+
+Notation "{}n" :=
+  (NatSetImpl.empty)
+  : set_scope.
+
+Notation "{{  x  }}n" :=
+  (NatSetImpl.singleton x)
+  : set_scope.
+
+Declare Scope set_hs_scope.
+
+Notation "x `in`n E" :=
+  (NatSetImpl.In x E)
+  (at level 70)
+  : set_hs_scope.
+
+Notation "x `notin`n E" :=
+  (~ NatSetImpl.In x E)
+  (at level 70)
+  : set_hs_scope.
+
+Notation "E `union`n F" :=
+  (NatSetImpl.union E F)
+  (at level 65, right associativity, format "E  `union`n  '/' F")
+  : set_hs_scope.
+
 (** We define some abbreviations for the empty set, singleton
     sets, and the union of two sets. *)
 
@@ -115,6 +158,13 @@ Notation lremove := LocSetImpl.remove.
 Notation lsingleton := LocSetImpl.singleton.
 Notation lunion := LocSetImpl.union.
 Ltac flsetdec := LocSetDecide.fsetdec.
+
+Notation nadd := NatSetImpl.add.
+Notation nempty := NatSetImpl.empty.
+Notation nremove := NatSetImpl.remove.
+Notation nsingleton := NatSetImpl.singleton.
+Notation nunion := NatSetImpl.union.
+Ltac fnsetdec := NatSetDecide.fsetdec.
 (** Open the notation scopes declared above. *)
 
 Open Scope set_scope.
@@ -309,7 +359,14 @@ Open Scope coqeqdec_scope.
     library usable with the output of Ott's locally nameless backend.
     They may disappear or change as Ott changes. *)
 
-Notation var := atom (only parsing).
+Inductive var : Set :=
+  | var_f : atom -> var
+  | var_b : nat -> var.
+
+Coercion var_f : atom >-> var.
+Coercion var_b : nat >-> var.
+
+(* Notation var := atom (only parsing). *)
 
 Notation vars := atoms (only parsing).
 
