@@ -109,44 +109,44 @@ Ltac invert_equality :=
 (** * Facts about finite sets *)
 
 Lemma remove_union_distrib : forall (s1 s2 : atoms) (x : atom),
-  remove x (union s1 s2) [=] union (remove x s1) (remove x s2).
+  remove x (union s1 s2) [=]a union (remove x s1) (remove x s2).
 Proof. fsetdec. Qed.
 
 Lemma Equal_union_compat : forall (s1 s2 s3 s4 : atoms),
-  s1 [=] s3 ->
-  s2 [=] s4 ->
-  union s1 s2 [=] union s3 s4.
+  s1 [=]a s3 ->
+  s2 [=]a s4 ->
+  union s1 s2 [=]a union s3 s4.
 Proof. fsetdec. Qed.
 
 Lemma Subset_refl : forall (s : atoms),
-  s [<=] s.
+  s [<=]a s.
 Proof. fsetdec. Qed.
 
 Lemma Subset_empty_any : forall (s : atoms),
-  empty [<=] s.
+  empty [<=]a s.
 Proof. fsetdec. Qed.
 
 Lemma Subset_union_compat : forall (s1 s2 s3 s4 : atoms),
-  s1 [<=] s3 ->
-  s2 [<=] s4 ->
-  union s1 s2 [<=] union s3 s4.
+  s1 [<=]a s3 ->
+  s2 [<=]a s4 ->
+  union s1 s2 [<=]a union s3 s4.
 Proof. fsetdec. Qed.
 
 Lemma Subset_union_left : forall (s1 s2 s3 : atoms),
-  s1 [<=] s2 ->
-  s1 [<=] union s2 s3.
+  s1 [<=]a s2 ->
+  s1 [<=]a union s2 s3.
 Proof. fsetdec. Qed.
 
 Lemma Subset_union_right : forall (s1 s2 s3 : atoms),
-  s1 [<=] s3 ->
-  s1 [<=] union s2 s3.
+  s1 [<=]a s3 ->
+  s1 [<=]a union s2 s3.
 Proof. fsetdec. Qed.
 
 Lemma Subset_union_lngen_open_upper :
   forall (s1 s2 s3 s4 s5 : atoms),
-  s1 [<=] union s3 s4 ->
-  s2 [<=] union s3 s5 ->
-  union s1 s2 [<=] union s3 (union s4 s5).
+  s1 [<=]a union s3 s4 ->
+  s2 [<=]a union s3 s5 ->
+  union s1 s2 [<=]a union s3 (union s4 s5).
 Proof. fsetdec. Qed.
 
 
