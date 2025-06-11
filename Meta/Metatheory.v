@@ -151,6 +151,7 @@ Notation remove := AtomSetImpl.remove.
 Notation singleton := AtomSetImpl.singleton.
 Notation union := AtomSetImpl.union.
 Ltac fsetdec := AtomSetDecide.fsetdec.
+Ltac notin_simpl := AtomSetNotin.destruct_notin.
 
 Notation ladd := LocSetImpl.add.
 Notation lempty := LocSetImpl.empty.
@@ -158,6 +159,7 @@ Notation lremove := LocSetImpl.remove.
 Notation lsingleton := LocSetImpl.singleton.
 Notation lunion := LocSetImpl.union.
 Ltac flsetdec := LocSetDecide.fsetdec.
+Ltac lnotin_simpl := LocSetNotin.destruct_notin.
 
 Notation nadd := NatSetImpl.add.
 Notation nempty := NatSetImpl.empty.

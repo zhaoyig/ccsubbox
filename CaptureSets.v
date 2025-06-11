@@ -250,8 +250,7 @@ Proof. auto. Qed.
 Lemma subst_cse_fresh : forall x C1 C2,
   x `notin`a (cse_fvars C1) ->
   C1 = subst_cse x C2 C1.
-Admitted.
-(* Proof with eauto.
+Proof with eauto.
   intros.
   symmetry.
   induction C1; simpl...
@@ -261,11 +260,10 @@ Admitted.
     + auto.
   (* C1 is a join *)
   - rewrite cse_fvars_join_union in H.
-  Admitted.
     notin_simpl.
     rewrite IHC1_1...
     rewrite IHC1_2...
-Qed. *)
+Qed.
 
 (* Lemma empty_union_empty : forall C1 C2,
   nempty (C1 `union`n C2) ->
@@ -278,39 +276,37 @@ Qed. *)
 Lemma open_cse_cset : forall i C c,
   cset C ->
   C = open_cse i c C.
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros i C c H.
   induction H; simpl in *...
-Qed. *)
+  f_equal...
+Qed.
 
 Lemma subst_cc_intro_rec : forall x (C : cse) U k,
   x `notin`a (`cse_fvars` C) ->
   open_cse k U C = subst_cse x U (open_cse k (cse_fvar x) C).
-Admitted.
-(* Proof with auto*.
+Proof with eauto.
   intros * NotIn.
   induction C; simpl...
   - destruct (k === n); simpl...
-    + destruct (x == x); auto...
+    destruct (x == x); auto... exfalso...
   - destruct (x == a); simpl...
-    + rewrite e in NotIn. simpl in NotIn. fsetdec.
+    rewrite e in NotIn. simpl in NotIn. exfalso...
   - f_equal; rewrite cse_fvars_join_union in NotIn; notin_simpl.
     rewrite IHC1...
     rewrite IHC2...
-Qed. *)
+Qed.
 
 Lemma subst_cse_open_cset_rec : forall x k C1 C2 D,
   cset C1 ->
   subst_cse x C1 (open_cse k C2 D) = open_cse k (subst_cse x C1 C2) (subst_cse x C1 D).
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros x k C1 C2 D Closed.
   induction D; auto; simpl.
   - destruct (k === n); simpl; reflexivity.
   - destruct (x == a); simpl; subst... apply open_cse_cset. apply Closed.
   - f_equal; auto. 
-Qed. *)
+Qed.
 
 (* Definition cse_subset_prop (c : cse) (d : cse) : Prop := *)
 (*   AtomSetImpl.F.Subset (`cse_fvars` c) (`cse_fvars` d) *)
