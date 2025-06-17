@@ -234,21 +234,19 @@ Lemma varN_weakening : forall n m v,
   varN n v ->
   n <= m ->
   varN m v.
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros.
   induction H; constructor; lia.
-Qed. *)
+Qed.
 
 Lemma csetN_weakening : forall n m C,
   csetN n C ->
   n <= m ->
   csetN m C.
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros.
   induction H; constructor... lia.
-Qed. *)
+Qed.
 
 Lemma typeN_weakening : forall n m T,
   typeN n T ->
@@ -275,8 +273,7 @@ Qed.
 Lemma open_vt_typeN_aux : forall n S v,
   typeN n (open_vt n S v) ->
   typeN (`succ` n) v.
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros.
   destruct v...
   unfold open_vt in H.
@@ -284,7 +281,7 @@ Admitted.
   inversion H; inversion H0; inversion H5; subst...
   apply typeN_pure, typeN_var, varN_b.
   lia.
-Qed. *)
+Qed.
 
 Lemma open_tt_rec_typeN_aux : forall n S T,
   typeN n (open_tt_rec n S T) ->
@@ -373,11 +370,11 @@ with open_ct_rec_pure_typeN_aux : forall n S R,
   pure_typeN n (open_ct_rec n S R) ->
   pure_typeN (`succ` n) R.
 Admitted.
-(* Proof with eauto*.
+(* Proof with eauto.
 { clear open_ct_rec_typeN_aux.
   intros * H.
   dependent induction H...
-  Case "C # R".
+  (* Case "C # R". *)
   destruct T; simpl in x.
   1: destruct v...
   all: try (discriminate x).
@@ -442,15 +439,14 @@ Lemma open_vt_typeN : forall n m S v,
   varN n v ->
   m >= n ->
   typ_var v = open_vt m S v.
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros.
   unfold open_vt.
   destruct v...
   destruct (m === n0); subst...
   inversion H.
   lia.
-Qed. *)
+Qed.
 
 Lemma open_tt_rec_typeN : forall n m S T,
   typeN n T ->
@@ -489,9 +485,10 @@ Lemma subst_tt_fresh : forall Z U T,
   Z ∉ (fv_tt T `union`a fv_ct T) ->
   T = subst_tt Z U T.
 Admitted.
-(* Proof with auto*.
+(* Proof with auto.
   intros Z U T.
   induction T; simpl; intro H; f_equal...
+  (* - Case "variable". *)
   - destruct v...
     destruct (a == Z)...
     contradict H.
@@ -536,14 +533,14 @@ Lemma subst_tt_open_tt_var : forall (X Y:atom) P T,
   Y <> X ->
   type P ->
   open_tt (subst_tt X P T) Y = subst_tt X P (open_tt T Y).
-Admitted.
-(* Proof with auto*.
+Proof with auto.
   intros X Y P T Neq Wu.
   unfold open_tt.
   rewrite subst_tt_open_tt_rec...
   simpl.
   destruct (Y == X)...
-Qed. *)
+  fsetdec.
+Qed.
 
 (** The next lemma states that opening a term is equivalent to first
     opening the term with a fresh name and then substituting for the
@@ -682,14 +679,14 @@ Lemma subst_te_open_te_var : forall (X Y:atom) U e,
   Y <> X ->
   pure_type U ->
   open_te (subst_te X U e) Y = subst_te X U (open_te e Y).
-Admitted.
-(* Proof with auto*.
+Proof with auto.
   intros X Y U e Neq WU.
   unfold open_te.
   rewrite subst_te_open_te_rec...
   simpl.
   destruct (Y == X)...
-Qed. *)
+  fsetdec.
+Qed.
 
 Lemma subst_te_intro_rec : forall X e U k,
   X ∉ (fv_te e `union`a fv_ce e) ->
@@ -793,14 +790,14 @@ Qed.
 Lemma subst_vv_fresh : forall (x : atom) u v,
   x ∉ fv_vv v ->
   v = subst_vv x u v.
-Admitted.
-(* Proof with eauto*.
+(* Admitted. *)
+Proof with eauto.
   intros.
   unfold fv_vv, subst_vv in *.
   destruct v... destruct v...
   destruct (a == x); subst...
   fsetdec.
-Qed. *)
+Qed.
 
 Lemma subst_ve_fresh : forall (x : atom) u c e,
   x ∉ (fv_ve e `union`a fv_ce e) ->
@@ -900,13 +897,14 @@ Lemma subst_ct_open_ct_var : forall (x y : atom) c t,
   y <> x ->
   cset c ->
   open_ct (subst_ct x c t) (cse_fvar y) = subst_ct x c (open_ct t (cse_fvar y)).
-Admitted.
-  (* Proof with auto*.
+(* Admitted. *)
+Proof with auto*.
   intros *; intros Neq Wu.
   unfold open_ct.
   symmetry.
   apply subst_ct_open_ct_rec...
-Qed. *)
+  simpl. fsetdec.
+Qed.
 
 Lemma subst_te_open_ve_rec : forall e z c Z P k,
   type P ->
@@ -981,11 +979,12 @@ Lemma subst_ve_open_te_var : forall z (X : atom) u c e,
   z <> X ->
   cset c ->
   open_te (subst_ve z u c e) X = subst_ve z u c (open_te e X).
-Admitted.
-(* Proof with auto*.
+(* Admitted. *)
+Proof with auto*.
   intros.
   rewrite subst_ve_open_te_fresh...
-Qed. *)
+  simpl. fsetdec.
+Qed.
 
 (* if x is fresh, opening with {x} and then substituting is the same as opening directly. *)
 Lemma open_ct_subst_ct_var : forall x c t k,
@@ -1001,18 +1000,18 @@ Lemma subst_ct_open_tt_var : forall (X Y:atom) C T,
   Y <> X ->
   cset C ->
   open_tt (subst_ct X C T) Y = subst_ct X C (open_tt T Y).
-Admitted.
-(* Proof with auto*.
+(* Admitted. *)
+Proof with auto*.
   intros X Y P T Neq Wu.
   unfold open_tt.
   rewrite subst_ct_open_tt_rec_fresh...
-Qed. *)
+  simpl. fsetdec.
+Qed.
 
 Lemma subst_vv_intro : forall k x u v,
   x ∉ fv_vv v ->
   open_vv k u v = subst_vv x u (open_vv k x v).
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros.
   unfold open_vv, fv_vv, subst_vv in *.
   destruct v. destruct v.
@@ -1020,31 +1019,32 @@ Admitted.
     fsetdec.
   * destruct (k === n); subst...
     destruct (x == x)...
+    contradiction.
   * reflexivity. 
-Qed. *)
+Qed.
 
 Lemma subst_vv_open_vv : forall x u k y v,
   y <> x ->
   fvar_like u ->
   subst_vv x u (open_vv k y v) = open_vv k y (subst_vv x u v).
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros * Neq Fvar.
   destruct v. destruct v; simpl. 
   - destruct (a == x); simpl; subst...
     inversion Fvar; subst...
   - destruct (k === n); simpl...
     destruct (y == x); simpl; subst...
+    contradiction.
   - reflexivity.
-Qed. *)
+Qed.
 
 Lemma subst_ve_intro_rec : forall x e u c k,
   x ∉ (fv_ve e `union`a fv_ce e) ->
   open_ve_rec k u c e = subst_ve x u c (open_ve_rec k x (cse_fvar x) e).
 Admitted.
-  (* Proof with eauto using open_ct_subst_ct_var, subst_vv_intro, subst_cse_intro.
+(* Proof with eauto using open_ct_subst_ct_var, subst_vv_intro, subst_cse_intro.
   induction e; intros u c' k Fr; simpl in *; f_equal... destruct v... destruct v...
-  - notin_simpl. simpl. destruct (a == x). rewrite e in H1. 
+  - notin_simpl. simpl. destruct (a == x). rewrite e in Fr. 
   contradiction. reflexivity.
   - notin_simpl. simpl. destruct (k === n). destruct (x == x). reflexivity. contradiction.
     reflexivity.
@@ -1067,14 +1067,14 @@ Lemma subst_ve_open_ve_rec : forall e x y u c1 c2 k,
   subst_ve x u c1 (open_ve_rec k y c2 e) =
     open_ve_rec k y (subst_cse x c1 c2) (subst_ve x u c1 e).
 Admitted.
-    (* Proof with auto using subst_vv_open_vv, subst_ct_open_rec, subst_cset_open_cset_fresh.
+(* Proof with auto using subst_vv_open_vv, subst_ct_open_rec, subst_cset_open_cset_fresh.
   intros * Neq Fvar Capt.
   revert k.
   induction e; intros k; simpl; f_equal... destruct v. destruct v...
   - simpl. destruct (a == x); inversion Fvar; subst...
   - simpl. destruct (k === n); subst... destruct (y == x); subst... fsetdec.
   - simpl. f_equal; apply subst_cset_open_cset_fresh; auto.
-  - destruct u; simpl in *; inversion Fvar; subst...
+  - destruct u; simpl in *; inversion Fvar; subst...   
 Qed. *)
 
 Lemma subst_ve_open_ve_var : forall (x y : atom) u c e,
@@ -1083,14 +1083,14 @@ Lemma subst_ve_open_ve_var : forall (x y : atom) u c e,
   cset c ->
   open_ve (subst_ve x u c e) y (cse_fvar y) =
   subst_ve x u c (open_ve e y (cse_fvar y)).
-Admitted.
-(* Proof with auto*.
+Proof with auto*.
   intros x y u c e Neq Fvar Wc.
   unfold open_ve.
   rewrite subst_ve_open_ve_rec...
   simpl.
   destruct (x == y)...
-Qed. *)
+  rewrite e0 in Neq. contradiction.
+Qed.
 
 (* *********************************************************************** *)
 (** * #<a name="lc"></a># Local closure is preserved under substitution *)
@@ -1134,8 +1134,7 @@ Lemma subst_ct_open_fresh : forall k z C T X,
   cset C ->
   (open_ct_rec k (cse_fvar X) (subst_ct z C T)) =
     (subst_ct z C (open_ct_rec k (cse_fvar X) T)).
-Admitted.
-(* Proof with eauto.
+Proof with eauto.
   intros k z C T X HXfresh HCfresh.
   revert k.
   induction T; intro k; simpl in *; try reflexivity; try destruct v; f_equal...
@@ -1144,7 +1143,7 @@ Admitted.
   - exact HCfresh.
   - constructor.
   - destruct HXfresh. notin_simpl. simpl. fsetdec.
-Qed. *)
+Qed.
 
 Lemma subst_cse_cset: forall X C D,
   cset C ->
@@ -1273,11 +1272,10 @@ Lemma subst_tt_open_ct_var : forall (X y:atom) P T,
   y <> X ->
   type P ->
   open_ct (subst_tt X P T) (cse_fvar y) = subst_tt X P (open_ct T (cse_fvar y)).
-Admitted.
-  (* Proof with auto*.
+Proof with auto*.
   intros *; intros Neq Wu.
   unfold open_ct.
   symmetry.
   apply subst_tt_open_ct_rec; trivial.
-  notin_solve.
-Qed. *)
+  simpl. fsetdec. 
+Qed.
