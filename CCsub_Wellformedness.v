@@ -31,10 +31,13 @@ Qed.
 Lemma ok_from_wf_ctx : forall Γ S,
   wf_ctx Γ S ->
   EnvImpl.ok Γ.
-Admitted.
-(* Proof.
-  intros Γ S H; induction H; auto.
-Qed. *)
+Proof.
+  intros Γ S H.
+  induction H.
+  - apply EnvImpl.ok_nil.
+  - simpl. apply EnvImpl.ok_cons. auto. auto.
+  - simpl. apply EnvImpl.ok_cons. auto. auto.
+Qed.
 
 (** We add [ok_from_wf_ctx] as a hint here since it helps blur the
     distinction between [wf_ctx] and [ok] in proofs.  The lemmas in
@@ -69,7 +72,7 @@ Admitted.
 (* Proof.
   intros.
   apply ok_from_wf_ctx in H.
-  eapply binding_uniq_from_ok; eauto.
+  eapply H; eauto.
 Qed. *)
 
 (* ********************************************************************** *)
@@ -102,13 +105,12 @@ Qed.
 Lemma wf_cse_over_join : forall Γ S C D,
   wf_cse Γ S (C `u` D) <->
   wf_cse Γ S C /\ wf_cse Γ S D.
-Admitted.
-(* Proof with eauto*.
+Proof with eauto.
   intros; split; intros H; destruct C eqn:HC1;
                            destruct D eqn:HC2;
                            unfold cse_union in *;
                            inversion H...
-Qed. *)
+Qed.
 
 Hint Resolve wf_cse_union : core.
 
@@ -186,9 +188,10 @@ Admitted.
   apply (wf_cse_term_fvar T S (Δ ++ [(X, bind_sub U)] ++ Γ) x).
   destruct (x == X).
   - subst. simpl in H.
-    EnvImpl.destruct_binds_hyp H.
-    -- unfold binds in BindsTac. simpl in BindsTac.
+    EnvImpl.binds_cases H.
+    -- unfold binds in Hok. simpl in Hok.
        destruct (X == X)...
+       discriminate Hok.
     -- apply EnvImpl.binds_app_2. (* binds_head, formerly *)
   - EnvImpl.EnvImpl.destruct_binds_hyp H.
     -- apply binds_tail...

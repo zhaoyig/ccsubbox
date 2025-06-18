@@ -369,12 +369,11 @@ Lemma open_ct_rec_typeN_aux : forall n S T,
 with open_ct_rec_pure_typeN_aux : forall n S R,
   pure_typeN n (open_ct_rec n S R) ->
   pure_typeN (`succ` n) R.
-Admitted.
-(* Proof with eauto.
+Proof with eauto.
 { clear open_ct_rec_typeN_aux.
   intros * H.
   dependent induction H...
-  (* Case "C # R". *)
+  Case (C # R).
   destruct T; simpl in x.
   1: destruct v...
   all: try (discriminate x).
@@ -394,20 +393,21 @@ Admitted.
     + apply csetN_bot. 
   - eapply open_ct_rec_pure_typeN_aux, H0.
 }
-{ clear open_ct_rec_pure_typeN_aux.
+Admitted.
+(* { clear open_ct_rec_pure_typeN_aux.
   intros * H.
-  dependent induction H; destruct R; simpl in x...
+  dependent induction H;
+  destruct R; simpl in x...
   1: destruct v; destruct v0; inversion H; injection x as x; subst...
   all: injection x; intros; subst...
-}
-Qed. *)
+} *)
+(* Qed. *)
 
 Lemma type_to_type0 : forall T,
   type T -> typeN 0 T
 with pure_type_to_pure_type0 : forall R,
   pure_type R -> pure_typeN 0 R.
-Admitted.
-(* Proof with eauto.
+Proof with eauto.
 { clear type_to_type0.
   intros * H.
   dependent induction H...
@@ -423,15 +423,15 @@ Admitted.
   intros * H.
   dependent induction H...
   - constructor...
-    pick fresh X.
+    pick_fresh X.
     unfold open_ct in H0.
     eapply (open_ct_rec_typeN_aux 0 (cse_fvar X))...
   - constructor...
-    pick fresh X.
+    pick_fresh X.
     unfold open_ct in H0.
     eapply (open_tt_rec_typeN_aux 0 X)...
 }
-Qed. *)
+Qed.
 
 Hint Extern 1 (_ >= _) => lia : core.
 
@@ -488,7 +488,7 @@ Admitted.
 (* Proof with auto.
   intros Z U T.
   induction T; simpl; intro H; f_equal...
-  (* - Case "variable". *)
+  (* Case "variable". *)
   - destruct v...
     destruct (a == Z)...
     contradict H.
