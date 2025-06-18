@@ -250,32 +250,32 @@ Ltac beautify_fset V :=
 Ltac gather_locs :=
   constr:(empty).
 
-Tactic Notation "pick" "fresh" ident(Y) "for" constr(L) :=
+Tactic Notation "pick" "lfresh" ident(Y) "for" constr(L) :=
   let Fr := fresh "Fr" in
   let L := beautify_fset L in
   (destruct (loc_fresh L) as [Y Fr]).
 
-Tactic Notation "pick" "fresh" ident(Y) :=
+Tactic Notation "pick" "lfresh" ident(Y) :=
   let L := gather_locs in
-  pick fresh Y for L.
+  pick lfresh Y for L.
 
-Ltac pick_fresh y :=
-  pick fresh y.
+Ltac pick_lfresh y :=
+  pick lfresh y.
 
 (** Example: We can redefine [gather_locs] to return all the
     "obvious" locs in the context using the [gather_locs_with] thus
-    giving us a "useful" version of the "[pick fresh]" tactic. *)
+    giving us a "useful" version of the "[pick lfresh]" tactic. *)
 
 Ltac gather_locs ::=
   let A := gather_locs_with (fun x : locs => x) in
   let B := gather_locs_with (fun x : loc => singleton x) in
   constr:(union A B).
 
-Lemma example_pick_fresh_use : forall (x y z : loc) (L1 L2 L3: locs), True.
+Lemma example_pick_lfresh_use : forall (x y z : loc) (L1 L2 L3: locs), True.
 (* begin show *)
 Proof.
   intros x y z L1 L2 L3.
-  pick fresh k.
+  pick_lfresh k.
 
   (** At this point in the proof, we have a new loc [k] and a
       hypothesis [Fr] that [k] is fresh for [x], [y], [z], [L1], [L2],
