@@ -176,6 +176,15 @@ Proof.
   rewrite <- CoqListFacts.InA_iff_In. auto using elements_1.
 Qed.
 
+Lemma atomset_subset_union : forall A1 A2 B1 B2,
+  AtomSetImpl.Subset A1 A2 ->
+  AtomSetImpl.Subset B1 B2 ->
+  AtomSetImpl.Subset (AtomSetImpl.union A1 B1) (AtomSetImpl.union A2 B2).
+Proof.
+  intros.
+  fsetdec.
+Qed.
+
 
 (* ********************************************************************** *)
 (** * Tactic support for picking fresh atoms *)
