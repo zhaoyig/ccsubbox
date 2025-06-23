@@ -13,8 +13,8 @@ Require Export Coq.Lists.List.
 Require Export AssocList.
 Require Export CoqListFacts.
 Require Export LibTactics.
-Require Export MetatheoryAtom.
 Require Export MetatheoryLoc.
+Require Export MetatheoryAtom.
 Require Export MetatheoryNat.
 
 
@@ -181,11 +181,12 @@ Open Scope set_hs_scope.
     parameter inlining, the types in the instantiated functor will all
     use [atom] for the type for keys. *)
 
-Module Export EnvImpl := AssocList.Make Atom AtomSetImpl.
 
 (** We provide alternative names for the tactics on association lists
     to reflect our use of association lists for environments. *)
 
+Module Export StoreImpl := AssocList.Make Loc LocSetImpl.
+Module Export EnvImpl := AssocList.Make Atom AtomSetImpl.
 
 Ltac simpl_env :=
   simpl_alist.
@@ -222,7 +223,6 @@ Notation "[ x ]" := (EnvImpl.one x) : env_scope.
 
 Open Scope env_scope.
 
-Module Export StoreImpl := AssocList.Make Loc LocSetImpl.
 
 
 (* ********************************************************************** *)

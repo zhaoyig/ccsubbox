@@ -892,7 +892,6 @@ Proof with auto*.
   unfold open_ct.
   symmetry.
   apply subst_ct_open_ct_rec...
-  simpl. fsetdec.
 Qed.
 
 Lemma subst_te_open_ve_rec : forall e z c Z P k,
@@ -970,7 +969,6 @@ Lemma subst_ve_open_te_var : forall z (X : atom) u c e,
 Proof with auto*.
   intros.
   rewrite subst_ve_open_te_fresh...
-  simpl. fsetdec.
 Qed.
 
 (* if x is fresh, opening with {x} and then substituting is the same as opening directly. *)
@@ -991,7 +989,6 @@ Proof with auto*.
   intros X Y P T Neq Wu.
   unfold open_tt.
   rewrite subst_ct_open_tt_rec_fresh...
-  simpl. fsetdec.
 Qed.
 
 Lemma subst_vv_intro : forall k x u v,

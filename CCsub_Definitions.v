@@ -188,16 +188,16 @@ Notation "[ x ]" := (x :: nil).
 Definition allbound (Γ : ctx) (fvars : atoms) : Prop :=
   forall x,
     x `in`A fvars ->
-    exists C R, EnvImpl.binds x (bind_typ (C # R)) Γ.
+    exists C R, binds x (bind_typ (C # R)) Γ.
 
 Inductive wf_cse : ctx -> store_ctx -> cse -> Prop :=
   | wf_cse_top : forall Γ S,
       wf_cse Γ S cse_top
   | wf_cse_term_fvar : forall T S Γ (x : atom),
-      EnvImpl.binds x (bind_typ T) Γ ->
+      binds x (bind_typ T) Γ ->
       wf_cse Γ S (cse_fvar x)
   | wf_cse_term_loc : forall S T Γ (l : loc),
-      binds l T S ->
+      StoreImpl.binds l T S ->
       wf_cse Γ S (cse_loc l)
   | wf_cse_join : forall Γ S Q1 Q2,
       wf_cse Γ S Q1 ->
@@ -277,11 +277,11 @@ Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
       wf_cse Γ S (cse_loc l) ->
       subcapt Γ S (cse_loc l) (cse_loc l)
   | subcapt_trans_var : forall R S Γ Q X T,
-      EnvImpl.binds X (bind_typ (typ_capt R T)) Γ ->
+      binds X (bind_typ (typ_capt R T)) Γ ->
       subcapt Γ S R Q ->
       subcapt Γ S (cse_fvar X) Q
   | subcapt_trans_loc : forall Γ R S Q l T,
-      binds l (typ_capt R T) S ->
+      StoreImpl.binds l (typ_capt R T) S ->
       subcapt Γ S R Q ->
       subcapt Γ S (cse_loc l) Q
   | subcapt_join_inl : forall Γ S R1 R2 Q,
@@ -337,7 +337,7 @@ Inductive sub : ctx -> store_ctx -> typ -> typ -> Prop :=
 Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
   | typing_var : forall Γ x S C R,
       wf_ctx Γ S ->
-      EnvImpl.binds x (bind_typ (C # R)) Γ ->
+      binds x (bind_typ (C # R)) Γ ->
       typing Γ S x (cse_fvar x # R)
   | typing_abs : forall L Γ C R e1 T1 S,
       wf_typ Γ S (C # R) ->
