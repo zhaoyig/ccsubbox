@@ -28,7 +28,7 @@ Fixpoint fv_ce (e : exp) {struct e} : atoms :=
   | exp_var _ => {}A
   | λ (V) e1 => fv_ct V `u`A fv_ce e1
   | _ @ _ => {}A
-  | let= e : T in C => fv_ce e `u`A fv_ce C `u`A fv_ct T
+  | let= e  in C => fv_ce e `u`A fv_ce C 
   | Λ [V] e1 => fv_ct V `u`A fv_ce e1
   | _ @ [V] => fv_ct V
   | box _ => {}A
@@ -40,7 +40,7 @@ Fixpoint fv_te (e : exp) {struct e} : atoms :=
   | exp_var _ => {}A
   | λ (V) e1  => fv_tt V `u`A fv_te e1
   | _ @ _ => {}A
-  | let= e : T in C => fv_te e `u`A fv_te C `u`A fv_tt T
+  | let= e in C => fv_te e `u`A fv_te C
   | Λ [V] e1 => fv_tt V `u`A fv_te e1
   | _ @ [V] => fv_tt V
   | box _ => {}A
@@ -58,7 +58,7 @@ Fixpoint fv_ve (e : exp) {struct e} : atoms :=
   | exp_var v => fv_vv v
   | λ (V) e1 => fv_ve e1
   | x @ y => fv_vv x `u`A fv_vv y
-  | let= e : T in C => fv_ve e `u`A fv_ve C
+  | let= e in C => fv_ve e `u`A fv_ve C
   | Λ [V] e1 => fv_ve e1
   | x @ [V] => fv_vv x
   | box x => fv_vv x
@@ -99,7 +99,7 @@ Fixpoint subst_te (Z : atom) (U : typ) (e : exp) {struct e} : exp :=
   | exp_var v => v
   | λ (V) e1 => λ (subst_tt Z U V) (subst_te Z U e1)
   | f @ x => f @ x
-  | let= e : T in C => let= subst_te Z U e : subst_tt Z U T in subst_te Z U C
+  | let= e in C => let= subst_te Z U e in subst_te Z U C
   | Λ [V] e1 => Λ [subst_tt Z U V]  (subst_te Z U e1)
   | x @ [V] => x @ [subst_tt Z U V]
   | box x => box x
@@ -117,7 +117,7 @@ Fixpoint subst_ve (z : atom) (u : var) (c : cse) (e : exp) {struct e} : exp :=
   | exp_var v => subst_vv z u v
   | λ (t) e1 => exp_abs (subst_ct z c t) (subst_ve z u c e1)
   | f @ x => subst_vv z u f @ subst_vv z u x
-  | let= e : T in C => let= subst_ve z u c e : (subst_ct z c T) in subst_ve z u c C
+  | let= e in C => let= subst_ve z u c e  in subst_ve z u c C
   | Λ [t] e1 => Λ [subst_ct z c t] (subst_ve z u c e1)
   | x @ [t] => subst_vv z u x @ [subst_ct z c t]
   | box x => box (subst_vv z u x)
@@ -180,7 +180,7 @@ Inductive varN : nat -> var -> Prop :=
       varN n m
   | varN_f : forall n (x : atom),
       varN n x.
-  
+
 (* For all bound vars in C, bound var is less than n *)
 Inductive csetN : nat -> cse -> Prop :=
   | csetN_join : forall n C1 C2, 
@@ -596,11 +596,10 @@ Inductive exprN : nat -> exp -> Prop :=
       varN n f ->
       varN n x ->
       exprN n (exp_app f x)
-  | exprN_let : forall n e C T,
-      typeN n T ->
+  | exprN_let : forall n e C,
       exprN n e ->
       exprN (S n) C ->
-      exprN n (exp_let e T C)
+      exprN n (exp_let e C)
   | exprN_tabs : forall n T e1,
       typeN n T ->
       exprN (S n) e1 ->

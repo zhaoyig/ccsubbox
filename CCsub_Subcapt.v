@@ -104,11 +104,11 @@ Proof with eauto.
       inversion H; subst.
       inversion H4; subst...
       -- inversion H1.
-      -- apply wf_cse_fvars_from_ctx in H4.
+      -- intro.
+         epose proof (wf_cse_fvars_from_ctx _ _ _ x H4 H5).
          fsetdec.
 Qed.
 
-(* Needed, line 664 *)
 (* Substituting the same capture set preserves subcapturing *)
 Lemma subcapt_through_subst_cse : forall x D Q C Δ Γ S C1 C2 ,
   subcapt (Δ ++ [(x, bind_typ (D # Q))] ++ Γ) S C1 C2 ->
@@ -192,11 +192,11 @@ Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
     epose proof (subcapt_regular _ _ _ _ CsubD) as [WfS [WfCtx [WfC _]]].
     epose proof (subcapt_regular _ _ _ _ C1subC2) as [_ [WfCtx2 _]].
     epose proof (wf_store_cse_no_fvar _ x _ _ _ WfS H) as HR.
-    assert (subcapt (map (subst_cb x C) G ++ Γ) S (cse_loc X) (subst_cse x C R)). {
+    assert (subcapt (map (subst_cb x C) G ++ Γ) S (cse_loc l) (subst_cse x C R)). {
       apply subcapt_trans_loc with (R := R) (T := T0)...
       rewrite <- (subst_cse_fresh x R C)...
       apply subcapt_reflexivity...
-      epose proof (wf_pair_from_wf_store_ctx nil S R T0 X WfS ltac:(constructor) H) as [WfR _]...
+      epose proof (wf_pair_from_wf_store_ctx nil S R T0 l WfS ltac:(constructor) H) as [WfR _]...
       rewrite_env ((map (subst_cb x C) G ++ Γ) ++ nil).
       apply wf_cse_weaken_head with (Δ := (map (subst_cb x C) G ++ Γ))...
       simpl_env.

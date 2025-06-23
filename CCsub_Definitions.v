@@ -26,7 +26,7 @@ Inductive exp : Type :=
   | exp_var : var -> exp
   | exp_abs : typ -> exp -> exp
   | exp_app : var-> var-> exp
-  | exp_let : exp -> typ -> exp -> exp
+  | exp_let : exp -> exp -> exp
   | exp_tabs : typ -> exp -> exp
   | exp_tapp : var -> typ -> exp
   | exp_box : var -> exp
@@ -36,7 +36,7 @@ Coercion exp_var : var >-> exp.
 Notation "'λ' '(' T ')' Γ" := (exp_abs T Γ) (at level 60, T at next level, Γ at next level, right associativity).
 Notation "'Λ' '[' R ']' Γ" := (exp_tabs R Γ) (at level 60, R at next level, Γ at next level, right associativity).
 Notation "x '@' y" := (exp_app x y) (at level 61, y at next level, left associativity).
-Notation "'let=' e1 ':' T 'in' e2" := (exp_let e1 T e2) (at level 59, e1 at next level, e2 at next level, right associativity).
+Notation "'let=' e1 'in' e2" := (exp_let e1 e2) (at level 59, e1 at next level, e2 at next level, right associativity).
 Notation "x  '@' '[' R ']'" := (exp_tapp x R) (at level 61, R at next level, left associativity).
 Notation "'box' Γ" := (exp_box Γ) (at level 70, Γ at next level, no associativity).
 Notation "C '⟜' x" := (exp_unbox  C x) (at level 60, x at next level, right associativity).
@@ -68,7 +68,7 @@ Fixpoint open_te_rec (K : nat) (U : typ) (Γ : exp) {struct Γ} : exp :=
   | exp_var v => exp_var v
   | λ (V) e1 => λ (open_tt_rec K U V) (open_te_rec (S K) U e1)
   | f @ x => exp_app f x
-  | let= e1 : T in e2 => let= (open_te_rec K U e1) : (open_tt_rec K U T) in (open_te_rec (S K) U e2)
+  | let= e1 in e2 => let= (open_te_rec K U e1) in (open_te_rec (S K) U e2)
   | Λ [V] e1 => Λ [open_tt_rec K U V] (open_te_rec (S K) U e1)
   | x @ [V] => x @ [open_tt_rec K U V]
   | box x => box x
@@ -96,7 +96,7 @@ Fixpoint open_ve_rec (k : nat) (z : var) (c : cse) (Γ : exp)  {struct Γ} : exp
   | exp_var v => open_vv k z v
   | λ (t) e1 => λ (open_ct_rec k c t) (open_ve_rec (S k) z c e1)
   | f @ x => open_vv k z f @ open_vv k z x
-  | let= Γ : T in C => let= open_ve_rec k z c Γ : (open_ct_rec k c T) in open_ve_rec (S k) z c C
+  | let= Γ in C => let= open_ve_rec k z c Γ in open_ve_rec (S k) z c C
   | Λ [t] e1 => exp_tabs (open_ct_rec k c t) (open_ve_rec (S k) z c e1)
   | x @ [t] => exp_tapp (open_vv k z x) (open_ct_rec k c t)
   | box x => box open_vv k z x
@@ -113,7 +113,7 @@ Fixpoint exp_cv (Γ : exp) : cse :=
   | exp_var v => var_cv v
   | λ (t) e1 => exp_cv e1
   | f @ x => var_cv f `u` var_cv x
-  | let= Γ : T in C => exp_cv Γ `u` exp_cv C
+  | let= Γ in C => exp_cv Γ `u` exp_cv C
   | Λ [t] e1 => exp_cv e1
   | x @ [t] => var_cv x
   | box x => {}
@@ -158,11 +158,10 @@ Inductive expr : exp -> Prop :=
       expr (λ (T) e1)
   | expr_app : forall (f x : var),
       expr (f @ x)
-  | expr_let : forall L e1 e2 T,
+  | expr_let : forall L e1 e2,
       expr e1 ->
-      type T ->
       (forall x : atom, x ∉ L -> expr (open_ve e2 x (cse_fvar x))) ->
-      expr (let= e1 : T in e2)
+      expr (let= e1 in e2)
   | expr_tabs : forall L R e1,
       pure_type R ->
       (forall X : atom, X ∉ L -> expr (open_te e1 X)) ->
@@ -281,10 +280,10 @@ Inductive subcapt : ctx -> store_ctx -> cse -> cse -> Prop :=
       binds X (bind_typ (typ_capt R T)) Γ ->
       subcapt Γ S R Q ->
       subcapt Γ S (cse_fvar X) Q
-  | subcapt_trans_loc : forall Γ R S Q X T,
-      Store.binds X (typ_capt R T) S ->
+  | subcapt_trans_loc : forall Γ R S Q l T,
+      Store.binds l (typ_capt R T) S ->
       subcapt Γ S R Q ->
-      subcapt Γ S (cse_loc X) Q
+      subcapt Γ S (cse_loc l) Q
   | subcapt_join_inl : forall Γ S R1 R2 Q,
       subcapt Γ S Q R1 ->
       wf_cse Γ S R2 ->
@@ -353,7 +352,7 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
       typing Γ S e (C1 # R1) ->
       (forall x : atom, x ∉ L ->
         typing ([(x, bind_typ (C1 # R1))] ++ Γ) S (open_ve k x (cse_fvar x)) T) ->
-      typing Γ S (let= e : (C1 # R1) in k) T
+      typing Γ S (let= e in k) T
   | typing_tabs : forall L Γ V e1 T1 S,
       wf_typ Γ S V ->
       pure_type V ->

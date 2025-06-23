@@ -132,9 +132,10 @@ Ltac wf_cse_simpl instantiate_ext :=
     end
   end.
 
-Lemma wf_cse_fvars_from_ctx : forall Γ S C,
+Lemma wf_cse_fvars_from_ctx : forall Γ S C x,
   wf_cse Γ S C ->
-   (cse_fvars C) `subset` (dom Γ).
+  x `in` (cse_fvars C) ->
+  x `in` dom Γ.
 Proof with eauto.
   intros * Hwf.
   induction Hwf; simpl in *; try fsetdec...

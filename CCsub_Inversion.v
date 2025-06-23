@@ -60,16 +60,16 @@ Proof with simpl_env; auto.
     eauto using (sub_transitivity T).
 Qed.
 
-Lemma typing_inv_let : forall Γ e k T1 T2 S,
-  typing Γ S (let= e : T1 in k) T2 ->
+Lemma typing_inv_let : forall Γ e k T S,
+  typing Γ S (let= e in k) T ->
   exists C R,
     typing Γ S e (C # R)
     /\ exists L, forall x, x ∉ L ->
-      typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve k x (cse_fvar x)) T2.
+      typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve k x (cse_fvar x)) T.
 Proof with eauto*.
   intros * Typ.
   dependent induction Typ...
-  destruct (IHTyp e k T1 ltac:(reflexivity)) as [C [R0 [eTyp [L kTyp]]]].
+  destruct (IHTyp e k ltac:(reflexivity)) as [C [R0 [eTyp [L kTyp]]]].
   exists C, R0.
   split...
   exists (L `u`A dom Γ).

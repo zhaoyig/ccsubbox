@@ -16,35 +16,18 @@ Inductive prec_typing : ctx -> store_ctx -> exp -> typ -> Prop :=
   | prec_typing_abs : forall L Γ C R e1 T1 S,
       wf_typ Γ S (C # R) ->
       (forall x : atom, x ∉ L ->
-        prec_typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve e1 x (cse_fvar x)) (open_ct T1 (cse_fvar x))) ->
+        typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve e1 x (cse_fvar x)) (open_ct T1 (cse_fvar x))) ->
       prec_typing Γ S (λ (C # R) e1) (exp_cv e1 # ∀ (C # R) T1)
-  | prec_typing_app : forall D Q Γ (f x : atom) T C S,
-      prec_typing Γ S f (C # (∀ (D # Q) T)) ->
-      prec_typing Γ S x (D # Q) ->
-      prec_typing Γ S (f @ x) (open_ct T (exp_cv x))
-  | prec_typing_let : forall L C1 R1 T Γ e k S,
-      prec_typing Γ S e (C1 # R1) ->
-      (forall x : atom, x ∉ L ->
-        prec_typing ([(x, bind_typ (C1 # R1))] ++ Γ) S (open_ve k x (cse_fvar x)) T) ->
-      prec_typing Γ S (let= e : (C1 # R1) in k) T
   | prec_typing_tabs : forall L Γ V e1 T1 S,
       wf_typ Γ S V ->
       pure_type V ->
       (forall X : atom, X ∉ L ->
-        prec_typing ([(X, bind_sub V)] ++ Γ) S (open_te e1 X) (open_tt T1 X)) ->
+        typing ([(X, bind_sub V)] ++ Γ) S (open_te e1 X) (open_tt T1 X)) ->
       prec_typing Γ S (Λ [V] e1) (exp_cv e1 # ∀ [V] T1)
-  | prec_typing_tapp : forall Γ (x : atom) P Q T C S,
-      prec_typing Γ S x (C # ∀ [Q] T) ->
-      sub Γ S P Q ->
-      prec_typing Γ S (x @ [P]) (open_tt T P)
   | prec_typing_box : forall Γ S (x : atom) C R,
       prec_typing Γ S x (C # R) ->
       wf_cse Γ S C ->
-      prec_typing Γ S (box x) ({} # □ (C # R))
-  | prec_typing_unbox : forall Γ S (x : atom) C R,
-      prec_typing Γ S x ({} # □ (C # R)) ->
-      wf_cse Γ S C ->
-      prec_typing Γ S (C ⟜ x) (C # R).
+      prec_typing Γ S (box x) ({} # □ (C # R)).
 
 Inductive prec_store_typing : store_env -> store_ctx  -> Prop :=
   | prec_typing_store_nil:
@@ -58,22 +41,23 @@ Inductive prec_store_typing : store_env -> store_ctx  -> Prop :=
       l `Notin` Store.dom S ->
       prec_store_typing ((l, store (v , E)) :: SS) ((l, (C # R)) :: S).
 
-Inductive prec_eval_typing (Γ : ctx) (S : store_ctx) : cont -> typ -> typ -> Prop :=
-  | prec_typing_eval_nil : forall C1 R1 C2 R2,
-      sub Γ S (C1 # R1) (C2 # R2) ->
-      prec_eval_typing Γ S nil (C1 # R1) (C2 # R2)
-  | prec_typing_eval_cons : forall L e K C1 R1 C2 R2 C3 R3 E,
-      scope e ->
+Inductive prec_eval_typing (S : store_ctx) : cont -> typ -> typ -> Prop :=
+  | prec_typing_eval_nil : forall Γ C1 R1,
+      wf_typ Γ S (C1 # R1) ->
+      (* sub Γ S (C1 # R1) (C2 # R2) -> *)
+      prec_eval_typing S nil (C1 # R1) (C1 # R1)
+  | prec_typing_eval_cons : forall Γ L e K C1 R1 C2 R2 C3 R3 E,
+      (* scope e -> *)
       (forall x, x ∉ L ->
         prec_typing ([(x, bind_typ (C1 # R1))] ++ Γ) S (open_ve e x (cse_fvar x)) (C2 # R2)) ->
       env_well_typed S E Γ ->
-      prec_eval_typing Γ S K (C2 # R2) (C3 # R3) ->
-      prec_eval_typing Γ S ((let_body (e, E) (C1 # R1)) :: K) (C1 # R1) (C3 # R3).
+      prec_eval_typing S K (C2 # R2) (C3 # R3) ->
+      prec_eval_typing S ((let_body (e, E)) :: K) (C1 # R1) (C3 # R3).
 
 Inductive prec_state_typing : state -> typ -> Prop :=
-  | prec_typing_state : forall Γ Γ' S E SS K C1 R1 C2 R2 e,
+  | prec_typing_state : forall Γ S E SS K C1 R1 C2 R2 e,
       prec_store_typing SS S ->
-      prec_eval_typing Γ' S K (C1 # R1) (C2 # R2) ->
+      prec_eval_typing S K (C1 # R1) (C2 # R2) ->
       prec_typing Γ S e (C1 # R1) ->
       env_well_typed S E Γ ->
       prec_state_typing ⟨ (e, E) | SS | K ⟩ (C2 # R2).
@@ -97,9 +81,9 @@ Proof with eauto using prec_typing_implies_typing.
   dependent induction H...
 Qed.
 
-Lemma prec_eval_typing_implies_eval_typing : forall Γ S K T1 T2,
-  prec_eval_typing Γ S K T1 T2 ->
-  eval_typing Γ S K T1 T2.
+Lemma prec_eval_typing_implies_eval_typing : forall S K T1 T2,
+  prec_eval_typing S K T1 T2 ->
+  eval_typing S K T1 T2.
 Proof with eauto using prec_typing_implies_typing,
   prec_store_typing_implies_store_typing.
   intros * PTyp.
@@ -123,6 +107,65 @@ Proof with eauto 3.
   intros * PTyp.
   apply prec_typing_implies_typing in PTyp.
   eapply typing_regular in PTyp...
+Qed.
+
+Hint Extern 1 (wf_typ ?E ?S ?T) =>
+  match goal with
+  | H: prec_typing ?E ?S _ ?T |- _ => apply (proj2 (proj2 (proj2 (prec_typing_regular _ _ _ _ H))))
+  end
+: core.
+
+Hint Extern 1 (wf_ctx ?E ?S) =>
+  match goal with
+  | H: prec_typing _ _ _ _ |- _ => apply (proj1 (proj2 (prec_typing_regular _ _ _ _ H)))
+  end
+: core.
+
+Lemma prec_typing_narrowing : forall Q Δ Γ X P e T S,
+  sub Γ S P Q ->
+  prec_typing (Δ ++ [(X, bind_sub Q)] ++ Γ) S e T ->
+  prec_typing (Δ ++ [(X, bind_sub P)] ++ Γ) S e T.
+Proof with eauto using wf_ctx_narrowing, wf_typ_ignores_sub_bindings, sub_narrowing, subcapt_narrowing.
+  intros * PsubQ PTyp.
+  assert (PureP : pure_type P).
+  { enough (PureQ : pure_type Q) by (applys sub_pure_type PsubQ; eauto* ).
+    forwards (_ & WfCtx & _): prec_typing_regular PTyp.
+    apply wf_ctx_tail in WfCtx.
+    inversion WfCtx...
+  }
+  assert (WfCtx : wf_ctx (Δ ++ [(X, bind_sub P)] ++ Γ) S). {
+    apply wf_ctx_narrowing with (V := Q)...
+  }
+  remember (Δ ++ [(X, bind_sub Q)] ++ Γ).
+  generalize dependent Δ.
+  induction PTyp; intros Δ EQ WfCtx; subst.
+  - Case "typing_var".
+    binds_cases H0...
+  - Case "typing_abs".
+    pick fresh y and apply prec_typing_abs...
+    rewrite <- concat_assoc.
+    apply H1...
+    econstructor...
+  - Case "typing_app".
+    eapply prec_typing_app...
+  - Case "typing_let".
+    pick fresh y and apply prec_typing_let...
+    rewrite_parenthesise_binding.
+    apply H0...
+    apply wf_ctx_typ...
+  - Case "typing_tabs".
+    pick fresh Y and apply prec_typing_tabs...
+    rewrite <- concat_assoc.
+    apply H2...
+    apply wf_ctx_sub...
+  - Case "typing_tapp".
+    eapply prec_typing_tapp...
+  - Case "typing_box".
+    apply prec_typing_box...
+    apply wf_cse_narrowing with (V := Q)...
+  - Case "typing_unbox".
+    apply prec_typing_unbox...
+    eapply wf_cse_narrowing...
 Qed.
 
 Lemma prec_typing_sub_typing : forall Γ S e T1 T2,
@@ -176,14 +219,19 @@ Proof with eauto 5 using sub_reflexivity, binds_unique, subcapt_reflexivity, sub
     + erewrite subst_ct_fresh...
     + erewrite subst_ct_fresh...
   - inverts PTyp.
-    pick fresh x and specialize H9.
-    specialize (H0 x ltac:(fsetdec) _ H9).
-    rewrite_env (nil ++ [(x, bind_typ (C1 # R1))] ++ Γ) in H0.
-    apply sub_through_subst_ct with (C := cse_bot) in H0.
-    simpl_env in H0.
-    rewrite <- subst_ct_fresh with (x := x) (c := cse_bot) in H0...
-    rewrite <- subst_ct_fresh with (x := x) (c := cse_bot) in H0...
-    constructor...
+    pick fresh x and specialize H7.
+    admit.
+    (* assert (prec_typing ([(x, bind_typ (C1 # R1))] ++ Γ) S (open_ve k x (cse_fvar x)) T1). { *)
+    (*   rewrite_env (nil ++ [(x, bind_typ (C1 # R1))] ++ Γ). *)
+    (*   eapply prec_typing_widening_typ... *)
+    (* } *)
+    (* specialize (H0 x ltac:(fsetdec) _ H1). *)
+    (* rewrite_env (nil ++ [(x, bind_typ (C1 # R1))] ++ Γ) in H0. *)
+    (* apply sub_through_subst_ct with (C := cse_bot) in H0. *)
+    (* simpl_env in H0. *)
+    (* rewrite <- subst_ct_fresh with (x := x) (c := cse_bot) in H0... *)
+    (* rewrite <- subst_ct_fresh with (x := x) (c := cse_bot) in H0... *)
+    (* constructor... *)
   - forwards (WfStore & WfCtx & _ & WfT): prec_typing_regular PTyp.
     inverts PTyp.
     inverts WfT.
@@ -212,19 +260,8 @@ Proof with eauto 5 using sub_reflexivity, binds_unique, subcapt_reflexivity, sub
     specialize (IHTyp _ H4).
     inverts IHTyp. inverts H9...
   - eapply sub_transitivity with (Q := R)...
-Qed.
-
-Hint Extern 1 (wf_typ ?E ?S ?T) =>
-  match goal with
-  | H: prec_typing ?E ?S _ ?T |- _ => apply (proj2 (proj2 (proj2 (prec_typing_regular _ _ _ _ H))))
-  end
-: core.
-
-Hint Extern 1 (wf_ctx ?E ?S) =>
-  match goal with
-  | H: prec_typing _ _ _ _ |- _ => apply (proj1 (proj2 (prec_typing_regular _ _ _ _ H)))
-  end
-: core.
+Admitted.
+(* Qed. *)
 
 Lemma prec_typing_weakening : forall Γ Θ Δ e T S,
   prec_typing (Δ ++ Γ) S e T ->

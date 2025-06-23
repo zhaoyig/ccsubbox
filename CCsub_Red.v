@@ -13,7 +13,7 @@ Require Import CCsub_Typing.
    cont: K (list of frames)
  *)
 
-Definition env := list (atom * (typ * loc)).
+Definition env := list (atom * loc).
 Definition exp_env: Set := (exp * env).
 
 Inductive value : exp_env -> Prop :=
@@ -40,7 +40,7 @@ Inductive store_frame : Set :=
 Notation store_env := (list (loc * store_frame)).
 
 Inductive frame : Set :=
-  | let_body: exp_env -> typ -> frame.
+  | let_body: exp_env -> frame.
 Notation cont := (list frame).
 
 Definition stores (x : loc) (v : exp_env) (SS : store_env) : Prop :=
@@ -63,41 +63,68 @@ Inductive env_well_typed : store_ctx -> env -> ctx -> Prop :=
       env_well_typed S E Γ ->
       x `notin` dom Γ ->
       Store.binds l (C # R) S ->
-      env_well_typed S ([(x,  (C # R, l))] ++ E) ([(x, bind_typ (C # R))] ++ Γ).
+      env_well_typed S ([(x, l)] ++ E) ([(x, bind_typ (cse_loc l # R))] ++ Γ).
+
+Inductive loc_transform_cse : env -> cse -> cse -> Prop :=
+  | loc_transform_cse_nil : forall C,
+      loc_transform_cse nil C C
+  | loc_transform_cse_multi : forall x l E C D,
+      loc_transform_cse E (subst_cse x (cse_loc l) C) D ->
+      loc_transform_cse ((x, l) :: E) C D.
+
+Inductive loc_transform : env -> typ -> typ -> Prop :=
+  | loc_transform_nil : forall T,
+      loc_transform nil T T
+  | loc_transform_multi : forall x l E T U,
+      loc_transform E (subst_ct x (cse_loc l) T) U ->
+      loc_transform ((x, l) :: E) T U.
+
+Inductive loc_transform_ctx : env -> ctx -> ctx -> Prop :=
+  | loc_transform_ctx_nil : forall Γ,
+      loc_transform_ctx nil Γ Γ
+  | loc_transform_ctx_multi : forall x l E Γ Δ,
+      loc_transform_ctx E (map (subst_cb x (cse_loc l)) Γ) Δ ->
+      loc_transform_ctx ((x, l) :: E) Γ Δ.
+
+Inductive frame_typing : store_ctx -> exp_env -> typ -> Prop :=
+  | typing_frame : forall S e E C R T Γ,
+      env_well_typed S E Γ ->
+      typing Γ S e (C # R) ->
+      loc_transform E (C # R) T ->
+      frame_typing S (e, E) T.
 
 Inductive store_typing : store_env -> store_ctx  -> Prop :=
   | typing_store_nil:
       store_typing nil nil
-  | typing_store_cons : forall l C R v Γ SS E S,
+  | typing_store_cons : forall l C R v SS E S,
       store_typing SS S ->
       value (v, E) ->
-      env_well_typed S E Γ ->
-      wf_typ nil S (C # R) ->
-      typing Γ S v (C # R) ->
+      frame_typing S (v, E) (C # R) ->
       l `Notin` Store.dom S ->
       store_typing ((l, store (v , E)) :: SS) ((l, (C # R)) :: S).
 
-Inductive scope (e : exp) : Type :=
-  | mk_scope : forall L, (forall x, x ∉ L -> expr (open_ve e x (cse_fvar x))) -> scope e.
-
-Inductive eval_typing (Γ : ctx) (S : store_ctx) : cont -> typ -> typ -> Prop :=
-  | typing_eval_nil : forall C1 R1 C2 R2,
-      sub Γ S (C1 # R1) (C2 # R2) ->
-      eval_typing Γ S nil (C1 # R1) (C2 # R2)
-  | typing_eval_cons : forall L e K C1 R1 C2 R2 C3 R3 E,
-      scope e ->
+Inductive eval_typing (S : store_ctx) : cont -> typ -> typ -> Prop :=
+  | typing_eval_nil : forall C1 R1,
+      (* sub Γ S (C1 # R1) (C2 # R2) -> *)
+      wf_typ nil S (C1 # R1) ->
+      eval_typing S nil (C1 # R1) (C1 # R1)
+  | typing_eval_cons : forall Γ L e K C1 R1 C2 R2 C3 R3 E,
+      (* scope e -> *)
+      wf_typ nil S (C2 # R2) ->
       (forall x, x ∉ L ->
         typing ([(x, bind_typ (C1 # R1))] ++ Γ) S (open_ve e x (cse_fvar x)) (C2 # R2)) ->
       env_well_typed S E Γ ->
-      eval_typing Γ S K (C2 # R2) (C3 # R3) ->
-      eval_typing Γ S ((let_body (e, E) (C1 # R1)) :: K) (C1 # R1) (C3 # R3).
+      eval_typing S K (C2 # R2) (C3 # R3) ->
+      eval_typing S ((let_body (e, E)) :: K) (C1 # R1) (C3 # R3).
 
 Inductive state_typing : state -> typ -> Prop :=
-  | typing_state : forall Γ Γ' S E SS K C1 R1 C2 R2 e,
+  | typing_state : forall S E SS K C1 R1 C2 R2 e,
       store_typing SS S ->
-      eval_typing Γ' S K (C1 # R1) (C2 # R2) ->
-      typing Γ S e (C1 # R1) ->
-      env_well_typed S E Γ ->
+      eval_typing S K (C1 # R1) (C2 # R2) ->
+      frame_typing S (e, E) (C1 # R1) ->
+      (* sub Γ' S (C3 # R3) (C1 # R1) -> *)
+      (* typing Γ S e (C1 # R1) -> *)
+      (* env_well_typed S E Γ -> *)
       state_typing ⟨ (e, E) | SS | K ⟩ (C2 # R2).
 
 (* Inductive ee_typing : store_ctx -> exp_env -> typ -> Prop := *)
@@ -115,32 +142,32 @@ Inductive state_typing : state -> typ -> Prop :=
 (*       ee_typing S ((box e1), E) (C # R). *)
 
 Inductive red : state -> state -> Prop :=
-  | red_app : forall (x y z: atom) T C1 R1 C2 R2 e1 lx ly v E SS K E',
-      binds x (C1 # R1, lx) E ->
-      binds y (C2 # R2, ly) E ->
+  | red_app : forall (x y z: atom) T e1 lx ly v E SS K E',
+      binds x lx E ->
+      binds y ly E ->
       stores lx (λ (T) e1,  E') SS ->
       stores ly v SS ->
       z `notin` dom E' ->
       red ⟨ (exp_app x y, E) | SS | K ⟩
-          ⟨ (open_ve e1 z (cse_fvar z), (z,  (C2 # R2, ly)) :: E') | SS | K ⟩
-  | red_tapp : forall (x : atom) T C R l T0 e1 E E' SS K,
-      binds x (C # R, l) E ->
+          ⟨ (open_ve e1 z (cse_fvar z), (z,  ly) :: E') | SS | K ⟩
+  | red_tapp : forall (x : atom) l T T0 e1 E E' SS K,
+      binds x l E ->
       stores l (Λ [T0] e1, E') SS ->
       red ⟨ (x @ [T], E) | SS | K ⟩
           ⟨ (open_te e1 T, E') | SS | K ⟩
-  | red_let : forall b C R e E SS K,
-      red ⟨ (let= b : (C # R) in e, E) | SS | K ⟩
-          ⟨ (b, E) | SS | (let_body (e, E) (C # R)) :: K ⟩
-  | red_let_val : forall (z: atom) C R E K e v SS l,
+  | red_let : forall b e E SS K,
+      red ⟨ (let= b in e, E) | SS | K ⟩
+          ⟨ (b, E) | SS | (let_body (e, E)) :: K ⟩
+  | red_let_val : forall (z: atom) E K e v SS l,
       z `notin` dom E ->
       l `Notin` Store.dom SS ->
       value v ->
-      red ⟨ v | SS | (let_body (e, E) (C # R)) :: K ⟩
-          ⟨ (open_ve e z (cse_fvar z), (z, (C # R, l)) :: E) | (l, store v) :: SS | K ⟩
-  | red_open : forall (x : atom) C R l x y C0 E E' SS K,
-      binds x (C # R, l) E ->
+      red ⟨ v | SS | (let_body (e, E)) :: K ⟩
+          ⟨ (open_ve e z (cse_fvar z), (z, l) :: E) | (l, store v) :: SS | K ⟩
+  | red_open : forall (x : atom) l x y C0 E E' SS K,
+      binds x l E ->
       stores l (box y, E') SS ->
       red ⟨ (C0 ⟜ x, E) | SS | K ⟩
           ⟨ ((exp_var y), E) | SS | K ⟩.
 
-Hint Constructors value store_typing eval_typing state_typing : core.
+Hint Constructors value store_typing eval_typing state_typing frame_typing loc_transform loc_transform_cse : core.

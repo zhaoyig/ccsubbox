@@ -761,3 +761,18 @@ Proof.
     }
     fsetdec.
 Qed.
+
+Lemma head_not_in_tail : forall A (E F : list (atom * A)) x,
+  ok (F ++ E) ->
+  In x (dom F) ->
+  ~ In x (dom E).
+Proof.
+  intros * Hok Hx.
+  induction E.
+  + notin_solve.
+  + destruct a; simpl_env in *...
+    epose proof (ok_remove_mid _ _ _ _ Hok)...
+    enough (x <> a) by notin_solve.
+    epose proof (fresh_mid_head _ _ _ _ _ Hok)...
+    fsetdec.
+Qed.
