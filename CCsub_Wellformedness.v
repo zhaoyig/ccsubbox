@@ -21,11 +21,11 @@ Proof. eauto using cset_from_wf_cse. Qed.
 Hint Resolve cset_from_wf_cse_in : core.
 
 Lemma allbound_over_union : forall Γ T1 T2,
-  allbound Γ (T1 `union`a T2) ->
+  allbound Γ (T1 `union`A T2) ->
   allbound Γ T1 /\ allbound Γ T2.
 Proof with eauto.
   intros.
-  split; intros ? ?; assert (x `in`a (T1 `union`a T2)) by fsetdec...
+  split; intros ? ?; assert (x `in`A (T1 `union`A T2)) by fsetdec...
 Qed.
 
 Lemma ok_from_wf_ctx : forall Γ S,
@@ -67,7 +67,7 @@ end : core.
 
 Lemma binding_uniq_from_wf_ctx : forall F E S x b,
   wf_ctx (F ++ ([(x, b)]) ++ E) S ->
-  x `notin`a (EnvImpl.dom F `union`a EnvImpl.dom E).
+  x `notin`A (EnvImpl.dom F `union`A EnvImpl.dom E).
 Admitted.
 (* Proof.
   intros.
@@ -138,9 +138,10 @@ Hint Resolve wf_cse_union : core.
     end
   end. *)
 
-Lemma wf_cse_fvars_from_ctx : forall Γ S C,
+Lemma wf_cse_fvars_from_ctx : forall Γ S C x,
   wf_cse Γ S C ->
-   (cse_fvars C) `subset`a (EnvImpl.dom Γ).
+  x `in`A (cse_fvars C) ->
+  x `in`A EnvImpl.dom Γ.
 Proof with eauto.
   intros * Hwf.
   induction Hwf; simpl in *; try fsetdec...
@@ -246,7 +247,7 @@ Qed.  *)
 
 Create HintDb fsetdec.
 
-Hint Extern 1 (_ `in`a _) => fsetdec: fsetdec.
+Hint Extern 1 (_ `in`A _) => fsetdec: fsetdec.
 
 (* skip this *)
 (* Lemma wf_cset_singleton_by_mem : forall xs b1 Γ x b2,
@@ -354,7 +355,7 @@ Admitted.
 Qed. *)
 
 Lemma notin_open_tt_rec_fv_ct : forall k x T U,
-  x ∉ (fv_ct T `union`a fv_ct U) ->
+  x ∉ (fv_ct T `union`A fv_ct U) ->
   x ∉ fv_ct (open_tt_rec k U T).
 Admitted.
 (* Proof with eauto*.
@@ -366,7 +367,7 @@ Admitted.
 Qed. *)
 
 Lemma notin_open_cse : forall k x c d,
-  x ∉ ((cse_fvars c) `union`a (cse_fvars d)) ->
+  x ∉ ((cse_fvars c) `union`A (cse_fvars d)) ->
   x ∉ (cse_fvars (open_cse k c d)).
 Admitted.
 (* Proof with eauto*.
@@ -376,7 +377,7 @@ Admitted.
 Qed. *)
 
 Lemma notin_open_ct_rec_fv_ct : forall k x c T,
-  x ∉ (fv_ct T `union`a (cse_fvars c)) ->
+  x ∉ (fv_ct T `union`A (cse_fvars c)) ->
   x ∉ fv_ct (open_ct_rec k c T).
 Admitted.
 (* Proof with eauto using notin_open_cse.
@@ -386,7 +387,7 @@ Admitted.
 Qed. *)
 
 Lemma wf_typ_strengthen : forall x Γ Δ T U S,
-  x ∉ (EnvImpl.dom Δ `union`a fv_ct T) ->
+  x ∉ (EnvImpl.dom Δ `union`A fv_ct T) ->
   wf_typ (Δ ++ [(x, bind_typ U)] ++ Γ) S T ->
   wf_typ (Δ ++ Γ) S T.
 Admitted.

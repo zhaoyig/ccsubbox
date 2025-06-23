@@ -28,118 +28,118 @@ Declare Scope set_scope.
 
 (* Notation for atoms *)
 
-Notation "E [=]a F" :=
+Notation "E [=]A F" :=
   (AtomSetImpl.Equal E F)
   (at level 70, no associativity)
   : set_scope.
 
-Notation "E [<=]a F" :=
+Notation "E [<=]A F" :=
   (AtomSetImpl.Subset E F)
   (at level 70, no associativity)
   : set_scope.
 
-Notation "{}a" :=
+Notation "{}A" :=
   (AtomSetImpl.empty)
   : set_scope.
 
-Notation "{{  x  }}a" :=
+Notation "{{  x  }}A" :=
   (AtomSetImpl.singleton x)
   : set_scope.
 
 Declare Scope set_hs_scope.
 
-Notation "x `in`a E" :=
+Notation "x `in`A E" :=
   (AtomSetImpl.In x E)
   (at level 70)
   : set_hs_scope.
 
-Notation "x `notin`a E" :=
+Notation "x `notin`A E" :=
   (~ AtomSetImpl.In x E)
   (at level 70)
   : set_hs_scope.
 
-Notation "E `union`a F" :=
+Notation "E `union`A F" :=
   (AtomSetImpl.union E F)
-  (at level 65, right associativity, format "E  `union`a  '/' F")
+  (at level 65, right associativity, format "E  `union`A  '/' F")
   : set_hs_scope.
 
-Notation "E `subset`a F" :=
+Notation "E `subset`A F" :=
   (AtomSetImpl.Subset E F)
   (at level 68)
   : set_scope.
 
 (* Notation for locs *)
 
-Notation "E [=]l F" :=
+Notation "E [=]L F" :=
   (LocSetImpl.Equal E F)
   (at level 70, no associativity)
   : set_scope.
 
-Notation "E [<=]l F" :=
+Notation "E [<=]L F" :=
   (LocSetImpl.Subset E F)
   (at level 70, no associativity)
   : set_scope.
 
-Notation "{}l" :=
+Notation "{}L" :=
   (LocSetImpl.empty)
   : set_scope.
 
-Notation "{{  x  }}l" :=
+Notation "{{  x  }}L" :=
   (LocSetImpl.singleton x)
   : set_scope.
 
 Declare Scope set_hs_scope.
 
-Notation "x `in`l E" :=
+Notation "x `in`L E" :=
   (LocSetImpl.In x E)
   (at level 70)
   : set_hs_scope.
 
-Notation "x `notin`l E" :=
+Notation "x `notin`L E" :=
   (~ LocSetImpl.In x E)
   (at level 70)
   : set_hs_scope.
 
-Notation "E `union`l F" :=
+Notation "E `union`L F" :=
   (LocSetImpl.union E F)
-  (at level 65, right associativity, format "E  `union`l  '/' F")
+  (at level 65, right associativity, format "E  `union`L  '/' F")
   : set_hs_scope.
 
   (* Notation for nats *)
 
-Notation "E [=]n F" :=
+Notation "E [=]N F" :=
   (NatSetImpl.Equal E F)
   (at level 70, no associativity)
   : set_scope.
 
-Notation "E [<=]n F" :=
+Notation "E [<=]N F" :=
   (NatSetImpl.Subset E F)
   (at level 70, no associativity)
   : set_scope.
 
-Notation "{}n" :=
+Notation "{}N" :=
   (NatSetImpl.empty)
   : set_scope.
 
-Notation "{{  x  }}n" :=
+Notation "{{  x  }}N" :=
   (NatSetImpl.singleton x)
   : set_scope.
 
 Declare Scope set_hs_scope.
 
-Notation "x `in`n E" :=
+Notation "x `in`N E" :=
   (NatSetImpl.In x E)
   (at level 70)
   : set_hs_scope.
 
-Notation "x `notin`n E" :=
+Notation "x `notin`N E" :=
   (~ NatSetImpl.In x E)
   (at level 70)
   : set_hs_scope.
 
-Notation "E `union`n F" :=
+Notation "E `union`N F" :=
   (NatSetImpl.union E F)
-  (at level 65, right associativity, format "E  `union`n  '/' F")
+  (at level 65, right associativity, format "E  `union`N  '/' F")
   : set_hs_scope.
 
 (** We define some abbreviations for the empty set, singleton
@@ -249,9 +249,9 @@ Tactic Notation
   :=
     first [apply (@H L) | eapply (@H L)];
       match goal with
-        | |- forall _, _ `notin`a _ -> _ =>
+        | |- forall _, _ `notin`A _ -> _ =>
           let Fr := fresh "Fr" in intros atom_name Fr
-        | |- forall _, _ `notin`a _ -> _ =>
+        | |- forall _, _ `notin`A _ -> _ =>
           fail 1 "because" atom_name "is already defined"
         | _ =>
           idtac
@@ -356,7 +356,7 @@ Ltac hint_extern_solve_notin :=
 Hint Extern 1 (_ <> _ :> _) => hint_extern_solve_notin : core.
 
 #[global]
-Hint Extern 1 (_ `notin`a _) => hint_extern_solve_notin : core.
+Hint Extern 1 (_ `notin`A _) => hint_extern_solve_notin : core.
 
 (** The next block of hints are occasionally useful when reasoning
     about finite sets.  In some instances, they obviate the need to
@@ -410,17 +410,17 @@ Notation "x  ===  y" :=
 Declare Scope set_sl_scope.
 
 Notation "x \in s" :=
-  (x `in`a s)
+  (x `in`A s)
   (at level 70, only parsing)
   : set_sl_scope.
 
 Notation "x \notin s" :=
-  (x `notin`a s)
+  (x `notin`A s)
   (at level 70, only parsing)
   : set_sl_scope.
 
 Notation "s \u t" :=
-  (s `union`a t)
+  (s `union`A t)
   (at level 65, right associativity, only parsing)
   : set_sl_scope.
 

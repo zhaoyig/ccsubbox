@@ -16,6 +16,7 @@ Meta/Metatheory.v
 Meta/MetatheoryAtom.v
 Meta/MetatheoryLoc.v
 Meta/MetatheoryNat.v
+TaktikZ.v
 CaptureSets.v
 CCsub_Definitions.v
 CCsub_Infrastructure.v
@@ -25,5 +26,9 @@ CCsub_Hints.v
 CCsub_Subcapt.v
 CCsub_Subtyping.v
 CCsub_Typing.v
+CCsub_Inversion.v
 CCsub_Substitution.v
+CCsub_Red.v
+CCsub_LocTransform.v
+CCsub_RuntimeInversion.v
 CCsub_Soundness.v

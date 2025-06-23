@@ -93,7 +93,7 @@ Qed.
 Lemma wf_store_cse_no_fvar: forall S x R T l,
   wf_store_ctx S ->
   StoreImpl.binds l (R # T) S ->
-  x `notin`a `cse_fvars` R.
+  x `notin`A `cse_fvars` R.
 Admitted.
 (* Proof with eauto.
   intros * WfS HBinds.
@@ -105,11 +105,11 @@ Admitted.
       inversion H; subst.
       inversion H4; subst...
       -- inversion H1.
-      -- apply wf_cse_fvars_from_ctx in H4.
+      -- intro.
+         epose proof (wf_cse_fvars_from_ctx _ _ _ x H4 H5).
          fsetdec.
 Qed. *)
 
-(* Needed, line 664 *)
 (* Substituting the same capture set preserves subcapturing *)
 Lemma subcapt_through_subst_cse : forall x D Q C Δ Γ S C1 C2 ,
   subcapt (Δ ++ [(x, bind_typ (D # Q))] ++ Γ) S C1 C2 ->
@@ -197,13 +197,13 @@ Lemma subcapt_through_subst_cse : forall x D Q C Δ Γ S C1 C2 ,
     epose proof (subcapt_regular _ _ _ _ CsubD) as [WfS [WfCtx [WfC _]]].
     epose proof (subcapt_regular _ _ _ _ C1subC2) as [_ [WfCtx2 _]].
     epose proof (wf_store_cse_no_fvar _ x _ _ _ WfS H) as HR.
-    assert (subcapt (EnvImpl.map (subst_cb x C) G ++ Γ) S (cse_loc X) (subst_cse x C R)). {
+    assert (subcapt (map (subst_cb x C) G ++ Γ) S (cse_loc l) (subst_cse x C R)). {
       apply subcapt_trans_loc with (R := R) (T := T0)...
       rewrite <- (subst_cse_fresh x R C)...
       apply subcapt_reflexivity...
-      epose proof (wf_pair_from_wf_store_ctx nil S R T0 X WfS ltac:(constructor) H) as [WfR _]...
-      rewrite_env ((EnvImpl.map (subst_cb x C) G ++ Γ) ++ nil).
-      apply wf_cse_weaken_head with (Δ := (EnvImpl.map (subst_cb x C) G ++ Γ))...
+      epose proof (wf_pair_from_wf_store_ctx nil S R T0 l WfS ltac:(constructor) H) as [WfR _]...
+      rewrite_env ((map (subst_cb x C) G ++ Γ) ++ nil).
+      apply wf_cse_weaken_head with (Δ := (map (subst_cb x C) G ++ Γ))...
       simpl_env.
       apply ok_from_wf_ctx in WfCtx2.
       apply ok_remove_mid in WfCtx2.
@@ -217,12 +217,12 @@ Admitted.
 
 Tactic Notation "subst_mem_singleton" hyp(H) :=
   match type of H with
-    | _ `in`a _ => rewrite AtomSetFacts.singleton_iff in H; subst
+    | _ `in`A _ => rewrite AtomSetFacts.singleton_iff in H; subst
   end.
 
 Tactic Notation "subst_mem_singleton" "<-" hyp(H) :=
   match type of H with
-    | _ `in`a _ => rewrite AtomSetFacts.singleton_iff in H; symmetry in H; subst
+    | _ `in`A _ => rewrite AtomSetFacts.singleton_iff in H; symmetry in H; subst
   end.
 
 (* Needed *)

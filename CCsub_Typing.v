@@ -44,7 +44,7 @@ Admitted.
     apply typing_box...
     simpl_env in H.
     assert (Δ ++ Γ = Δ ++ Γ) by reflexivity.
-    specialize (IHTyp Δ H1 Ok).
+    specialize (IHTyp Δ H0 Ok).
     inversion IHTyp...
   - Case "typing_unbox".
     apply typing_unbox...
@@ -90,8 +90,6 @@ Admitted.
   induction Typ; intros Δ EQ WfCtx; subst.
   - Case "typing_var".
     binds_cases H0...
-  - Case "typing_loc".
-    apply typing_loc with (R := R) (C := C)...
   - Case "typing_abs".
     pick fresh y and apply typing_abs...
     rewrite <- concat_assoc.
@@ -150,9 +148,6 @@ Admitted.
            eapply wf_ctx_narrowing_typ...
     + apply typing_var with (C := C0)...
       eapply wf_ctx_narrowing_typ...
-  - Case "typing_loc".
-    apply typing_loc with (R := R) (C := C0)...
-    eapply wf_ctx_narrowing_typ...
   - Case "typing_abs".
     pick fresh y and apply typing_abs...
     + simpl_env in *.
@@ -188,79 +183,3 @@ Admitted.
     eapply sub_narrowing_typ...
 Qed. *)
 
-(* ********************************************************************** *)
-(** ** Inversion of typing (13) *)
-
-Lemma typing_inv_abs : forall Γ S1 e1 T S,
-  typing Γ S (λ (S1) e1) T ->
-  forall U1 U2 C, sub Γ S T (C # (∀ (U1) U2)) ->
-     sub Γ S U1 S1
-  /\ exists S2, exists L, forall x, x ∉ L ->
-    typing ([(x, bind_typ S1)] ++ Γ) S (open_ve e1 x (cse_fvar x)) (open_ct S2 (cse_fvar x)) /\
-    wf_typ ([(x, bind_typ S1)] ++ Γ) S (open_ct U2 (cse_fvar x)) /\
-    sub ([(x, bind_typ U1)] ++ Γ) S (open_ct S2 (cse_fvar x)) (open_ct U2 (cse_fvar x)).
-Admitted.
-    (* Proof with auto.
-  intros * Typ.
-  dependent induction Typ; intros U1 U2 D Sub.
-  (* Case "typing_abs". *)
-  - inversion Sub; subst.
-    inversion select (sub _ _ _ _); subst.
-    split...
-    exists T1.
-    exists (L `u`A L0).
-    intros y ?.
-    rename select (forall x : atom, x ∉ L0 -> _) into Sub'.
-    specialize (Sub' y ltac:(fsetdec)).
-    repeat split...
-    rewrite_nil_concat.
-    eapply wf_typ_ignores_typ_bindings.
-    applys sub_regular Sub'.
-  - Case "typing_sub".
-    eauto using (sub_transitivity T).
-Qed. *)
-
-Lemma typing_inv_tabs : forall Γ S1 e1 T S,
-  typing Γ S (Λ [S1] e1) T ->
-  forall U1 U2 C, sub Γ S T (C # (∀ [U1] U2)) ->
-     sub Γ S U1 S1
-  /\ exists S2, exists L, forall X, X ∉ L ->
-    typing ([(X, bind_sub U1)] ++ Γ) S (open_te e1 X) (open_tt S2 X) /\
-    sub ([(X, bind_sub U1)] ++ Γ) S (open_tt S2 X) (open_tt U2 X).
-Admitted.
-    (* Proof with simpl_env; auto.
-  intros * Typ.
-  dependent induction Typ; intros U1 U2 D Sub.
-  (* Case "typing_tabs". *)
-  - inversion Sub; subst.
-    inversion select (sub _ _ _ _); subst.
-    split...
-    exists T1.
-    exists (L `union`a L0).
-    intros Y ?.
-    repeat split...
-    rewrite_nil_concat.
-    eapply typing_narrowing with (Q := S1)...
-  - Case "typing_sub".
-    eauto using (sub_transitivity T).
-Qed. *)
-
-Lemma typing_inv_let : forall Γ e k T S,
-  typing Γ S (let= e in k) T ->
-  exists C R,
-    typing Γ S e (C # R)
-    /\ exists L, forall x, x ∉ L ->
-      typing ([(x, bind_typ (C # R))] ++ Γ) S (open_ve k x (cse_fvar x)) T.
-Proof with eauto.
-  intros * Typ.
-  dependent induction Typ...
-  destruct (IHTyp e k ltac:(reflexivity)) as [C [R0 [eTyp [L kTyp]]]].
-  exists C, R0.
-  split...
-  exists (L `union`a EnvImpl.dom Γ).
-  intros y NotIn.
-  specialize (kTyp y ltac:(clear - NotIn; fsetdec)).
-  apply typing_sub with (R := R)...
-  rewrite_env (∅ ++ [(y, bind_typ (C # R0))] ++ Γ).
-  apply sub_weakening...
-Qed.

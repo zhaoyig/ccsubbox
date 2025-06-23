@@ -4,74 +4,72 @@ Require Import Lia.
 
 Fixpoint fv_ct (T : typ) {struct T} : atoms :=
   match T with
-  | typ_var _ => {}a
-  | C # R => `cse_fvars` C `union`a fv_ct R
-  | ⊤ => {}a
-  | ∀ (S') T => fv_ct S' `union`a fv_ct T
-  | ∀ [R] T => fv_ct R `union`a fv_ct T
+  | typ_var _ => {}A
+  | C # R => `cse_fvars` C `union`A fv_ct R
+  | ⊤ => {}A
+  | ∀ (S') T => fv_ct S' `union`A fv_ct T
+  | ∀ [R] T => fv_ct R `union`A fv_ct T
   | □ T => fv_ct T
   end.
 
 Fixpoint fv_tt (T : typ) {struct T} : atoms :=
   match T with
-  | var_b J => {}a
+  | var_b J => {}A
   | var_f X => singleton X
   | C # R => fv_tt R
-  | ⊤ => {}a
-  | ∀ (S') T => fv_tt S' `union`a fv_tt T
-  | ∀ [R] T => fv_tt R `union`a fv_tt T
+  | ⊤ => {}A
+  | ∀ (S') T => fv_tt S' `union`A fv_tt T
+  | ∀ [R] T => fv_tt R `union`A fv_tt T
   | □ T => fv_tt T
   end.
 
 Fixpoint fv_ce (e : exp) {struct e} : atoms :=
   match e with
-  | exp_var_like _ => {}a
-  | λ (V) e1 => fv_ct V `union`a fv_ce e1
-  | _ @ _ => {}a
-  | let= e in C => fv_ce e `union`a fv_ce C
-  | Λ [V] e1 => fv_ct V `union`a fv_ce e1
+  | exp_var _ => {}A
+  | λ (V) e1 => fv_ct V `union`A fv_ce e1
+  | _ @ _ => {}A
+  | let= e  in C => fv_ce e `union`A fv_ce C 
+  | Λ [V] e1 => fv_ct V `union`A fv_ce e1
   | _ @ [V] => fv_ct V
-  | box _ => {}a
+  | box _ => {}A
   | C ⟜ x => `cse_fvars` C
   end.
 
 Fixpoint fv_te (e : exp) {struct e} : atoms :=
   match e with
-  | exp_var_like _ => {}a
-  | λ (V) e1  => fv_tt V `union`a fv_te e1
-  | _ @ _ => {}a
-  | let= e in C => fv_te e `union`a fv_te C
-  | Λ [V] e1 => fv_tt V `union`a fv_te e1
+  | exp_var _ => {}A
+  | λ (V) e1  => fv_tt V `union`A fv_te e1
+  | _ @ _ => {}A
+  | let= e in C => fv_te e `union`A fv_te C
+  | Λ [V] e1 => fv_tt V `union`A fv_te e1
   | _ @ [V] => fv_tt V
-  | box _ => {}a
-  | C ⟜ x => {}a
+  | box _ => {}A
+  | C ⟜ x => {}A
   end.
 
-Definition fv_vv (v : var_like) : atoms :=
+Definition fv_vv (v : var) : atoms :=
   match v with
-  | var_like_var (var_f x) => singleton x
-  | var_like_var (var_b _) => {}a
-  | var_like_loc _ => {}a
+  | var_f x => singleton x
+  | var_b i => {}A
   end.
 
 Fixpoint fv_ve (e : exp) {struct e} : atoms :=
   match e with
-  | var_like_var v => fv_vv v
-  | var_like_loc l => {}a
+  | exp_var v => fv_vv v
   | λ (V) e1 => fv_ve e1
-  | x @ y => fv_vv x `union`a fv_vv y
-  | let= e in C => fv_ve e `union`a fv_ve C
+  | x @ y => fv_vv x `union`A fv_vv y
+  | let= e in C => fv_ve e `union`A fv_ve C
   | Λ [V] e1 => fv_ve e1
   | x @ [V] => fv_vv x
   | box x => fv_vv x
-  | C ⟜ x => `cse_fvars` C `union`a fv_vv x
+  | C ⟜ x => `cse_fvars` C `union`A fv_vv x
   end.
 
 Fixpoint fv_cctx (E : ctx) {struct E} : atoms :=
   match E with
-  | nil => {}a
-  | (_, bind_typ T) :: F => fv_ct T `union`a fv_cctx F
-  | (_, bind_sub T) :: F => fv_ct T `union`a fv_cctx F
+  | nil => {}A
+  | (_, bind_typ T) :: F => fv_ct T `union`A fv_cctx F
+  | (_, bind_sub T) :: F => fv_ct T `union`A fv_cctx F
   end.
 
 Fixpoint subst_tt (Z : atom) (U : typ) (T : typ) {struct T} : typ :=
@@ -98,7 +96,7 @@ Fixpoint subst_ct (z : atom) (c : cse) (T : typ) {struct T} : typ :=
 
 Fixpoint subst_te (Z : atom) (U : typ) (e : exp) {struct e} : exp :=
   match e with
-  | exp_var_like v => v
+  | exp_var v => v
   | λ (V) e1 => λ (subst_tt Z U V) (subst_te Z U e1)
   | f @ x => f @ x
   | let= e in C => let= subst_te Z U e in subst_te Z U C
@@ -108,25 +106,23 @@ Fixpoint subst_te (Z : atom) (U : typ) (e : exp) {struct e} : exp :=
   | C ⟜ x => C ⟜ x
   end.
 
-Definition subst_vv (z : atom) (u : var_like) (v : var_like) : var_like :=
+Definition subst_vv (z : atom) (u : var) (v : var) : var :=
   match v with
-  | var_like_var (var_f x) => if x == z then u else v
-  | var_like_var (var_b i) => i
-  | var_like_loc x =>  x
+  | var_f x => if x == z then u else v
+  | var_b i => v
   end.
 
-Fixpoint subst_ve (z : atom) (u : var_like) (c : cse) (e : exp) {struct e} : exp :=
+Fixpoint subst_ve (z : atom) (u : var) (c : cse) (e : exp) {struct e} : exp :=
   match e with
-  | exp_var_like (var_like_var v) => subst_vv z u v
-  | exp_var_like (var_like_loc l) => l
+  | exp_var v => subst_vv z u v
   | λ (t) e1 => exp_abs (subst_ct z c t) (subst_ve z u c e1)
   | f @ x => subst_vv z u f @ subst_vv z u x
-  | let= e in C => let= subst_ve z u c e in subst_ve z u c C
+  | let= e in C => let= subst_ve z u c e  in subst_ve z u c C
   | Λ [t] e1 => Λ [subst_ct z c t] (subst_ve z u c e1)
   | x @ [t] => subst_vv z u x @ [subst_ct z c t]
   | box x => box (subst_vv z u x)
   | C ⟜ x => subst_cse z (var_cv u) C ⟜ subst_vv z u x
-  end. 
+  end.
 
 Definition subst_tb (Z : atom) (P : typ) (b : binding) : binding :=
   match b with
@@ -151,7 +147,7 @@ Ltac gather_atoms :=
   let H := gather_atoms_with (fun x : typ => fv_ct x) in
   let I := gather_atoms_with (fun x : exp => fv_ce x) in
   let J := gather_atoms_with (fun x : ctx => fv_cctx x) in
-  constr:(A `union`a B `union`a C `union`a D `union`a E `union`a F `union`a G `union`a H `union`a I `union`a J).
+  constr:(A `union`A B `union`A C `union`A D `union`A E `union`A F `union`A G `union`A H `union`A I `union`A J).
 
 Tactic Notation "pick" "fresh" ident(x) :=
   let L := gather_atoms in (pick fresh x for L).
@@ -184,7 +180,7 @@ Inductive varN : nat -> var -> Prop :=
       varN n m
   | varN_f : forall n (x : atom),
       varN n x.
-  
+
 (* For all bound vars in C, bound var is less than n *)
 Inductive csetN : nat -> cse -> Prop :=
   | csetN_join : forall n C1 C2, 
@@ -481,7 +477,7 @@ Qed.
     identity. *)
 
 Lemma subst_tt_fresh : forall Z U T,
-  Z ∉ (fv_tt T `union`a fv_ct T) ->
+  Z ∉ (fv_tt T `union`A fv_ct T) ->
   T = subst_tt Z U T.
 Admitted.
 (* Proof with auto.
@@ -546,7 +542,7 @@ Qed.
     the version we use in practice. *)
 
 Lemma subst_tt_intro_rec : forall X T2 U k,
-  X ∉ (fv_tt T2 `union`a fv_ct T2) ->
+  X ∉ (fv_tt T2 `union`A fv_ct T2) ->
   open_tt_rec k U T2 = subst_tt X U (open_tt_rec k X T2).
 Admitted.
 (* Proof with auto*.
@@ -568,7 +564,7 @@ Qed. *)
     lemma---the index is specialized to zero.  *)
 
 Lemma subst_tt_intro : forall X T2 U,
-  X ∉ (fv_tt T2 `union`a fv_ct T2) ->
+  X ∉ (fv_tt T2 `union`A fv_ct T2) ->
   open_tt T2 U = subst_tt X U (open_tt T2 X).
 Proof with auto*.
   intros.
@@ -589,8 +585,6 @@ Inductive exprN : nat -> exp -> Prop :=
   | exprN_var : forall n v,
       varN n v ->
       exprN n v
-  | exprN_loc : forall n l,
-      exprN n l
   | exprN_abs : forall n T e1,
       typeN n T ->
       exprN (S n) e1 ->
@@ -687,7 +681,7 @@ Proof with auto.
 Qed.
 
 Lemma subst_te_intro_rec : forall X e U k,
-  X ∉ (fv_te e `union`a fv_ce e) ->
+  X ∉ (fv_te e `union`A fv_ce e) ->
   open_te_rec k U e = subst_te X U (open_te_rec k X e).
 Admitted.
 (* Proof.
@@ -696,7 +690,7 @@ Admitted.
 Qed. *)
 
 Lemma subst_te_intro : forall X e U,
-  X ∉ (fv_te e `union`a fv_ce e) ->
+  X ∉ (fv_te e `union`A fv_ce e) ->
   open_te e U = subst_te X U (open_te e X).
 Proof with auto*.
   intros.
@@ -764,7 +758,7 @@ Qed.
 (** This section follows the structure of the previous two sections. *)
 
 Lemma subst_cse_fresh : forall x C1 C2,
-  x `notin`a (cse_fvars C1) ->
+  x `notin`A (cse_fvars C1) ->
   C1 = subst_cse x C2 C1.
 Proof.
   intros. induction C1; auto.
@@ -790,13 +784,13 @@ Lemma subst_vv_fresh : forall (x : atom) u v,
 Proof with eauto.
   intros.
   unfold fv_vv, subst_vv in *.
-  destruct v... destruct v...
+  destruct v...
   destruct (a == x); subst...
   fsetdec.
 Qed.
 
 Lemma subst_ve_fresh : forall (x : atom) u c e,
-  x ∉ (fv_ve e `union`a fv_ce e) ->
+  x ∉ (fv_ve e `union`A fv_ce e) ->
   e = subst_ve x u c e.
 Admitted.
 (* Proof with auto using subst_vv_fresh, subst_ct_fresh, subst_cse_fresh.
@@ -903,7 +897,7 @@ Qed.
 
 Lemma subst_te_open_ve_rec : forall e z c Z P k,
   type P ->
-  Z `notin`a (`cse_fvars` c `union`a {{z}}a) ->
+  Z `notin`A (`cse_fvars` c `union`A {{z}}A) ->
   subst_te Z P (open_ve_rec k z c e) =
     open_ve_rec k z c (subst_te Z P e).
 Proof with eauto using subst_tt_open_ct_rec, subst_cset_open_cset_fresh.
@@ -912,7 +906,7 @@ Qed.
 
 Lemma subst_te_open_ve : forall e z c Z P,
   type P ->
-  Z ∉ (`cse_fvars` c `union`a {{z}}a) ->
+  Z ∉ (`cse_fvars` c `union`A {{z}}A) ->
   subst_te Z P (open_ve e z c) = open_ve (subst_te Z P e) z c.
 Proof with auto*.
   intros.
@@ -922,7 +916,7 @@ Qed.
 
 Lemma subst_te_open_ve_var : forall Z (x : atom) P e c,
   type P ->
-  Z ∉ (`cse_fvars` c `union`a {{x}}a) ->
+  Z ∉ (`cse_fvars` c `union`A {{x}}A) ->
   open_ve (subst_te Z P e) x c = subst_te Z P (open_ve e x c).
 Proof with auto*.
   intros.
@@ -931,7 +925,7 @@ Qed.
 
 Lemma subst_ct_open_vt_fresh : forall z c k P v,
   cset c ->
-  z ∉ (fv_ct P `union`a fv_tt P) ->
+  z ∉ (fv_ct P `union`A fv_tt P) ->
   subst_ct z c (open_vt k P v) = open_tt_rec k P v.
 Proof with eauto.
   intros * Capt NotIn.
@@ -944,7 +938,7 @@ Qed.
 
 Lemma subst_ct_open_tt_rec_fresh : forall c z P t k,
   cset c ->
-  z ∉ (fv_ct P `union`a fv_tt P) ->
+  z ∉ (fv_ct P `union`A fv_tt P) ->
   subst_ct z c (open_tt_rec k P t) = open_tt_rec k P (subst_ct z c t).
 Proof with eauto using subst_ct_open_vt_fresh.
   induction t; intros; simpl; f_equal...
@@ -953,16 +947,15 @@ Qed.
 
 Lemma subst_ve_open_te_rec_fresh : forall e P z u c k,
   cset c ->
-  z ∉ (fv_ct P `union`a fv_tt P) ->
+  z ∉ (fv_ct P `union`A fv_tt P) ->
   subst_ve z u c (open_te_rec k P e) = open_te_rec k P (subst_ve z u c e).
 Proof with eauto using subst_cset_open_cset_fresh, subst_ct_open_tt_rec_fresh.
-  induction e; intros * Hc Hfv; simpl; f_equal... 
-  destruct v...
+  induction e; intros * Hc Hfv; simpl; f_equal...
 Qed.
 
 Lemma subst_ve_open_te_fresh : forall e P z u c,
   cset c ->
-  z ∉ (fv_ct P `union`a fv_tt P) ->
+  z ∉ (fv_ct P `union`A fv_tt P) ->
   subst_ve z u c (open_te e P) = open_te (subst_ve z u c e) P.
 Proof with auto*.
   intros.
@@ -1007,32 +1000,28 @@ Lemma subst_vv_intro : forall k x u v,
 Proof with eauto.
   intros.
   unfold open_vv, fv_vv, subst_vv in *.
-  destruct v. destruct v.
+  destruct v.
   * destruct (a == x); subst...
     fsetdec.
   * destruct (k === n); subst...
     destruct (x == x)...
     contradiction.
-  * reflexivity. 
 Qed.
 
-Lemma subst_vv_open_vv : forall x u k y v,
+Lemma subst_vv_open_vv : forall x (u : atom) k y v,
   y <> x ->
-  fvar_like u ->
   subst_vv x u (open_vv k y v) = open_vv k y (subst_vv x u v).
 Proof with eauto.
-  intros * Neq Fvar.
-  destruct v. destruct v; simpl. 
+  intros * Neq.
+  destruct v; simpl.
   - destruct (a == x); simpl; subst...
-    inversion Fvar; subst...
   - destruct (k === n); simpl...
     destruct (y == x); simpl; subst...
     contradiction.
-  - reflexivity.
 Qed.
 
 Lemma subst_ve_intro_rec : forall x e u c k,
-  x ∉ (fv_ve e `union`a fv_ce e) ->
+  x ∉ (fv_ve e `union`A fv_ce e) ->
   open_ve_rec k u c e = subst_ve x u c (open_ve_rec k x (cse_fvar x) e).
 Admitted.
 (* Proof with eauto using open_ct_subst_ct_var, subst_vv_intro, subst_cse_intro.
@@ -1043,9 +1032,8 @@ Admitted.
     reflexivity.
 Qed. *)
 
-
 Lemma subst_ve_intro : forall x e u c,
-  x ∉ (fv_ve e `union`a fv_ce e) ->
+  x ∉ (fv_ve e `union`A fv_ce e) ->
   open_ve e u c = subst_ve x u c (open_ve e x (cse_fvar x)).
 Proof with auto*.
   intros.
@@ -1053,9 +1041,8 @@ Proof with auto*.
   apply subst_ve_intro_rec...
 Qed.
 
-Lemma subst_ve_open_ve_rec : forall e x y u c1 c2 k,
+Lemma subst_ve_open_ve_rec : forall e x y (u : atom) c1 c2 k,
   y <> x ->
-  fvar_like u ->
   cset c1 ->
   subst_ve x u c1 (open_ve_rec k y c2 e) =
     open_ve_rec k y (subst_cse x c1 c2) (subst_ve x u c1 e).
@@ -1070,14 +1057,13 @@ Admitted.
   - destruct u; simpl in *; inversion Fvar; subst...   
 Qed. *)
 
-Lemma subst_ve_open_ve_var : forall (x y : atom) u c e,
+Lemma subst_ve_open_ve_var : forall (x y u : atom) c e,
   y <> x ->
-  fvar_like u ->
   cset c ->
   open_ve (subst_ve x u c e) y (cse_fvar y) =
   subst_ve x u c (open_ve e y (cse_fvar y)).
 Proof with auto*.
-  intros x y u c e Neq Fvar Wc.
+  intros x y u c e Neq Wc.
   unfold open_ve.
   rewrite subst_ve_open_ve_rec...
   simpl.
@@ -1122,7 +1108,7 @@ Local Hint Extern 1 (~ AtomSetImpl.In _ _) => simpl_env in *; [fsetdec] : core.
 
 Lemma subst_ct_open_fresh : forall k z C T X,
   (* X fresh requirement here in z c T *)
-  X ∉ (singleton z `union`a fv_tt T `union`a fv_ct T)
+  X ∉ (singleton z `union`A fv_tt T `union`A fv_ct T)
     /\ X ∉ `cse_fvars` C ->
   cset C ->
   (open_ct_rec k (cse_fvar X) (subst_ct z C T)) =

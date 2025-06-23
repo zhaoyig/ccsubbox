@@ -248,7 +248,7 @@ Lemma cse_locs_join_union : forall (C1: cse) (C2: cse),
 Proof. auto. Qed.
 
 Lemma subst_cse_fresh : forall x C1 C2,
-  x `notin`a (cse_fvars C1) ->
+  x `notin`A (cse_fvars C1) ->
   C1 = subst_cse x C2 C1.
 Proof with eauto.
   intros.
@@ -283,7 +283,7 @@ Proof with eauto.
 Qed.
 
 Lemma subst_cc_intro_rec : forall x (C : cse) U k,
-  x `notin`a (`cse_fvars` C) ->
+  x `notin`A (`cse_fvars` C) ->
   open_cse k U C = subst_cse x U (open_cse k (cse_fvar x) C).
 Proof with eauto.
   intros * NotIn.
