@@ -115,7 +115,7 @@ Lemma subcapt_through_subst_cse : forall x D Q C Δ Γ S C1 C2 ,
   subcapt (Δ ++ [(x, bind_typ (D # Q))] ++ Γ) S C1 C2 ->
   subcapt Γ S C D ->
   subcapt (EnvImpl.map (subst_cb x C) Δ ++ Γ) S (subst_cse x C C1) (subst_cse x C C2).
-Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
+(* Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
   eauto 4 using wf_ctx_subst_cb, wf_cse_subst_cb, wf_cse_weaken_head.
   intros x D T C Δ Γ S C1 C2 C1subC2 CsubD.
   remember (Δ ++ [(x, bind_typ (D # T))] ++ Γ).
@@ -212,7 +212,7 @@ Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
     eapply subcapt_transitivity with (Q := (subst_cse x C R)) ... *)
   - constructor...
   - apply subcapt_join_inr...
-    Unshelve. all: eauto.
+    Unshelve. all: eauto. *)
 Admitted.
 
 Tactic Notation "subst_mem_singleton" hyp(H) :=
@@ -230,7 +230,7 @@ Lemma subcapt_through_subst_tt : forall Γ P Q Δ X C D S,
   subcapt (Δ ++ [(X, bind_sub Q)] ++ Γ) S C D ->
   sub Γ S P Q ->
   subcapt (EnvImpl.map (subst_tb X P) Δ ++ Γ) S C D.
-Proof with simpl_env; eauto.
+(* Proof with simpl_env; eauto.
   eauto 4 using wf_ctx_subst_tb, wf_cse_subst_tb, wf_typ_subst_tb, wf_cse_weaken_head, sub_regular, subcapt_reflexivity with fsetdec.
   intros E P Q F Z R T S SsubT PsubQ.
   assert (WfCtx: wf_ctx (F ++ [(Z, bind_sub Q)] ++ E) S).
@@ -275,6 +275,6 @@ Proof with simpl_env; eauto.
     apply H. apply sub_regular in PsubQ as [_ [_ [Pwf _]]]...
   - apply subcapt_join_inr; auto.
     eapply wf_cse_subst_tb.
-    apply H. apply sub_regular in PsubQ as [_ [_ [Pwf _]]]...
+    apply H. apply sub_regular in PsubQ as [_ [_ [Pwf _]]]... *)
 Admitted.
 

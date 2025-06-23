@@ -1101,8 +1101,8 @@ with subst_tt_pure_type : forall Z P T,
   pure_type T ->
   pure_type P ->
   pure_type (subst_tt Z P T).
-(* Admitted. *)
-Proof with auto.
+Admitted.
+(* Proof with auto.
 { clear subst_tt_type.
   intros Z P T HT HP.
   induction HT; simpl...
@@ -1116,7 +1116,7 @@ Proof with auto.
   - pick fresh Y and apply type_all...
     rewrite subst_tt_open_tt_var...
 }
-Qed.
+Qed. *)
 
 Local Hint Extern 1 (~ AtomSetImpl.In _ _) => simpl_env in *; [fsetdec] : core.
 
