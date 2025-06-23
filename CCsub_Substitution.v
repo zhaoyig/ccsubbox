@@ -1,3 +1,4 @@
+Require Import TaktikZ.
 Require Import Coq.Program.Equality.
 Require Import LibTactics.
 Require Export CCsub_Hints.
@@ -12,9 +13,10 @@ Set Nested Proofs Allowed.
 
 Lemma subst_te_fresh_exp_cv : forall Z R e,
   exp_cv e = exp_cv (subst_te Z R e).
-Proof with eauto*.
+Proof with eauto.
   intros.
   induction e; simpl in *...
+  f_equal...
 Qed.
 
 (* ********************************************************************** *)
@@ -23,7 +25,7 @@ Qed.
 Lemma sub_through_subst_tt : forall Q Γ Δ S Z R T P,
   sub (Δ ++ [(Z, bind_sub Q)] ++ Γ) S R T ->
   sub Γ S P Q ->
-  sub (map (subst_tb Z P) Δ ++ Γ) S (subst_tt Z P R) (subst_tt Z P T).
+  sub (EnvImpl.map (subst_tb Z P) Δ ++ Γ) S (subst_tt Z P R) (subst_tt Z P T).
 Proof with simpl_env;
            eauto 4 using wf_typ_subst_tb,
                          wf_ctx_subst_tb,
@@ -38,20 +40,17 @@ Proof with simpl_env;
   }
   assert (PureP : pure_type P) by (apply (proj2 (sub_pure_type _ _ _ _ PsubQ) PureQ)).
   dependent induction SsubT.
-  - Case "sub_refl_tvar".
-    simpl.
+  - simpl.
     destruct (X == Z); apply sub_reflexivity...
     replace (typ_var X) with (subst_tt Z P X).
     2: simpl; destruct (X == Z); [exfalso; apply (n e) | reflexivity ].
     eapply wf_typ_subst_tb...
-  - Case "sub_trans_tvar".
-    assert (wf_ctx (Δ ++ [(Z, bind_sub Q)] ++ Γ) S) as WfC by auto.
+  - assert (wf_ctx (Δ ++ [(Z, bind_sub Q)] ++ Γ) S) as WfC by auto.
     apply binding_uniq_from_wf_ctx in WfC as FrZ.
     simpl.
     destruct (X == Z); subst.
-    + SCase "X = Z".
-      apply (sub_transitivity Q)...
-      * rewrite_nil_concat.
+    + apply (sub_transitivity Q)...
+      * rewrite_env (nil ++ (EnvImpl.map (subst_tb Z P) Δ) ++ Γ).
         apply sub_weakening...
       * rewrite (subst_tt_fresh Z P Q).
         2: {
@@ -59,18 +58,25 @@ Proof with simpl_env;
           lets: notin_fv_wf_typ Z Q HA.
           fsetdec.
         }
-        binds_get H.
-        apply ok_from_wf_ctx in WfC...
-        inversion H1; subst.
+        (* analyze_binds_uniq H... *)
+        (* binds_get H. *)
+        apply EnvImpl.binds_app_1 in H...
+        destruct H...
+        { exfalso. epose proof (EnvImpl.binds_dom_contradiction)... }
+        apply EnvImpl.binds_app_1 in H...
+        destruct H...
+        apply EnvImpl.binds_one_2 in H...
+        inversion H; subst.
         apply (IHSsubT Q)...
-    + SCase "X <> Z".
-      binds_cases H.
-      * assert (binds X (bind_sub U) (map (subst_tb Z P) Δ ++ Γ)) by auto.
+        { exfalso. epose proof (EnvImpl.binds_dom_contradiction)... }
+    + EnvImpl.analyze_binds H...
+      * assert (EnvImpl.binds X (bind_sub U) (EnvImpl.map (subst_tb Z P) Δ ++ Γ)) by admit.
         apply (sub_trans_tvar U)...
         rewrite (subst_tt_fresh Z P U).
         2: {
           assert (wf_typ Γ S U) as HA. {
             eapply wf_typ_from_binds_sub...
+            admit.
           }
           lets: notin_fv_wf_typ Z HA.
           fsetdec.

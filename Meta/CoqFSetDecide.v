@@ -1,3 +1,17 @@
+(** Includes minor tweaks (mostly bug fixes?) by Brian Aydemir. *)
+
+Create HintDb set_simpl.
+
+(***********************************************************************)
+(*  v      *   The Coq Proof Assistant  /  The Coq Development Team    *)
+(* <O___,, *        INRIA-Rocquencourt  &  LRI-CNRS-Orsay              *)
+(*   \VV/  *************************************************************)
+(*    //   *      This file is distributed under the terms of the      *)
+(*         *       GNU Lesser General Public License Version 2.1       *)
+(***********************************************************************)
+
+(* $Id: FSetDecide.v 11699 2008-12-18 11:49:08Z letouzey $ *)
+
 (**************************************************************)
 (* FSetDecide.v                                               *)
 (*                                                            *)
@@ -7,11 +21,12 @@
 (** This file implements a decision procedure for a certain
     class of propositions involving finite sets.  *)
 
-Require Import FSets.
-Require Export Decidable.
-Require Export Setoid.
+Require Import Decidable DecidableTypeEx FSetFacts Setoid.
 
-Module Decide (Import M : S).
+(** First, a version for Weak Sets in functorial presentation *)
+
+Module WDecide_fun (E : DecidableType)(Import M : WSfun E).
+ Module F :=  FSetFacts.WFacts_fun E M.
 
 (** * Overview
     This functor defines the tactic [fsetdec], which will
@@ -106,143 +121,15 @@ the above form:
       not affect the namespace if you import the enclosing
       module [Decide]. *)
   Module FSetLogicalFacts.
+    Export Decidable.
+    Export Setoid.
 
-    (** ** Lemmas and Tactics About Decidable Propositions
-        XXX: The lemma [dec_iff] should have been included in
-        [Decidable.v].  Some form of the [solve_decidable]
-        tactics below would also make sense in [Decidable.v].
-        *)
-
-    Lemma dec_iff : forall P Q : Prop,
-      decidable P ->
-      decidable Q ->
-      decidable (P <-> Q).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    (** With this hint database, we can leverage [auto] to check
-        decidability of propositions. *)
-    Hint Resolve
-      dec_True dec_False dec_or dec_and dec_imp dec_not dec_iff
-    : decidable_prop.
-
-    (** [solve_decidable using lib] will solve goals about the
-        decidability of a proposition, assisted by an auxiliary
-        database of lemmas.  The database is intended to contain
-        lemmas stating the decidability of base propositions,
-        (e.g., the decidability of equality on a particular
-        inductive type). *)
-    Tactic Notation "solve_decidable" "using" ident(db) :=
-      match goal with
-      | |- decidable ?P =>
-        solve [ auto 100 with decidable_prop db ]
-      end.
-
-    Tactic Notation "solve_decidable" :=
-      solve_decidable using core.
+    (** ** Lemmas and Tactics About Decidable Propositions *)
 
     (** ** Propositional Equivalences Involving Negation
         These are all written with the unfolded form of
         negation, since I am not sure if setoid rewriting will
         always perform conversion. *)
-
-    (** *** Eliminating Negations
-        We begin with lemmas that, when read from left to right,
-        can be understood as ways to eliminate uses of [not]. *)
-
-    Lemma not_true_iff :
-      (True -> False) <-> False.
-    Proof.
-      tauto.
-    Qed.
-
-    Lemma not_false_iff :
-      (False -> False) <-> True.
-    Proof.
-      tauto.
-    Qed.
-
-    Lemma not_not_iff : forall P : Prop,
-      decidable P ->
-      (((P -> False) -> False) <-> P).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    Lemma contrapositive : forall P Q : Prop,
-      decidable P ->
-      (((P -> False) -> (Q -> False)) <-> (Q -> P)).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    Lemma or_not_l_iff_1 : forall P Q : Prop,
-      decidable P ->
-      ((P -> False) \/ Q <-> (P -> Q)).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    Lemma or_not_l_iff_2 : forall P Q : Prop,
-      decidable Q ->
-      ((P -> False) \/ Q <-> (P -> Q)).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    Lemma or_not_r_iff_1 : forall P Q : Prop,
-      decidable P ->
-      (P \/ (Q -> False) <-> (Q -> P)).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    Lemma or_not_r_iff_2 : forall P Q : Prop,
-      decidable Q ->
-      (P \/ (Q -> False) <-> (Q -> P)).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    Lemma imp_not_l : forall P Q : Prop,
-      decidable P ->
-      (((P -> False) -> Q) <-> (P \/ Q)).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    (** *** Moving Negations Around
-        We have four lemmas that, when read from left to right,
-        describe how to push negations toward the leaves of a
-        proposition and, when read from right to left, describe
-        how to pull negations toward the top of a proposition. *)
-
-    Lemma not_or_iff : forall P Q : Prop,
-      (P \/ Q -> False) <-> (P -> False) /\ (Q -> False).
-    Proof.
-      tauto.
-    Qed.
-
-    Lemma not_and_iff : forall P Q : Prop,
-      (P /\ Q -> False) <-> (P -> Q -> False).
-    Proof.
-      tauto.
-    Qed.
-
-    Lemma not_imp_iff : forall P Q : Prop,
-      decidable P ->
-      (((P -> Q) -> False) <-> P /\ (Q -> False)).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
-
-    Lemma not_imp_rev_iff : forall P Q : Prop,
-      decidable P ->
-      (((P -> Q) -> False) <-> (Q -> False) /\ P).
-    Proof.
-      unfold decidable in *. tauto.
-    Qed.
 
     (** ** Tactics for Negations *)
 
@@ -264,57 +151,43 @@ the above form:
         together.
 
         XXX: This tactic and the similar subsequent ones should
-        have been defined using [autorewrite].  However, there
-        is a bug in the order that Coq generates subgoals when
-        rewriting using a setoid.  In order to work around this
-        bug, these tactics had to be written out in an explicit
-        way.  When the bug is fixed these tactics will break!!
-        *)
+        have been defined using [autorewrite]. However, dealing
+        with multiples rewrite sites and side-conditions is
+        done more cleverly with the following explicit
+        analysis of goals. *)
+
+    Ltac or_not_l_iff P Q tac :=
+      (rewrite (or_not_l_iff_1 P Q) by tac) ||
+      (rewrite (or_not_l_iff_2 P Q) by tac).
+
+    Ltac or_not_r_iff P Q tac :=
+      (rewrite (or_not_r_iff_1 P Q) by tac) ||
+      (rewrite (or_not_r_iff_2 P Q) by tac).
+
+    Ltac or_not_l_iff_in P Q H tac :=
+      (rewrite (or_not_l_iff_1 P Q) in H by tac) ||
+      (rewrite (or_not_l_iff_2 P Q) in H by tac).
+
+    Ltac or_not_r_iff_in P Q H tac :=
+      (rewrite (or_not_r_iff_1 P Q) in H by tac) ||
+      (rewrite (or_not_r_iff_2 P Q) in H by tac).
 
     Tactic Notation "push" "not" "using" ident(db) :=
+      let dec := solve_decidable using db in
       unfold not, iff;
       repeat (
         match goal with
-        (** simplification by not_true_iff *)
-        | |- context [True -> False] =>
-          rewrite not_true_iff
-        (** simplification by not_false_iff *)
-        | |- context [False -> False] =>
-          rewrite not_false_iff
-        (** simplification by not_not_iff *)
-        | |- context [(?P -> False) -> False] =>
-          rewrite (not_not_iff P);
-            [ solve_decidable using db | ]
-        (** simplification by contrapositive *)
+        | |- context [True -> False] => rewrite not_true_iff
+        | |- context [False -> False] => rewrite not_false_iff
+        | |- context [(?P -> False) -> False] => rewrite (not_not_iff P) by dec
         | |- context [(?P -> False) -> (?Q -> False)] =>
-          rewrite (contrapositive P Q);
-            [ solve_decidable using db | ]
-        (** simplification by or_not_l_iff_1/_2 *)
-        | |- context [(?P -> False) \/ ?Q] =>
-          (rewrite (or_not_l_iff_1 P Q);
-            [ solve_decidable using db | ]) ||
-          (rewrite (or_not_l_iff_2 P Q);
-            [ solve_decidable using db | ])
-        (** simplification by or_not_r_iff_1/_2 *)
-        | |- context [?P \/ (?Q -> False)] =>
-          (rewrite (or_not_r_iff_1 P Q);
-            [ solve_decidable using db | ]) ||
-          (rewrite (or_not_r_iff_2 P Q);
-            [ solve_decidable using db | ])
-        (** simplification by imp_not_l *)
-        | |- context [(?P -> False) -> ?Q] =>
-          rewrite (imp_not_l P Q);
-            [ solve_decidable using db | ]
-        (** rewriting by not_or_iff *)
-        | |- context [?P \/ ?Q -> False] =>
-          rewrite (not_or_iff P Q)
-        (** rewriting by not_and_iff *)
-        | |- context [?P /\ ?Q -> False] =>
-          rewrite (not_and_iff P Q)
-        (** rewriting by not_imp_iff *)
-        | |- context [(?P -> ?Q) -> False] =>
-          rewrite (not_imp_iff P Q);
-            [ solve_decidable using db | ]
+            rewrite (contrapositive P Q) by dec
+        | |- context [(?P -> False) \/ ?Q] => or_not_l_iff P Q dec
+        | |- context [?P \/ (?Q -> False)] => or_not_r_iff P Q dec
+        | |- context [(?P -> False) -> ?Q] => rewrite (imp_not_l P Q) by dec
+        | |- context [?P \/ ?Q -> False] => rewrite (not_or_iff P Q)
+        | |- context [?P /\ ?Q -> False] => rewrite (not_and_iff P Q)
+        | |- context [(?P -> ?Q) -> False] => rewrite (not_imp_iff P Q) by dec
         end);
       fold any not.
 
@@ -323,49 +196,24 @@ the above form:
 
     Tactic Notation
       "push" "not" "in" "*" "|-" "using" ident(db) :=
+      let dec := solve_decidable using db in
       unfold not, iff in * |-;
       repeat (
         match goal with
-        (** simplification by not_true_iff *)
-        | H: context [True -> False] |- _ =>
-          rewrite not_true_iff in H
-        (** simplification by not_false_iff *)
-        | H: context [False -> False] |- _ =>
-          rewrite not_false_iff in H
-        (** simplification by not_not_iff *)
+        | H: context [True -> False] |- _ => rewrite not_true_iff in H
+        | H: context [False -> False] |- _ => rewrite not_false_iff in H
         | H: context [(?P -> False) -> False] |- _ =>
-          rewrite (not_not_iff P) in H;
-            [ | solve_decidable using db ]
-        (** simplification by contrapositive *)
+          rewrite (not_not_iff P) in H by dec
         | H: context [(?P -> False) -> (?Q -> False)] |- _ =>
-          rewrite (contrapositive P Q) in H;
-            [ | solve_decidable using db ]
-        (** simplification by or_not_l_iff_1/_2 *)
-        | H: context [(?P -> False) \/ ?Q] |- _ =>
-          (rewrite (or_not_l_iff_1 P Q) in H;
-            [ | solve_decidable using db ]) ||
-          (rewrite (or_not_l_iff_2 P Q) in H;
-            [ | solve_decidable using db ])
-        (** simplification by or_not_r_iff_1/_2 *)
-        | H: context [?P \/ (?Q -> False)] |- _ =>
-          (rewrite (or_not_r_iff_1 P Q) in H;
-            [ | solve_decidable using db ]) ||
-          (rewrite (or_not_r_iff_2 P Q) in H;
-            [ | solve_decidable using db ])
-        (** simplification by imp_not_l *)
+          rewrite (contrapositive P Q) in H by dec
+        | H: context [(?P -> False) \/ ?Q] |- _ => or_not_l_iff_in P Q H dec
+        | H: context [?P \/ (?Q -> False)] |- _ => or_not_r_iff_in P Q H dec
         | H: context [(?P -> False) -> ?Q] |- _ =>
-          rewrite (imp_not_l P Q) in H;
-            [ | solve_decidable using db ]
-        (** rewriting by not_or_iff *)
-        | H: context [?P \/ ?Q -> False] |- _ =>
-          rewrite (not_or_iff P Q) in H
-        (** rewriting by not_and_iff *)
-        | H: context [?P /\ ?Q -> False] |- _ =>
-          rewrite (not_and_iff P Q) in H
-        (** rewriting by not_imp_iff *)
+          rewrite (imp_not_l P Q) in H by dec
+        | H: context [?P \/ ?Q -> False] |- _ => rewrite (not_or_iff P Q) in H
+        | H: context [?P /\ ?Q -> False] |- _ => rewrite (not_and_iff P Q) in H
         | H: context [(?P -> ?Q) -> False] |- _ =>
-          rewrite (not_imp_iff P Q) in H;
-            [ | solve_decidable using db ]
+          rewrite (not_imp_iff P Q) in H by dec
         end);
       fold any not.
 
@@ -390,12 +238,14 @@ the above form:
       (R \/ ~ (P /\ Q)) ->
       (~ R \/ (P /\ Q)) ->
       (~ P -> R) ->
-      (~ ((R -> P) \/ (R -> Q))) ->
+      (~ ((R -> P) \/ (Q -> R))) ->
       (~ (P /\ R)) ->
       (~ (P -> R)) ->
       True.
     Proof.
-      intros. push not in *. tauto.
+      intros. push not in *.
+       (* note that ~(R->P) remains (since R isnt decidable) *)
+      tauto.
     Qed.
 
     (** [pull not using db] will pull as many negations as
@@ -407,53 +257,24 @@ the above form:
         the hypotheses and goal together. *)
 
     Tactic Notation "pull" "not" "using" ident(db) :=
+      let dec := solve_decidable using db in
       unfold not, iff;
       repeat (
         match goal with
-        (** simplification by not_true_iff *)
-        | |- context [True -> False] =>
-          rewrite not_true_iff
-        (** simplification by not_false_iff *)
-        | |- context [False -> False] =>
-          rewrite not_false_iff
-        (** simplification by not_not_iff *)
-        | |- context [(?P -> False) -> False] =>
-          rewrite (not_not_iff P);
-            [ solve_decidable using db | ]
-        (** simplification by contrapositive *)
+        | |- context [True -> False] => rewrite not_true_iff
+        | |- context [False -> False] => rewrite not_false_iff
+        | |- context [(?P -> False) -> False] => rewrite (not_not_iff P) by dec
         | |- context [(?P -> False) -> (?Q -> False)] =>
-          rewrite (contrapositive P Q);
-            [ solve_decidable using db | ]
-        (** simplification by or_not_l_iff_1/_2 *)
-        | |- context [(?P -> False) \/ ?Q] =>
-          (rewrite (or_not_l_iff_1 P Q);
-            [ solve_decidable using db | ]) ||
-          (rewrite (or_not_l_iff_2 P Q);
-            [ solve_decidable using db | ])
-        (** simplification by or_not_r_iff_1/_2 *)
-        | |- context [?P \/ (?Q -> False)] =>
-          (rewrite (or_not_r_iff_1 P Q);
-            [ solve_decidable using db | ]) ||
-          (rewrite (or_not_r_iff_2 P Q);
-            [ solve_decidable using db | ])
-        (** simplification by imp_not_l *)
-        | |- context [(?P -> False) -> ?Q] =>
-          rewrite (imp_not_l P Q);
-            [ solve_decidable using db | ]
-        (** rewriting by not_or_iff *)
+          rewrite (contrapositive P Q) by dec
+        | |- context [(?P -> False) \/ ?Q] => or_not_l_iff P Q dec
+        | |- context [?P \/ (?Q -> False)] => or_not_r_iff P Q dec
+        | |- context [(?P -> False) -> ?Q] => rewrite (imp_not_l P Q) by dec
         | |- context [(?P -> False) /\ (?Q -> False)] =>
           rewrite <- (not_or_iff P Q)
-        (** rewriting by not_and_iff *)
-        | |- context [?P -> ?Q -> False] =>
-          rewrite <- (not_and_iff P Q)
-        (** rewriting by not_imp_iff *)
-        | |- context [?P /\ (?Q -> False)] =>
-          rewrite <- (not_imp_iff P Q);
-            [ solve_decidable using db | ]
-        (** rewriting by not_imp_rev_iff *)
+        | |- context [?P -> ?Q -> False] => rewrite <- (not_and_iff P Q)
+        | |- context [?P /\ (?Q -> False)] => rewrite <- (not_imp_iff P Q) by dec
         | |- context [(?Q -> False) /\ ?P] =>
-          rewrite <- (not_imp_rev_iff P Q);
-            [ solve_decidable using db | ]
+          rewrite <- (not_imp_rev_iff P Q) by dec
         end);
       fold any not.
 
@@ -462,53 +283,28 @@ the above form:
 
     Tactic Notation
       "pull" "not" "in" "*" "|-" "using" ident(db) :=
+      let dec := solve_decidable using db in
       unfold not, iff in * |-;
       repeat (
         match goal with
-        (** simplification by not_true_iff *)
-        | H: context [True -> False] |- _ =>
-          rewrite not_true_iff in H
-        (** simplification by not_false_iff *)
-        | H: context [False -> False] |- _ =>
-          rewrite not_false_iff in H
-        (** simplification by not_not_iff *)
+        | H: context [True -> False] |- _ => rewrite not_true_iff in H
+        | H: context [False -> False] |- _ => rewrite not_false_iff in H
         | H: context [(?P -> False) -> False] |- _ =>
-          rewrite (not_not_iff P) in H;
-            [ | solve_decidable using db ]
-        (** simplification by contrapositive *)
+          rewrite (not_not_iff P) in H by dec
         | H: context [(?P -> False) -> (?Q -> False)] |- _ =>
-          rewrite (contrapositive P Q) in H;
-            [ | solve_decidable using db ]
-        (** simplification by or_not_l_iff_1/_2 *)
-        | H: context [(?P -> False) \/ ?Q] |- _ =>
-          (rewrite (or_not_l_iff_1 P Q) in H;
-            [ | solve_decidable using db ]) ||
-          (rewrite (or_not_l_iff_2 P Q) in H;
-            [ | solve_decidable using db ])
-        (** simplification by or_not_r_iff_1/_2 *)
-        | H: context [?P \/ (?Q -> False)] |- _ =>
-          (rewrite (or_not_r_iff_1 P Q) in H;
-            [ | solve_decidable using db ]) ||
-          (rewrite (or_not_r_iff_2 P Q) in H;
-            [ | solve_decidable using db ])
-        (** simplification by imp_not_l *)
+          rewrite (contrapositive P Q) in H by dec
+        | H: context [(?P -> False) \/ ?Q] |- _ => or_not_l_iff_in P Q H dec
+        | H: context [?P \/ (?Q -> False)] |- _ => or_not_r_iff_in P Q H dec
         | H: context [(?P -> False) -> ?Q] |- _ =>
-          rewrite (imp_not_l P Q) in H;
-            [ | solve_decidable using db ]
-        (** rewriting by not_or_iff *)
+          rewrite (imp_not_l P Q) in H by dec
         | H: context [(?P -> False) /\ (?Q -> False)] |- _ =>
           rewrite <- (not_or_iff P Q) in H
-        (** rewriting by not_and_iff *)
         | H: context [?P -> ?Q -> False] |- _ =>
           rewrite <- (not_and_iff P Q) in H
-        (** rewriting by not_imp_iff *)
         | H: context [?P /\ (?Q -> False)] |- _ =>
-          rewrite <- (not_imp_iff P Q) in H;
-            [ | solve_decidable using db ]
-        (** rewriting by not_imp_rev_iff *)
+          rewrite <- (not_imp_iff P Q) in H by dec
         | H: context [(?Q -> False) /\ ?P] |- _ =>
-          rewrite <- (not_imp_rev_iff P Q) in H;
-            [ | solve_decidable using db ]
+          rewrite <- (not_imp_rev_iff P Q) in H by dec
         end);
       fold any not.
 
@@ -533,7 +329,7 @@ the above form:
       (R \/ ~ (P /\ Q)) ->
       (~ R \/ (P /\ Q)) ->
       (~ P -> R) ->
-      (~ (R -> P) /\ ~ (R -> Q)) ->
+      (~ (R -> P) /\ ~ (Q -> R)) ->
       (~ P \/ ~ R) ->
       (P /\ ~ R) ->
       (~ R /\ P) ->
@@ -550,6 +346,8 @@ the above form:
       they do not affect the namespace if you import the
       enclosing module [Decide].  *)
   Module FSetDecideAuxiliary.
+
+
 
     (** ** Generic Tactics
         We begin by defining a few generic, useful tactics. *)
@@ -596,19 +394,6 @@ the above form:
         end);
       cbv zeta beta in *.
 
-    (** If you have a negated goal and [H] is a negated
-        hypothesis, then [contra H] exchanges your goal and [H],
-        removing the negations.  (Just like [swap] but reuses
-        the same name. *)
-    Ltac contra H :=
-      let J := fresh in
-      unfold not;
-      unfold not in H;
-      intros J;
-      apply H;
-      clear H;
-      rename J into H.
-
     (** [decompose records] calls [decompose record H] on every
         relevant hypothesis [H]. *)
     Tactic Notation "decompose" "records" :=
@@ -626,7 +411,7 @@ the above form:
         propositions of interest. *)
 
     Inductive FSet_elt_Prop : Prop -> Prop :=
-    | eq_Prop : forall (S : Set) (x y : S),
+    | eq_Prop : forall (S : Type) (x y : S),
         FSet_elt_Prop (x = y)
     | eq_elt_prop : forall x y,
         FSet_elt_Prop (E.eq x y)
@@ -666,9 +451,9 @@ the above form:
     (** Here is the tactic that will throw away hypotheses that
         are not useful (for the intended scope of the [fsetdec]
         tactic). *)
+    #[global]
     Hint Constructors FSet_elt_Prop FSet_Prop : FSet_Prop.
     Ltac discard_nonFSet :=
-      decompose records;
       repeat (
         match goal with
         | H : ?P |- _ =>
@@ -684,8 +469,8 @@ the above form:
         the predicates [In] and [E.eq] applied only to
         variables.  We are going to use them with [autorewrite].
         *)
-    Module F := FSetFacts.Facts M.
-    Hint Rewrite
+
+    #[global] Hint Rewrite
       F.empty_iff F.singleton_iff F.add_iff F.remove_iff
       F.union_iff F.inter_iff F.diff_iff
     : set_simpl.
@@ -693,26 +478,22 @@ the above form:
     (** ** Decidability of FSet Propositions *)
 
     (** [In] is decidable. *)
-    Module D := DepOfNodep M.
     Lemma dec_In : forall x s,
       decidable (In x s).
     Proof.
-      intros x s. red. destruct (D.mem x s); auto.
+      red; intros; generalize (F.mem_iff s x); case (mem x s); intuition.
     Qed.
 
     (** [E.eq] is decidable. *)
-    Module OTE := MOT_to_OT E.
     Lemma dec_eq : forall (x y : E.t),
       decidable (E.eq x y).
     Proof.
-      intros x y. red. destruct (E.compare x y); auto.
-      destruct (E.eq_dec x y).
-      auto.
-      auto.
+      red; intros x y; destruct (E.eq_dec x y); auto.
     Qed.
 
     (** The hint database [FSet_decidability] will be given to
         the [push_neg] tactic from the module [Negation]. *)
+    #[global]
     Hint Resolve dec_In dec_eq : FSet_decidability.
 
     (** ** Normalizing Propositions About Equality
@@ -735,7 +516,14 @@ the above form:
             | J : _ |- _ => progress (change T with E.t in J)
             | |- _ => progress (change T with E.t)
             end )
-        end).
+        | H : forall x : ?T, _ |- _ =>
+          progress (change T with E.t in H);
+          repeat (
+            match goal with
+            | J : _ |- _ => progress (change T with E.t in J)
+            | |- _ => progress (change T with E.t)
+            end )
+       end).
 
     (** These two tactics take us from Coq's built-in equality
         to [E.eq] (and vice versa) when possible. *)
@@ -845,7 +633,14 @@ the above form:
     (** Here is the crux of the proof search.  Recursion through
         [intuition]!  (This will terminate if I correctly
         understand the behavior of [intuition].) *)
+    #[global]
+    Hint Resolve E.eq_refl : FSet_Auto.
+    (* SCW: to change to MSets, replace with this.
+    #[global]
+    Hint Resolve (E.eq_equiv.(@Equivalence_Reflexive _ _)) : FSet_Auto. *)
     Ltac fsetdec_rec :=
+      auto with FSet_Auto;
+      subst++;
       try (match goal with
       | H: E.eq ?x ?x -> False |- _ => destruct H
       end);
@@ -864,7 +659,7 @@ the above form:
       push not in * using FSet_decidability;
       substFSet;
       assert_decidability;
-      auto using E.eq_refl;
+      auto with FSet_Auto;
       (intuition fsetdec_rec) ||
       fail 1
         "because the goal is beyond the scope of this tactic".
@@ -892,16 +687,21 @@ the above form:
         our goal was one of them, then have one more item to
         introduce now. *)
     unfold Empty, Subset, Equal in *; intros;
+
+    (** SCW: this autorewrite can introduce [=], we need to to
+        it before the next step and not just in the body. *)
+    autorewrite with set_simpl in *;
+
     (** We now want to get rid of all uses of [=] in favor of
-        [E.eq].  However, the best way to eliminate a [=] in
+        [E.eq].  However, the best way to eliminate a [=] is in
         the context is with [subst], so we will try that first.
         In fact, we may as well convert uses of [E.eq] into [=]
-        where possible before we do [subst] so that we can get
-        even more mileage out of it.  Then we will convert all
+        when possible before we do [subst] so that we can even
+        more mileage out of it.  Then we will convert all
         remaining uses of [=] back to [E.eq] when possible.  We
         use [change_to_E_t] to ensure that we have a canonical
         name for set elements, so that [Logic_eq_to_E_eq] will
-        work properly. *)
+        work properly.  *)
     change_to_E_t; E_eq_to_Logic_eq; subst++; Logic_eq_to_E_eq;
     (** The next optimization is to swap a negated goal with a
         negated hypothesis when possible.  Any swap will improve
@@ -918,15 +718,15 @@ the above form:
     unfold not in *;
     match goal with
     | H: (In ?x ?r) -> False |- (In ?x ?s) -> False =>
-      contra H; fsetdec_body
+      contradict H; fsetdec_body
     | H: (In ?x ?r) -> False |- (E.eq ?x ?y) -> False =>
-      contra H; fsetdec_body
+      contradict H; fsetdec_body
     | H: (In ?x ?r) -> False |- (E.eq ?y ?x) -> False =>
-      contra H; fsetdec_body
+      contradict H; fsetdec_body
     | H: ?P -> False |- ?Q -> False =>
       if prop (FSet_elt_Prop P) holds by
         (auto 100 with FSet_Prop)
-      then (contra H; fsetdec_body)
+      then (contradict H; fsetdec_body)
       else fsetdec_body
     | |- _ =>
       fsetdec_body
@@ -971,6 +771,12 @@ the above form:
 
     Lemma test_In_singleton : forall x,
       In x (singleton x).
+    Proof. fsetdec. Qed.
+
+    Lemma test_add_In : forall x y s,
+      In x (add y s) ->
+      ~ E.eq x y ->
+      In x s.
     Proof. fsetdec. Qed.
 
     Lemma test_Subset_add_remove : forall x s,
@@ -1051,6 +857,51 @@ the above form:
       intros until 3. intros g_eq. rewrite <- g_eq. fsetdec.
     Qed.
 
+    Lemma test_baydemir :
+      forall (f : t -> t),
+      forall (s : t),
+      forall (x y : elt),
+      In x (add y (f s)) ->
+      ~ E.eq x y ->
+      In x (f s).
+    Proof.
+      fsetdec.
+    Qed.
+
+    Lemma test_baydemir_2 :
+      forall (x : elt) (s : t),
+      Subset (inter (singleton x) s) empty ->
+      ~ In x s.
+    Proof. fsetdec. Qed.
+
+    Lemma test_baydemir_3 :
+      forall (x y : elt) (s : t),
+      ~ In x (add y s) ->
+      x = y ->
+      False.
+    Proof. fsetdec. Qed.
+
+    Lemma test_baydemir_4 :
+      forall (x : elt) (s : t),
+      Equal (inter (add x empty) s) empty ->
+      ~ In x s.
+    Proof. fsetdec. Qed.
+
+    Lemma test_sweirich :
+      forall (x : elt) (s : t),
+        In x s -> Subset (singleton x) s.
+    Proof. fsetdec. Qed.
+
   End FSetDecideTestCases.
 
-End Decide.
+End WDecide_fun.
+
+Require Import CoqFSetInterface.
+
+(** Now comes variants for self-contained weak seCts and for full sets.
+    For these variants, only one argument is necessary. Thanks to
+    the subtyping [WS<=S], the [Decide] functor which is meant to be
+    used on modules [(M:S)] can simply be an alias of [WDecide]. *)
+
+Module WDecide (M:WS) := !WDecide_fun M.E M.
+Module Decide := WDecide.
