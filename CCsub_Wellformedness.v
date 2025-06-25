@@ -39,6 +39,14 @@ Proof.
   - simpl. apply EnvImpl.ok_cons. auto. auto.
 Qed.
 
+Lemma uniq_from_wf_ctx : forall Γ S,
+  wf_ctx Γ S ->
+  uniq Γ.
+Proof with eauto.
+  intros Γ S H.
+  induction H...
+Qed.
+
 (** We add [ok_from_wf_ctx] as a hint here since it helps blur the
     distinction between [wf_ctx] and [ok] in proofs.  The lemmas in
     the [Environment] library use [ok], whereas here we naturally have
@@ -46,7 +54,7 @@ Qed.
     [ok_from_wf_ctx] serves as a bridge that allows us to use the
     ctxironments library. *)
 
-Hint Resolve ok_from_wf_ctx : core.
+Hint Resolve ok_from_wf_ctx uniq_from_wf_ctx : core.
 
 (* This lemma is needed by a couple of lemmas about wf_typ *)
 Lemma wf_ctx_tail : forall Γ Δ S,

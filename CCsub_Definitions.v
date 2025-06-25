@@ -376,6 +376,7 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
       sub Γ S R T ->
       typing Γ S e T.
 
+Hint Constructors ok uniq StoreImpl.ok StoreImpl.uniq : core.
 Hint Constructors type pure_type expr cset wf_cse wf_typ wf_ctx wf_store_ctx sub subcapt typing : core.
 Hint Resolve sub_top sub_refl_tvar sub_arr sub_all sub_box : core.
 Hint Resolve typing_var typing_app typing_tapp typing_box typing_unbox typing_sub : core.

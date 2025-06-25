@@ -1,3 +1,4 @@
+Require Import TaktikZ.
 Require Import Coq.Program.Equality.
 Require Import LibTactics.
 
@@ -21,7 +22,7 @@ Proof with subst; simpl; eauto.
   intros * Value Typ.
   forwards (WfS & WfCtx & Expr & WfTyp): typing_regular Typ.
   eremember (C # R) as T.
-  assert (sub Γ S T (C # R)) by (rewrite HeqT; apply sub_reflexivity; eauto* ).
+  assert (sub Γ S T (C # R)) by (rewrite HeqT; apply sub_reflexivity; subst; eauto ).
   clear HeqT.
   generalize dependent R.
   generalize dependent C.
@@ -45,14 +46,13 @@ Lemma values_have_precise_captures : forall Γ v E C R S,
   typing Γ S v (C # R) ->
   exists U, typing Γ S v (exp_cv v # U) /\
             sub Γ S (exp_cv v # U) (C # R).
-Proof with simpl; eauto*.
+Proof with simpl; eauto.
   intros * Value Typ.
   assert (wf_cse Γ S (exp_cv v)) by eauto using typing_cv.
   assert (wf_ctx Γ S) by applys typing_regular Typ.
   assert (wf_store_ctx S) by applys typing_regular Typ.
   induction Typ; try solve [inversion Value; subst].
-  - Case "typing_abs".
-    exists (∀ (C0 # R0) T1).
+  - exists (∀ (C0 # R0) T1).
     split...
     eapply sub_reflexivity...
     constructor...
@@ -67,8 +67,7 @@ Proof with simpl; eauto*.
       rename select (forall x : atom, x ∉ L -> typing _ _ (open_ve _ _ _)  _) into IH.
       forwards Typ: (IH x xIn).
       eapply type_from_wf_typ...
-  - Case "typing_tabs".
-    exists (∀ [V] T1).
+  - exists (∀ [V] T1).
     split...
     eapply sub_reflexivity...
     constructor...
@@ -82,12 +81,10 @@ Proof with simpl; eauto*.
       rename select (forall x : atom, x ∉ L -> typing _ _ (open_te _ _) _) into IH.
       forwards Typ: (IH x xIn).
       eapply type_from_wf_typ...
-  - Case "typing_box".
-    exists (□ (C0 # R0)).
+  - exists (□ (C0 # R0)).
     split...
     apply sub_reflexivity...
-  - Case "typing_sub".
-    forwards (U & HtypU & HsubS): IHTyp...
+  - forwards (U & HtypU & HsubS): IHTyp...
     exists U. split...
     eauto using (sub_transitivity R0).
 Qed.
@@ -98,12 +95,12 @@ Definition no_type_bindings (Γ : ctx) : Prop :=
 Lemma well_typed_ctx_no_typ_bindings : forall S Γ E,
   env_well_typed S E Γ ->
   no_type_bindings Γ.
-Proof with eauto*.
+Proof with eauto.
   intros * EnvTyp.
   dependent induction EnvTyp...
   - easy.
   - intros X U Binds.
-    binds_cases Binds.
+    analyze_binds Binds.
     rename select (binds _ (bind_sub _) _) into Binds.
     applys IHEnvTyp Binds.
 Qed.
@@ -112,10 +109,10 @@ Lemma env_implies_value : forall S SS l v,
   store_typing SS S ->
   stores l v SS ->
   value v.
-Proof with eauto*.
+Proof with eauto.
   intros * StoreTyp Stores.
-  induction StoreTyp; inversion Stores; subst.
-  destruct (l ==== l0); subst...
+  induction StoreTyp; inversion Stores; subst...
+  destruct (l == l0); inversion H2; subst...
 Qed.
 
 (* Lemma eval_typing_sub : forall Γ S K R1 R2 T1 T2, *)
@@ -188,10 +185,11 @@ Qed.
 (*     apply typing_weakening_store with (S2 := S3) in H... *)
 (* Qed. *)
 
+
 Lemma store_typing_preserves_dom : forall SS S,
   store_typing SS S ->
-  Store.dom SS = Store.dom S.
-Proof with eauto*.
+  StoreImpl.dom SS = StoreImpl.dom S.
+Proof with eauto.
   intros * StoreTyp.
   induction StoreTyp...
   repeat rewrite dom_concat; simpl.
@@ -201,9 +199,19 @@ Qed.
 Lemma env_well_typed_preserves_dom : forall S E Γ,
   env_well_typed S E Γ ->
   dom E = dom Γ.
-Proof with eauto*.
+Proof with eauto.
   intros * EnvTyp. dependent induction EnvTyp...
   simpl. rewrite IHEnvTyp...
+Qed.
+
+Lemma env_well_typed_uniq : forall S E Γ,
+  env_well_typed S E Γ ->
+  uniq E.
+Proof with eauto.
+  intros * EnvTyp.
+  dependent induction EnvTyp...
+  constructor...
+  erewrite env_well_typed_preserves_dom...
 Qed.
 
 Lemma env_well_typed_store_ctx_wf : forall Γ S E,
@@ -221,7 +229,7 @@ Proof with eauto.
   constructor...
   eapply env_well_typed_store_ctx_wf in H.
   assert (WfCR : wf_typ Γ S (C # R)) by (eapply wf_typ_from_wf_store_ctx; eauto).
-  inverts WfCR...
+  inversion WfCR; subst...
 Qed.
 
 (* Lemma fv_loc_transform_step : forall E T T2 x l Γ S, *)
@@ -251,8 +259,8 @@ Proof with eauto.
   intros * EnvTyp WfTyp LocTrans.
   generalize dependent Γ.
   dependent induction LocTrans; simpl in *; eauto; intros Γ EnvTyp WfTyp; subst.
-  - inverts EnvTyp...
-  - inverts EnvTyp.
+  - inversion EnvTyp; subst...
+  - inversion EnvTyp; subst...
     eapply IHLocTrans; eauto.
     rewrite_env (nil ++ [(x, bind_typ (cse_loc l # R))] ++ Γ0) in WfTyp.
     epose proof (wf_typ_subst_cb _ _ _ _ _ _ _ WfTyp).
@@ -266,7 +274,7 @@ Lemma frame_typing_regular : forall S e E T,
   wf_typ nil S T.
 Proof with eauto.
   intros * FrameTyp.
-  inverts FrameTyp...
+  inversion FrameTyp; subst.
   eapply fv_loc_transform_nil with (T1 := C # R)...
 Qed.
 
@@ -279,18 +287,25 @@ Proof with eauto.
   eapply frame_typing_regular in H1...
 Qed.
 
-Lemma wf_store_ctx_ok : forall S,
+Lemma ok_from_wf_store_ctx : forall S,
   wf_store_ctx S ->
-  Store.ok S.
+  StoreImpl.ok S.
 Proof with eauto.
   intros. dependent induction H...
 Qed.
 
-Hint Resolve wf_store_ctx_ok typed_store_ctx_wf : core.
+Lemma uniq_from_wf_store_ctx : forall S,
+  wf_store_ctx S ->
+  StoreImpl.uniq S.
+Proof with eauto.
+  intros. dependent induction H...
+Qed.
+
+Hint Resolve ok_from_wf_store_ctx uniq_from_wf_store_ctx typed_store_ctx_wf : core.
 
 Lemma typed_store_ok : forall SS S,
   store_typing SS S ->
-  Store.ok SS.
+  StoreImpl.ok SS.
 Proof with eauto.
   intros. dependent induction H...
   constructor...
@@ -310,7 +325,7 @@ Qed.
 
 Lemma store_typing_equivalent : forall S SS l,
   store_typing SS S ->
-  (exists C R, Store.binds l (C # R) S) <-> (exists v E, stores l (v, E) SS).
+  (exists C R, StoreImpl.binds l (C # R) S) <-> (exists v E, stores l (v, E) SS).
 Proof with eauto.
   intros * StoreTyp.
   split; intros.
@@ -319,36 +334,36 @@ Proof with eauto.
     - destruct H as [C [R Binds]]. inversion Binds.
     - destruct H2 as [C' [R' Binds]].
       rewrite_env ([(l0, (C # R))] ++ S) in Binds.
-      Store.binds_cases Binds; subst.
-      + assert (exists C R, Store.binds l (C # R) S) by (exists C', R'; eauto).
-        destruct (IHStoreTyp H3) as [v0 [E0 Stores]].
-        exists v0, E0.
-        apply Store.binds_tail with (F := [(l0, store (v, E))]) in Stores; simpl in *...
-      + inversion H4; subst.
+      StoreImpl.analyze_binds Binds; subst.
+      + inversion select (_ = _); subst.
         exists v, E.
-        rewrite_env ([(l, store (v, E))] ++ SS).
-        apply Store.binds_head, Store.binds_singleton.
+        rewrite_env ([(l0, store (v, E))] ++ SS).
+        apply StoreImpl.binds_app_2, StoreImpl.binds_one_3...
+      + assert (Ex: exists C R, StoreImpl.binds l (C # R) S) by (exists C', R'; eauto).
+        destruct (IHStoreTyp Ex) as [v0 [E0 Stores]].
+        exists v0, E0.
+        apply StoreImpl.binds_app_3 with (E := [(l0, store (v, E))]) in Stores; simpl in *...
    }
   {
     dependent induction StoreTyp.
     - destruct H as [v [E Binds]]. inversion Binds.
     - destruct H2 as [v0 [E0 Binds]].
       rewrite_env ([(l0, store (v, E))] ++ SS) in Binds.
-      unfold stores in Binds. Store.binds_cases Binds; subst.
-      + assert (exists v E, stores l (v, E) SS) by (exists v0, E0; eauto).
-        destruct (IHStoreTyp H3) as [C' [R' Stores]].
-        exists C', R'.
-        apply Store.binds_tail with (F := [(l0, (C # R))]) in Stores; simpl in *...
-      + inversion H4; subst.
+      unfold stores in Binds. StoreImpl.analyze_binds Binds; subst.
+      + inversion select (_ = _); subst.
         exists C, R.
-        rewrite_env ([(l, (C # R))] ++ S).
-        apply Store.binds_head, Store.binds_singleton.
+        rewrite_env ([(l0, (C # R))] ++ S).
+        apply StoreImpl.binds_app_2, StoreImpl.binds_one_3...
+      + assert (Ex: exists v E, stores l (v, E) SS) by (exists v0, E0; eauto).
+        destruct (IHStoreTyp Ex) as [C' [R' Stores]].
+        exists C', R'.
+        apply StoreImpl.binds_app_3 with (E := [(l0, (C # R))]) in Stores; simpl in *...
   }
 Qed.
 
 Lemma store_typing_inversion : forall S SS E l v U,
   store_typing SS S ->
-  Store.binds l U S ->
+  StoreImpl.binds l U S ->
   stores l (v, E) SS ->
   exists Γ C R, (typing Γ S v (C # R) /\ env_well_typed S E Γ /\ loc_transform E (C # R) U /\ value (v, E)).
 Proof with eauto using typing_weakening_store, env_well_typed_weaken_store, wf_typ_weakening_store.
@@ -358,24 +373,27 @@ Proof with eauto using typing_weakening_store, env_well_typed_weaken_store, wf_t
   assert (WfStore : wf_store_ctx S) by applys typed_store_ctx_wf StoreTyp.
   assert (WfCR : wf_typ nil S (C # R)) by applys frame_typing_regular H0.
   rewrite_env ([(l0, (C # R))] ++ S) in lBindsU.
-  Store.binds_cases lBindsU; subst.
+  StoreImpl.analyze_binds lBindsU; subst.
   - rewrite_env ([(l0, store (v0, E0))] ++ SS) in lBindsv.
-    unfold stores in lBindsv. Store.binds_cases lBindsv...
+    unfold stores in lBindsv. StoreImpl.analyze_binds lBindsv...
+    + inversion select (store _ = store _); subst.
+      assert (wf_store_ctx ([(l0, C # R)] ++ S)) by (constructor; eauto).
+      inversion H0; subst.
+      exists Γ, C0, R0; rewrite_env (nil ++ [(l0, C # R)] ++ S).
+      repeat split; auto.
+      apply typing_weakening_store...
+      apply env_well_typed_weaken_store...
+    + exfalso.
+      apply StoreImpl.binds_In in BindsTac.
+      erewrite store_typing_preserves_dom in BindsTac...
+  - rewrite_env ([(l0, store (v0, E0))] ++ SS) in lBindsv.
+    unfold stores in lBindsv. StoreImpl.analyze_binds lBindsv...
+    + exfalso.
+      apply StoreImpl.binds_In in BindsTac...
     + unshelve epose proof IHStoreTyp as [Γ0 [C0 [R0 [Typ [EnvTyp [WfU Val]]]]]]...
       assert (wf_store_ctx ([(l0, C # R)] ++ S)) by (constructor; eauto).
       exists Γ0, C0, R0; rewrite_env (nil ++ [(l0, C # R)] ++ S)...
       repeat split...
-    + simpl in Fr; flsetdec.
-  - rewrite_env ([(l, store (v0, E0))] ++ SS) in lBindsv.
-    unfold stores in lBindsv. Store.binds_cases lBindsv...
-    + simpl in Fr; flsetdec.
-    + inversion select (store _ = store _); subst.
-      assert (wf_store_ctx ([(l, C # R)] ++ S)) by (constructor; eauto).
-      inverts H0.
-      exists Γ, C0, R0; rewrite_env (nil ++ [(l, C # R)] ++ S).
-      repeat split; auto.
-      apply typing_weakening_store...
-      apply env_well_typed_weaken_store...
 Qed.
 
 Lemma env_typing_equivalent : forall S E Γ x l,
@@ -386,42 +404,44 @@ Proof with eauto.
   2: destruct H0 as [R H0].
   1,2: inversion H0.
   - rename select (binds _ _ _) into Binds.
-    binds_cases Binds; subst...
+    analyze_binds Binds; subst...
     unshelve epose proof (proj1 IHEnvTyp) as [R0 Binds]...
   - destruct H1 as [R0 Binds].
-    binds_cases Binds; subst...
-    + unshelve epose proof (proj2 IHEnvTyp)...
+    analyze_binds Binds; subst...
     + inversion select (_ = _)...
+    + unshelve epose proof (proj2 IHEnvTyp)...
 Qed.
 
 Lemma env_typing_inversion : forall S E Γ R x l,
   env_well_typed S E Γ ->
   binds x l E ->
-  (exists C, Store.binds l (C # R) S) <-> binds x (bind_typ (cse_loc l # R)) Γ.
+  (exists C, StoreImpl.binds l (C # R) S) <-> binds x (bind_typ (cse_loc l # R)) Γ.
 Proof with eauto.
   intros * EnvTyp Binds.
   assert (WfS : wf_store_ctx S) by (eapply env_well_typed_store_ctx_wf; eauto).
-  assert (okS : Store.ok S) by (eapply wf_store_ctx_ok; eauto).
+  assert (uniqS : StoreImpl.uniq S) by (eapply uniq_from_wf_store_ctx; eauto).
   assert (WfCtx : wf_ctx Γ S) by (eapply env_well_typed_ctx_wf; eauto).
   split; intros.
   {
     dependent induction EnvTyp.
     - inversion Binds.
-    - binds_cases Binds; subst...
+    - analyze_binds Binds; subst...
       destruct H1 as [C0 Binds].
-      epose proof (Store.binds_unique _ _ _ _ _ okS H0 Binds).
+      epose proof (StoreImpl.binds_unique _ _ _ _ _ H0 Binds uniqS).
       inversion select (_ = _); subst...
   }
   {
     dependent induction EnvTyp.
     - inversion Binds.
-    - binds_cases Binds; subst.
-      + apply IHEnvTyp...
-        simpl in Fr, H1. inverts H1...
-        destruct (x == x0); fsetdec.
-      + rewrite_env (nil ++ [(x, bind_typ (cse_loc l0 # R0))] ++ Γ) in H1.
+    - analyze_binds Binds; subst.
+      + rewrite_env (nil ++ [(x0, bind_typ (cse_loc l0 # R0))] ++ Γ) in H1.
         apply binds_mid_eq in H1...
-        inverts H1...
+        inversion H1; subst...
+      + apply IHEnvTyp...
+        analyze_binds H1...
+        apply binds_In in BindsTac.
+        erewrite env_well_typed_preserves_dom in BindsTac...
+        contradiction.
   }
 Qed.
 

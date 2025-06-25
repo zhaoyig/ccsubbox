@@ -44,7 +44,7 @@ Inductive frame : Set :=
 Notation cont := (list frame).
 
 Definition stores (x : loc) (v : exp_env) (SS : store_env) : Prop :=
-    Store.binds x (store v) SS.
+    StoreImpl.binds x (store v) SS.
 
 Inductive state : Set :=
   | mk_state : exp_env -> store_env -> cont -> state.
@@ -61,8 +61,8 @@ Inductive env_well_typed : store_ctx -> env -> ctx -> Prop :=
       env_well_typed S nil nil
   | env_cons : forall Γ S E x l C R,
       env_well_typed S E Γ ->
-      x `notin` dom Γ ->
-      Store.binds l (C # R) S ->
+      x `notin`A dom Γ ->
+      StoreImpl.binds l (C # R) S ->
       env_well_typed S ([(x, l)] ++ E) ([(x, bind_typ (cse_loc l # R))] ++ Γ).
 
 Inductive loc_transform_cse : env -> cse -> cse -> Prop :=
@@ -100,7 +100,7 @@ Inductive store_typing : store_env -> store_ctx  -> Prop :=
       store_typing SS S ->
       value (v, E) ->
       frame_typing S (v, E) (C # R) ->
-      l `Notin` Store.dom S ->
+      l `notin`L StoreImpl.dom S ->
       store_typing ((l, store (v , E)) :: SS) ((l, (C # R)) :: S).
 
 Inductive eval_typing (S : store_ctx) : cont -> typ -> typ -> Prop :=
@@ -147,7 +147,7 @@ Inductive red : state -> state -> Prop :=
       binds y ly E ->
       stores lx (λ (T) e1,  E') SS ->
       stores ly v SS ->
-      z `notin` dom E' ->
+      z `notin`A dom E' ->
       red ⟨ (exp_app x y, E) | SS | K ⟩
           ⟨ (open_ve e1 z (cse_fvar z), (z,  ly) :: E') | SS | K ⟩
   | red_tapp : forall (x : atom) l T T0 e1 E E' SS K,
@@ -159,8 +159,8 @@ Inductive red : state -> state -> Prop :=
       red ⟨ (let= b in e, E) | SS | K ⟩
           ⟨ (b, E) | SS | (let_body (e, E)) :: K ⟩
   | red_let_val : forall (z: atom) E K e v SS l,
-      z `notin` dom E ->
-      l `Notin` Store.dom SS ->
+      z `notin`A dom E ->
+      l `notin`L StoreImpl.dom SS ->
       value v ->
       red ⟨ v | SS | (let_body (e, E)) :: K ⟩
           ⟨ (open_ve e z (cse_fvar z), (z, l) :: E) | (l, store v) :: SS | K ⟩
