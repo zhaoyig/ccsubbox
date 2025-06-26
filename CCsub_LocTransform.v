@@ -408,22 +408,6 @@ Proof with eauto using subcapt_under_loc_transform_strong.
   apply loc_transform_ctx_nil.
 Qed.
 
-(* Lemma subst_ct_invert_fun : forall T U C R D x, *)
-(*   subst_ct x D U = ∀ (C # R) T -> *)
-(*   exists C' R' T', *)
-(*     U = ∀ (C' # R') T' /\ C = subst_cse x D C' /\ R = subst_ct x D R'. *)
-(* Proof with eauto*. *)
-(*   intros * Eq. *)
-(*   generalize dependent C. *)
-(*   generalize dependent R. *)
-(*   generalize dependent T. *)
-(*   induction U; simpl in *; intros; subst... *)
-(*   destruct v... *)
-(*   inverts Eq. *)
-(*   destruct (subst_ct_invert_capt _ _ _ _ x H0) as [C' [R' [Eq1 [Eq2 Eq3]]]]; subst... *)
-(*   exists C', R', U2; repeat split... *)
-(* Qed. *)
-
 Lemma loc_transform_fun : forall E C1 R1 T1 U,
   loc_transform E (∀ (C1 # R1) T1) U ->
   exists C2 R2 T2,
@@ -464,7 +448,7 @@ Proof with eauto.
     exists T2; split...
 Qed.
 
-Lemma loc_transform_ctx_cons : forall E Δ Δ' x T T',
+Lemma loc_transform_ctx_cons_typ : forall E Δ Δ' x T T',
   loc_transform_ctx E Δ Δ' ->
   loc_transform E T T' ->
   loc_transform_ctx E ((x, bind_typ T) :: Δ) ((x, bind_typ T') :: Δ').
@@ -481,7 +465,24 @@ Proof with eauto using loc_transform_ctx_binds_typ, loc_transform_ctx_binds_sub.
     apply IHLocTransCtx...
 Qed.
 
-Lemma loc_transform_open_fresh : forall x E T1 T2,
+Lemma loc_transform_ctx_cons_sub : forall E Δ Δ' x T T',
+  loc_transform_ctx E Δ Δ' ->
+  loc_transform E T T' ->
+  loc_transform_ctx E ((x, bind_sub T) :: Δ) ((x, bind_sub T') :: Δ').
+Proof with eauto using loc_transform_ctx_binds_typ, loc_transform_ctx_binds_sub.
+  intros * LocTransCtx LocTrans.
+  generalize dependent T'.
+  generalize dependent T.
+  dependent induction LocTransCtx; intros; subst; simpl in *.
+  - inversion LocTrans; subst.
+    constructor...
+  - inversion LocTrans; subst.
+    constructor...
+    simpl.
+    apply IHLocTransCtx...
+Qed.
+
+Lemma loc_transform_open_ct_fresh : forall x E T1 T2,
   x `notin`A dom E ->
   loc_transform E T1 T2 ->
   loc_transform E (open_ct T1 (cse_fvar x)) (open_ct T2 (cse_fvar x)).
@@ -492,7 +493,24 @@ Proof with eauto using loc_transform_ctx_binds_typ, loc_transform_ctx_binds_sub.
   - constructor...
   - destruct (x == x0); try fsetdec...
     constructor...
-    Admitted.
+    unfold open_ct.
+    rewrite subst_ct_open_ct_rec...
+Qed.
+
+Lemma loc_transform_open_tt_fresh : forall (X : atom) E T1 T2,
+  X `notin`A dom E ->
+  loc_transform E T1 T2 ->
+  loc_transform E (open_tt T1 X) (open_tt T2 X).
+Proof with eauto using loc_transform_ctx_binds_typ, loc_transform_ctx_binds_sub.
+  intros * NotIn LocTrans.
+  generalize dependent X.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - constructor...
+  - destruct (X == x); try fsetdec...
+    constructor...
+    unfold open_tt.
+    rewrite subst_ct_open_tt_rec...
+Qed.
 
 Lemma loc_transform_wf : forall Γ Δ Δ' E S T1 T2,
   env_well_typed S E Γ ->
@@ -501,7 +519,7 @@ Lemma loc_transform_wf : forall Γ Δ Δ' E S T1 T2,
   loc_transform E T1 T2 ->
   loc_transform_ctx E Δ Δ' ->
   wf_typ Δ' S T2.
-Proof with eauto using loc_transform_ctx_wf, loc_transform_cse_wf, loc_transform_ctx_binds_sub.
+Proof with eauto using loc_transform_ctx_wf, loc_transform_cse_wf, loc_transform_ctx_binds_sub, loc_transform_pure.
   intros * EnvTyp WfCtx WfTyp LocTrans LocTransCtx.
   assert (WfΓ : wf_ctx Γ S) by (eapply env_well_typed_ctx_wf; eauto).
   generalize dependent T2.
@@ -524,10 +542,26 @@ Proof with eauto using loc_transform_ctx_wf, loc_transform_cse_wf, loc_transform
     apply loc_tranform_equiv...
     eapply (H0 x ltac:(fsetdec) Γ ((x, bind_typ (C # R)) :: Δ)) with (E := E); auto.
     + constructor...
-    + apply loc_transform_ctx_cons...
+    + apply loc_transform_ctx_cons_typ...
       eapply loc_tranform_equiv...
-    + 
-Admitted.
+    + eapply loc_transform_open_ct_fresh...
+      erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp).
+      fsetdec.
+  - epose proof (loc_transform_tfun _ _ _ _ LocTrans) as [R' [T' [LocTransR [LocTransT Eq]]]]; subst.
+    pick fresh x and apply wf_typ_all.
+    eapply IHWfTyp...
+    eapply loc_transform_pure...
+    eapply (H1 x ltac:(fsetdec) Γ ((x, bind_sub R) :: Δ)) with (E := E); auto.
+    + constructor...
+    + apply loc_transform_ctx_cons_sub...
+    + eapply loc_transform_open_tt_fresh...
+      erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp).
+      fsetdec.
+  - epose proof (loc_transform_box _ _ _ LocTrans) as [T' [LocTransT' Eq]]; subst.
+    constructor...
+  - eapply loc_transform_capt in LocTrans as [C' [R' [Eq [LocTransC LocTransR]]]]; subst.
+    constructor...
+Qed.
 
 Lemma sub_under_loc_transform_strong : forall Γ Δ Δ' E S T1 T2 T1' T2',
   env_well_typed S E Γ ->
@@ -574,44 +608,48 @@ Proof with eauto using subcapt_under_loc_transform_strong, loc_transform_ctx_bin
     destruct ((proj1 (loc_tranform_equiv _ _ _ _ _)) LocTransC2).
     constructor...
   - loc_transform_ident_eq LocTransC2...
-    Admitted.
+  - epose proof (loc_transform_fun _ _ _ _ _ LocTransC1) as [C1r [R1r [T1r [LocTransC1r [LocTransR1r [LocTransT1 Eq]]]]]]; subst.
+    epose proof (loc_transform_fun _ _ _ _ _ LocTransC2) as [C2r [R2r [T2r [LocTransC2r [LocTransR2r [LocTransT2 Eq']]]]]]; subst.
+    pick fresh x and apply sub_arr.
+    + eapply IHSub...
+    + eapply loc_transform_pure...
+    + eapply loc_transform_pure...
+    + eapply subcapt_under_loc_transform_strong...
+    + eapply (H3 x ltac:(fsetdec) Γ ((x, bind_typ (C2 # R2)) :: Δ)) with (E := E); auto.
+      * constructor...
+      * apply loc_transform_ctx_cons_typ...
+        eapply loc_tranform_equiv...
+      * eapply loc_transform_open_ct_fresh...
+        erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp).
+        fsetdec.
+      * eapply loc_transform_open_ct_fresh...
+        erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp).
+        fsetdec.
+  - epose proof (loc_transform_tfun _ _ _ _ LocTransC1) as [R1r [T1r [LocTransR1 [LocTransT1 Eq]]]]; subst.
+    epose proof (loc_transform_tfun _ _ _ _ LocTransC2) as [R2r [T2r [LocTransR2 [LocTransT2 Eq']]]]; subst.
+    pick fresh x and apply sub_all.
+    + eapply IHSub...
+    + eapply loc_transform_pure...
+    + eapply loc_transform_pure...
+    + eapply (H2 x ltac:(fsetdec) Γ ((x, bind_sub R2) :: Δ)) with (E := E); auto.
+      * constructor...
+      * apply loc_transform_ctx_cons_sub...
+      * eapply loc_transform_open_tt_fresh...
+        erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp).
+        fsetdec.
+      * eapply loc_transform_open_tt_fresh...
+        erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp).
+        fsetdec.
+  - epose proof (loc_transform_box _ _ _ LocTransC1) as [T1r [LocTransT1 Eq]]; subst.
+    epose proof (loc_transform_box _ _ _ LocTransC2) as [T2r [LocTransT2 Eq']]; subst.
+    constructor...
+Qed.
 
-(* Lemma sub_under_loc_transform : forall Γ E S T1 T2 T1' T2', *)
-(*   env_well_typed S E Γ -> *)
-(*   loc_transform E T1 T1' -> *)
-(*   loc_transform E T2 T2' -> *)
-(*   sub Γ S T1 T2 -> *)
-(*   sub nil S T1' T2'. *)
-(* Proof with eauto using subcapt_under_loc_transform, loc_transform_pure. *)
-(*   intros * EnvTyp LocTrans1 LocTrans2 Sub. *)
-(*   generalize dependent T1'. *)
-(*   generalize dependent T2'. *)
-(*   generalize dependent E. *)
-(*   dependent induction Sub; intros. *)
-(*   - exfalso. inverts H0. *)
-(*     epose proof (runtime_ctx_no_type_bindings _ _ _ EnvTyp) as NoTypeBinds. *)
-(*     specialize (NoTypeBinds X T)... *)
-(*   - exfalso. *)
-(*     epose proof (runtime_ctx_no_type_bindings _ _ _ EnvTyp) as NoTypeBinds. *)
-(*     specialize (NoTypeBinds X U)... *)
-(*   - unshelve epose proof (loc_transform_capt _ _ _ _ LocTrans1) as [C1' [R1' [Eq1 [LocTransC1 LocTransR1]]]]; subst. *)
-(*     unshelve epose proof (loc_transform_capt _ _ _ _ LocTrans2) as [C2' [R2' [Eq2 [LocTransC2 LocTransR2]]]]; subst. *)
-(*     destruct ((proj1 (loc_tranform_equiv _ _ _ _ _)) LocTrans1). *)
-(*     destruct ((proj1 (loc_tranform_equiv _ _ _ _ _)) LocTrans2). *)
-(*     constructor... *)
-(*   - epose proof (fv_loc_transform_nil _ _ _ _ _ EnvTyp H0 LocTrans1). *)
-(*     enough (T2' = typ_top); subst... *)
-(*     unshelve epose proof (loc_transform_ident E typ_top _)... *)
-(*     epose proof (loc_transform_deterministic _ _ _ _ LocTrans2 H3)... *)
-(*   - destruct (loc_transform_fun _ _ _ _ _ LocTrans1) as [C1r [R1r [T1r [LocTransC1 [LocTransR1 [LocTransT1 Eq]]]]]]; subst. *)
-(*     destruct (loc_transform_fun _ _ _ _ _ LocTrans2) as [C2r [R2r [T2r [LocTransC2 [LocTransR2 [LocTransT2 Eq']]]]]]; subst. *)
-(*     pick fresh x and apply sub_arr; simpl... *)
-(*     admit. *)
-(*   - destruct (loc_transform_tfun _ _ _ _ LocTrans1) as [R1r [T1r [LocTransR1 [LocTransT1 Eq]]]]; subst. *)
-(*     destruct (loc_transform_tfun _ _ _ _ LocTrans2) as [R2r [T2r [LocTransR2 [LocTransT2 Eq']]]]; subst. *)
-(*     pick fresh x and apply sub_all; simpl... *)
-(*     admit. *)
-(*   - epose proof (loc_transform_box _ _ _ LocTrans1) as [T1r [LocTransT1 Eq]]; subst. *)
-(*     epose proof (loc_transform_box _ _ _ LocTrans2) as [T2r [LocTransT2 Eq']]; subst. *)
-(*     constructor... *)
-(* Admitted. *)
+Lemma sub_under_loc_transform : forall Γ E S T1 T2 T1' T2',
+  env_well_typed S E Γ ->
+  loc_transform E T1 T1' ->
+  loc_transform E T2 T2' ->
+  sub Γ S T1 T2 ->
+  sub nil S T1' T2'.
+Admitted.
+(* TODO for Sam *)
