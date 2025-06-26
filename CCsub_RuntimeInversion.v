@@ -1,4 +1,3 @@
-Require Import TaktikZ.
 Require Import Coq.Program.Equality.
 Require Import LibTactics.
 
@@ -92,6 +91,17 @@ Qed.
 Definition no_type_bindings (Γ : ctx) : Prop :=
   forall X U, ~ binds X (bind_sub U) Γ.
 
+Lemma runtime_ctx_no_type_bindings : forall Γ E S,
+  env_well_typed S E Γ ->
+  no_type_bindings Γ.
+Proof with eauto.
+  intros * EnvTyp.
+  unfold no_type_bindings.
+  dependent induction EnvTyp; intros; intro...
+  analyze_binds H1; subst.
+  specialize (IHEnvTyp _ _ BindsTac)...
+Qed.
+
 Lemma well_typed_ctx_no_typ_bindings : forall S Γ E,
   env_well_typed S E Γ ->
   no_type_bindings Γ.
@@ -113,6 +123,22 @@ Proof with eauto.
   intros * StoreTyp Stores.
   induction StoreTyp; inversion Stores; subst...
   destruct (l == l0); inversion H2; subst...
+Qed.
+
+Lemma bind_typ_capt : forall x Γ S T,
+  wf_ctx Γ S ->
+  binds x (bind_typ T) Γ ->
+  exists C R,
+    T = C # R.
+Proof with eauto.
+  intros * WfCtx Binds.
+  dependent induction WfCtx; intros; simpl in *.
+  - inversion Binds.
+  - simpl_env in Binds.
+    analyze_binds Binds; subst; simpl in *.
+  - simpl_env in Binds.
+    analyze_binds Binds; subst; simpl in *...
+    inversion select (_ = _); subst...
 Qed.
 
 (* Lemma eval_typing_sub : forall Γ S K R1 R2 T1 T2, *)
@@ -394,6 +420,22 @@ Proof with eauto using typing_weakening_store, env_well_typed_weaken_store, wf_t
       assert (wf_store_ctx ([(l0, C # R)] ++ S)) by (constructor; eauto).
       exists Γ0, C0, R0; rewrite_env (nil ++ [(l0, C # R)] ++ S)...
       repeat split...
+Qed.
+
+Lemma runtime_ctx_binds_loc : forall Γ E S x C R,
+  env_well_typed S E Γ ->
+  binds x (bind_typ (C # R)) Γ ->
+  exists l, binds x l E /\ C = cse_loc l.
+Proof with eauto.
+  intros * EnvTyp Binds.
+  dependent induction EnvTyp; intros; simpl in *.
+  { inversion Binds. }
+  simpl_env in Binds.
+  analyze_binds Binds; subst; simpl in *.
+  - inversion select (_ = _); subst.
+    exists l; split...
+  - destruct (IHEnvTyp BindsTac) as [l0 [BindsL0 Eq]]; subst.
+    exists l0; split...
 Qed.
 
 Lemma env_typing_equivalent : forall S E Γ x l,

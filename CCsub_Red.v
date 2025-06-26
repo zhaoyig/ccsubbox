@@ -170,4 +170,4 @@ Inductive red : state -> state -> Prop :=
       red ⟨ (C0 ⟜ x, E) | SS | K ⟩
           ⟨ ((exp_var y), E) | SS | K ⟩.
 
-Hint Constructors value store_typing eval_typing state_typing frame_typing loc_transform loc_transform_cse : core.
+Hint Constructors value store_typing eval_typing state_typing frame_typing loc_transform loc_transform_cse loc_transform_ctx : core.
