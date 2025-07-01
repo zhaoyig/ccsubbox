@@ -156,11 +156,11 @@ Fixpoint get
 (** [binds] is a ternary predicate that holds when a key-value pair
     appears somewhere in the given association list. *)
 
-Inductive ok (A: Type) : list (X.t * A) -> Prop :=
+(* Inductive ok (A: Type) : list (X.t * A) -> Prop :=
   | ok_nil :
       ok nil
   | ok_cons : forall (E : list (X.t * A)) (x : X.t) (a : A),
-      ok E -> ~ In x (dom E) -> ok ((x, a) :: E).
+      ok E -> ~ In x (dom E) -> ok ((x, a) :: E). *)
 
 Definition binds
   (A : Type) (x : X.t) (a : A) (E : list (X.t*A))
@@ -1043,6 +1043,11 @@ Section UniqDerived.
   Lemma fresh_mid_head :
     uniq (F ++ (x ~ a) ++ E) ->
     ~ In x (dom F).
+  Proof. clear. solve_uniq. Qed.
+
+  Lemma fresh_mid :
+    uniq (F ++ (x ~ a) ++ E) ->
+    ~ In x (union (dom F) (dom E)).
   Proof. clear. solve_uniq. Qed.
 
 End UniqDerived.

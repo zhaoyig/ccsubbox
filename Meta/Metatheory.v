@@ -152,6 +152,7 @@ Notation singleton := AtomSetImpl.singleton.
 Notation union := AtomSetImpl.union.
 Ltac fsetdec := AtomSetDecide.fsetdec.
 Ltac notin_simpl := AtomSetNotin.destruct_notin.
+Ltac notin_solve := AtomSetNotin.solve_notin.
 
 Notation ladd := LocSetImpl.add.
 Notation lempty := LocSetImpl.empty.
