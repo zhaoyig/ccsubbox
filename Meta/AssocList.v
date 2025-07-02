@@ -1203,6 +1203,12 @@ Section BindsDerived.
     a = b.
   Proof. clear. intros J ?. analyze_binds_uniq J. Qed.
 
+  Lemma binds_remove_mid_cons :
+    binds x a (F ++ (y, b) :: G) ->
+    x <> y ->
+    binds x a (F ++ G).
+  Proof. clear. intros H. analyze_binds H. Qed.
+
   Lemma binds_remove_mid :
     binds x a (F ++ (y ~ b) ++ G) ->
     x <> y ->
