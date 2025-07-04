@@ -405,8 +405,7 @@ Lemma wf_typ_weakening : forall T Γ Θ Δ S,
   wf_typ (Δ ++ Γ) S T ->
   uniq (Δ ++ Θ ++ Γ) ->
   wf_typ (Δ ++ Θ ++ Γ) S T.
-Admitted.
-(* Proof with eauto.
+Proof with eauto.
   intros * Hwf Huniq.
   eremember (Δ ++ Γ) as Ctx.
   generalize dependent Δ.
@@ -416,14 +415,16 @@ Admitted.
     apply H0...
     rewrite app_assoc.
     apply uniq_push...
+    admit.
   - pick fresh X and apply wf_typ_all...
     rewrite_env (([(X, bind_sub R)] ++ Δ) ++ Θ ++ Γ).
     apply H1...
     rewrite app_assoc.
     apply uniq_push...
+    admit.
   - apply wf_typ_capt...
     apply wf_cse_weakening...
-Qed. *)
+Admitted.
 
 Lemma wf_typ_weaken_head : forall T Γ Δ S,
   wf_typ Γ S T ->
@@ -535,46 +536,44 @@ Lemma wf_typ_ctx_bind_typ : forall x U Γ S,
   wf_ctx Γ S ->
   EnvImpl.binds x (bind_typ U) Γ ->
   exists C R, U = C # R /\ wf_typ Γ S (C # R).
-Admitted.
-(* Proof with eauto using wf_typ_weaken_head.
+Proof with eauto using wf_typ_weaken_head.
   intros * WfCtx Binds.
   induction WfCtx.
   - inversion Binds.
-  - EnvImpl.destruct_binds_hyp Binds.
+  - analyze_binds Binds.
     rename select (binds x _ _) into Binds.
     destruct (IHWfCtx Binds) as [C [R [EQ WfCR]]].
     exists C, R.
     split...
-  - EnvImpl.destruct_binds_hyp Binds.
+  - analyze_binds Binds.
+    + exists C, R.
+      inversion select (bind_typ _ = bind_typ _).
+      split...
     + rename select (binds x _ _) into Binds.
       destruct (IHWfCtx Binds) as [D [Q [EQ WfCR]]].
       exists D, Q.
       split...
-    + exists C, R.
-      inversion select (bind_typ _ = bind_typ _).
-      split...
-Qed. *)
+Qed.
 
 Lemma wf_typ_ctx_bind_sub : forall X U Γ S,
   wf_ctx Γ S ->
   EnvImpl.binds X (bind_sub U) Γ ->
   pure_type U /\ wf_typ Γ S U.
-Admitted.
-(* Proof with eauto using wf_typ_weaken_head. 
+Proof with eauto using wf_typ_weaken_head. 
   intros * WfCtx Binds.
   induction WfCtx.
   - inversion Binds.
-  - EnvImpl.destruct_binds_hyp Binds.
+  - analyze_binds Binds.
+    + inversion select (bind_sub _ = bind_sub _).
+      split... 
     + rename select (binds X _ _) into Binds.
       destruct (IHWfCtx Binds) as [PureU WfU].
       split...
-    + inversion select (bind_sub _ = bind_sub _).
-      split... 
-  - EnvImpl.destruct_binds_hyp Binds.
+  - analyze_binds Binds.
     rename select (binds X _ _) into Binds.
     destruct (IHWfCtx Binds) as [PureU WfU].
     split...
-Qed. *)
+Qed.
 
 (* Hint Resolve wf_cv_ctx_bind_typ : core. *)
 Hint Resolve wf_typ_ctx_bind_typ : core.
@@ -635,8 +634,8 @@ Lemma wf_typ_subst_cb : forall Γ Δ Q Z C T S,
   uniq (EnvImpl.map (subst_cb Z C) Δ ++ Γ) ->
   uniq (Δ ++ [(Z, bind_typ Q)] ++ Γ) ->
   wf_typ (EnvImpl.map (subst_cb Z C) Δ ++ Γ) S (subst_ct Z C T).
-Admitted.
-(* Proof with simpl_env;
+(* Admitted. *)
+Proof with simpl_env;
            eauto using wf_typ_weaken_head,
                        wf_cse_subst_tb,
                        type_from_wf_typ,
@@ -665,21 +664,25 @@ Admitted.
       rewrite_env (map (subst_cb Z C) ([(y, bind_typ (C0 # R))] ++ Δ) ++ Γ).
       simpl in H0.
       apply H0...
-  - Case "∀ [R] T".
-    pick fresh Y and apply wf_typ_all.
+      admit.
+    admit.
+  (* - Case "∀ [R] T". *)
+  - pick fresh Y and apply wf_typ_all.
     + fold subst_ct...
     + apply subst_ct_pure_type...
     + rewrite subst_ct_open_tt_var.
       2-3: eauto.
       rewrite_env (map (subst_cb Z C) ([(Y, bind_sub R)] ++ Δ) ++ Γ).
       apply H1...
-  - Case "C # R".
-    apply wf_typ_capt.
+      admit.
+      admit.
+  (* - Case "C # R". *)
+  - apply wf_typ_capt.
     + apply wf_cse_over_subst with (Q := Q)...
     + apply IHHwfT...
     + apply subst_ct_pure_type...
     Unshelve.
-Qed. *)
+Admitted.
 
 Lemma wf_cse_subst_cb : forall Γ Δ Q x C D S,
   wf_cse (Δ ++ [(x, bind_typ Q)] ++ Γ) S C ->
@@ -705,8 +708,7 @@ Lemma wf_typ_open_cse : forall Γ C R T S,
   wf_typ Γ S (∀ (R) T) ->
   wf_cse Γ S C ->
   wf_typ Γ S (open_ct T C).
-Admitted.
-(* Proof with simpl_env; eauto.
+Proof with simpl_env; eauto.
   intros * Hok HwfA HwfC.
   inversion HwfA; subst...
   pick fresh x.
@@ -714,7 +716,7 @@ Admitted.
   rewrite_env (map (subst_cb x C) nil ++ Γ).
   eapply wf_typ_subst_cb with (Q := C0 # R0)...
   apply H4 in Fr. simpl in Fr.
-Qed. *)
+Admitted.
 
 Lemma wf_typ_subst_tb : forall Γ Δ Q Z P T S,
   wf_typ (Δ ++ [(Z, bind_sub Q)] ++ Γ) S T ->
@@ -898,8 +900,7 @@ Lemma wf_typ_from_wf_store_ctx_nil : forall S C R l,
   wf_store_ctx S ->
   StoreImpl.binds l (C # R) S ->
   wf_typ nil S (C # R).
-Admitted.
-(* Proof with eauto using wf_typ_weaken_store_tail.
+Proof with eauto using wf_typ_weaken_store_tail.
   intros * Hwf Hbinds.
   induction Hwf...
   - inversion Hbinds.
@@ -907,7 +908,8 @@ Admitted.
     destruct (l === l0); subst...
     + inversion H1. subst...
     + inversion H1. subst...
-Qed. *)
+    + simpl. admit. 
+Admitted.
 
 Lemma wf_typ_from_wf_store_ctx : forall Γ S C R l,
   wf_store_ctx S ->

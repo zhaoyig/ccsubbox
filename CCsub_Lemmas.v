@@ -28,11 +28,12 @@ Lemma binds_typ_unique : forall T1 T2 X E,
   binds X (bind_typ T2) E ->
   uniq E ->
   T1 = T2.
-Admitted.
-(* Proof.
-  intros* Hb1 Hb2.
+Proof.
+  intros* Hb1 Hb2 Huniq.
+  pose proof (binds_unique _ _ _ _ _ Hb1 Hb2 Huniq) as Heq.
+  injection Heq.
   congruence.
-Qed. *)
+Qed.
 
 (** These proofs are all the same, but Coq isn't smart enough unfortunately... *)
 
@@ -324,7 +325,8 @@ Proof with eauto.
     ** assert (x ∈ `cse_fvars` (exp_cv (open_ve_rec (`succ` k) Y (cse_fvar Y) e2))). apply (IHe2 H)... fsetdec. *)
   * destruct v; try destruct v; simpl in *; fsetdec...
   * assert (x ∈ `cse_fvars` (remove_all_bvars c) \/ x `in`A `cse_fvars` (var_cv v)) by fsetdec.
-    destruct H; induction c; destruct v; try destruct v; simpl in *; try fsetdec.  
+    destruct H; induction c; destruct v; try destruct v; simpl in *; try fsetdec.
+    auto.
     admit.
 Admitted.
 
@@ -776,7 +778,6 @@ Qed.
 Lemma typing_regular : forall Γ e T S,
   typing Γ S e T ->
   wf_store_ctx S /\ wf_ctx Γ S /\ expr e /\ wf_typ Γ S T.
-(* Admitted. *)
   Proof with simpl_env; eauto.
   intros * Typ.
   induction Typ.
