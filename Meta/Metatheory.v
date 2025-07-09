@@ -63,11 +63,6 @@ Notation "E `union`A F" :=
   (at level 65, right associativity, format "E  `union`A  '/' F")
   : set_hs_scope.
 
-Notation "E `subset`A F" :=
-  (AtomSetImpl.Subset E F)
-  (at level 68)
-  : set_scope.
-
 (* Notation for locs *)
 
 Notation "E [=]L F" :=
@@ -151,8 +146,6 @@ Notation remove := AtomSetImpl.remove.
 Notation singleton := AtomSetImpl.singleton.
 Notation union := AtomSetImpl.union.
 Ltac fsetdec := AtomSetDecide.fsetdec.
-Ltac notin_simpl := AtomSetNotin.destruct_notin.
-Ltac notin_solve := AtomSetNotin.solve_notin.
 
 Notation ladd := LocSetImpl.add.
 Notation lempty := LocSetImpl.empty.
@@ -160,7 +153,6 @@ Notation lremove := LocSetImpl.remove.
 Notation lsingleton := LocSetImpl.singleton.
 Notation lunion := LocSetImpl.union.
 Ltac flsetdec := LocSetDecide.fsetdec.
-Ltac lnotin_simpl := LocSetNotin.destruct_notin.
 
 Notation nadd := NatSetImpl.add.
 Notation nempty := NatSetImpl.empty.
@@ -257,32 +249,6 @@ Tactic Notation
         | _ =>
           idtac
       end.
-
-Tactic Notation
-    "pick" "fresh" ident(atom_name)
-    "excluding" constr(L)
-    "and" "destruct" constr(H) :=
-  let L := beautify_fset L in
-  pick fresh atom_name for L;
-  first [ destruct (@H atom_name ltac:(fsetdec))
-        | edestruct (@H atom_name ltac:(fsetdec))].
-
-Tactic Notation
-    "pick" "fresh" ident(atom_name)
-    "excluding" constr(L)
-    "and" "destruct" constr(H) "as" simple_intropattern(pat) :=
-  let L := beautify_fset L in
-  pick fresh atom_name for L;
-  first [ destruct (@H atom_name ltac:(fsetdec)) as pat
-        | edestruct (@H atom_name ltac:(fsetdec)) as pat].
-
-Tactic Notation
-    "pick" "fresh" ident(atom_name)
-    "excluding" constr(L)
-    "and" "specialize" constr(H) :=
-  let L := beautify_fset L in
-  pick fresh atom_name for L;
-  specialize (@H atom_name ltac:(fsetdec)).
 
 (** The following variant of the tactic excludes the set of atoms
     returned by the [gather_atoms] tactic.  Redefine [gather_atoms] if

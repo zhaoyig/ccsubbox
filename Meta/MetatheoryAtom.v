@@ -130,7 +130,8 @@ Proof. exact Atom.eq_dec. Defined.
 (** We use our implementation of atoms to obtain an implementation of
     finite sets of atoms.  We give the resulting type an intuitive
     name, as well as import names of set operations for use within
-    this library. *)
+    this library. In order to avoid polluting Coq's namespace, we do
+    not use [Module Export]. *)
 
 Module Import AtomSetImpl : FSetExtra.WSfun Atom :=
   FSetExtra.Make Atom.
@@ -174,15 +175,6 @@ Proof.
   intros L. destruct (atom_fresh_for_list (elements L)) as [a H].
   exists a. intros J. contradiction H.
   rewrite <- CoqListFacts.InA_iff_In. auto using elements_1.
-Qed.
-
-Lemma atomset_subset_union : forall A1 A2 B1 B2,
-  AtomSetImpl.Subset A1 A2 ->
-  AtomSetImpl.Subset B1 B2 ->
-  AtomSetImpl.Subset (AtomSetImpl.union A1 B1) (AtomSetImpl.union A2 B2).
-Proof.
-  intros.
-  fsetdec.
 Qed.
 
 

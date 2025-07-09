@@ -10,7 +10,6 @@
 Require Export LibDefaultSimp.
 Require Import Metatheory.
 Require Import Lia.
-Require Import Coq.FSets.FSetDecide.
 
 (* Suppress warnings about Hint Resolve *)
 Local Set Warnings "-fragile-hint-constr".

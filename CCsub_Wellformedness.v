@@ -113,7 +113,7 @@ Hint Resolve wf_cse_union : core.
 (** This is a useful helper tactic for clearing away
     capture set wellformedness. *)
 
-(* Ltac wf_cse_simpl instantiate_ext :=
+Ltac wf_cse_simpl instantiate_ext :=
   match goal with
   | H : _ |- (wf_cse _ _ {*}) =>
     constructor
@@ -132,7 +132,7 @@ Hint Resolve wf_cse_union : core.
     | True => exists T; destruct Hexists; auto
     | False => idtac
     end
-  end. *)
+  end.
 
 Lemma wf_cse_fvars_from_ctx : forall Γ S C x,
   wf_cse Γ S C ->

@@ -3,6 +3,7 @@
     are captured by a particualar type. *)
 
 Require Import Metatheory.
+Require Import MetatheoryExtras.
 (*Require Import Tactics.*)
 
 Require Import OrderedTypeEx.

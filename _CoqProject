@@ -16,6 +16,7 @@ Meta/Metatheory.v
 Meta/MetatheoryAtom.v
 Meta/MetatheoryLoc.v
 Meta/MetatheoryNat.v
+MetatheoryExtras.v
 TaktikZ.v
 CaptureSets.v
 CCsub_Definitions.v

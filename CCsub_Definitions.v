@@ -1,5 +1,6 @@
 Require Export TaktikZ.
 Require Export Metatheory.
+Require Export MetatheoryExtras.
 Require Export CaptureSets.
 Require Import Coq.Program.Wf.
 
