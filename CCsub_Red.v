@@ -87,10 +87,10 @@ Inductive loc_transform_ctx : env -> ctx -> ctx -> Prop :=
       loc_transform_ctx ((x, l) :: E) Γ Δ.
 
 Inductive frame_typing : store_ctx -> exp_env -> typ -> Prop :=
-  | typing_frame : forall S e E C R T Γ,
+  | typing_frame : forall S e E U T Γ,
       env_well_typed S E Γ ->
-      typing Γ S e (C # R) ->
-      loc_transform E (C # R) T ->
+      typing Γ S e U ->
+      loc_transform E U T ->
       frame_typing S (e, E) T.
 
 Inductive store_typing : store_env -> store_ctx  -> Prop :=
@@ -108,13 +108,14 @@ Inductive eval_typing (S : store_ctx) : cont -> typ -> typ -> Prop :=
       (* sub Γ S (C1 # R1) (C2 # R2) -> *)
       wf_typ nil S (C1 # R1) ->
       eval_typing S nil (C1 # R1) (C1 # R1)
-  | typing_eval_cons : forall Γ L e K C1 R1 C2 R2 C3 R3 E,
+  | typing_eval_cons : forall Γ L e K C1 R1 C2 R2 C2' R2' C3 R3 E,
       (* scope e -> *)
-      wf_typ nil S (C2 # R2) ->
       (forall x, x ∉ L ->
         typing ([(x, bind_typ (C1 # R1))] ++ Γ) S (open_ve e x (cse_fvar x)) (C2 # R2)) ->
       env_well_typed S E Γ ->
-      eval_typing S K (C2 # R2) (C3 # R3) ->
+      wf_typ Γ S (C2 # R2) ->
+      loc_transform E (C2 # R2) (C2' # R2') ->
+      eval_typing S K (C2' # R2') (C3 # R3) ->
       eval_typing S ((let_body (e, E)) :: K) (C1 # R1) (C3 # R3).
 
 Inductive state_typing : state -> typ -> Prop :=
