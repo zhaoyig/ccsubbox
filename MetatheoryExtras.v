@@ -54,3 +54,21 @@ Lemma fresh_mid :
   forall (A : Type) (x : atom) (a : A) (E F : list (atom * A)),
   uniq (F ++ x ~ a ++ E) -> x `notin`A union (dom F) (dom E).
 Proof. intros *. clear. solve_uniq. Qed.
+
+Lemma nil_concat : forall (A: Type) (E: list (atom * A)),
+  nil ++ E = E.
+Proof.
+  reflexivity.
+Qed.
+
+Ltac rewrite_nil_concat :=
+  match goal with
+  | |- _ ?E0 =>
+    rewrite <- nil_concat with (E := E0)
+  | |- _ ?E0 _ =>
+    rewrite <- nil_concat with (E := E0)
+  | |- _ ?E0 _ _ =>
+    rewrite <- nil_concat with (E := E0)
+  | |- _ ?E0 _ _ _ =>
+    rewrite <- nil_concat with (E := E0)
+  end.
