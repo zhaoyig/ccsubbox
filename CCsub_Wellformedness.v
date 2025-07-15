@@ -1,7 +1,6 @@
 Require Import Coq.Program.Equality.
 
 Require Export CCsub_Infrastructure.
-Require Import Meta.MetatheoryAtom.
 
 (* ********************************************************************** *)
 (** * #<a name="utils"></a># Automation Utils -- mostly related to wellformedness of environments [uniq], [wf_ctx], [dom], ...*)
