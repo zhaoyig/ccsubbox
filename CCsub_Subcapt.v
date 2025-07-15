@@ -155,9 +155,12 @@ Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
            apply binds_In in BindsTac.
            unfold not in HCtx. apply HCtx in BindsTac. contradiction.
         ++ inversion BindsTacVal. subst. apply IHC1subC2... (* X in [(X, bind_typ (D # T))] *)
-        ++ admit.
-        (* ++ apply IHC1subC2 with G. simpl in IHC1subC2. fsetdec. X in Γ *)
-        
+        ++ assert (wf_ctx (G ++ [(X, bind_typ (D # T))] ++ Γ) S) as HCtx.
+           { apply subcapt_regular in C1subC2. destruct C1subC2 as [_ [hwf _]]... }
+           apply uniq_from_wf_ctx in HCtx.
+           apply fresh_mid_tail in HCtx.
+           apply binds_In in BindsTac0.
+           unfold not in HCtx. apply HCtx in BindsTac0. contradiction.
         -- apply (notin_fv_wf_cse Γ) with (S := S).
           ++ apply subcapt_regular in CsubD. destruct CsubD as [_ [_ [_ Dwf]]]...
           ++ assert (wf_ctx (G ++ [(X, bind_typ (D # T))] ++ Γ) S).
@@ -165,30 +168,27 @@ Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
              apply uniq_from_wf_ctx in H0.
              apply fresh_mid_tail in H0. assumption.
     + analyze_binds H.
-      * apply (subcapt_trans_var (subst_cse x C R) S (map (subst_cb x C) G ++ Γ) (subst_cse x C Q) X (subst_ct x C T0)).
-        -- admit.
-            (* apply binds_app_3.
-            rewrite (EnvImpl.map_subst_cb_id Γ x C S).
-            apply binds_map with (f:=(subst_cb x C)) in H. simpl in H...
-            apply subcapt_regular in CsubD. destruct CsubD...
-            apply subcapt_regular in C1subC2. destruct C1subC2 as [_ [HCtx _]].
-            apply ok_from_wf_ctx in HCtx. apply fresh_mid_tail in HCtx...  *)
-          (* ++ rewrite dom_map... *)
-        -- apply IHC1subC2... 
       * assert (subcapt (map (subst_cb x C) G ++ Γ) S (cse_fvar X) (subst_cse x C R)).
         { apply (subcapt_trans_var (subst_cse x C R) S (EnvImpl.map (subst_cb x C) G ++ Γ) (subst_cse x C R) X (subst_ct x C T0)).
-          - assert (HH := BindsTac0).
-            apply binds_map with (f:=(subst_cb x C)) in BindsTac0. simpl in BindsTac0.
+          - assert (HH := BindsTac).
+            apply binds_map with (f:=(subst_cb x C)) in BindsTac. simpl in BindsTac.
             apply subcapt_regular in C1subC2. destruct C1subC2 as [_ [HCtx _]].
             apply uniq_from_wf_ctx in HCtx. apply uniq_remove_mid in HCtx.
-            apply binds_app_3 with (E:=Γ) in BindsTac0...
-            admit.
+            apply binds_app_2 with (F:=Γ) in BindsTac...
           - assert (HH := IHC1subC2 CsubD G ltac:(fsetdec)).
             apply subcapt_regular in HH. destruct HH as [HH1 [HH2 [HH3 HH4]]].
             apply subcapt_reflexivity.
             auto. auto.
         }
         eapply subcapt_transitivity. apply H. apply IHC1subC2...
+      * apply (subcapt_trans_var (subst_cse x C R) S (map (subst_cb x C) G ++ Γ) (subst_cse x C Q) X (subst_ct x C T0)).
+        -- apply binds_app_3.
+            rewrite (map_subst_cb_id Γ x C S).
+            apply binds_map with (f:=(subst_cb x C)) in BindsTac0. simpl in BindsTac0...
+            apply subcapt_regular in CsubD. destruct CsubD...
+            apply subcapt_regular in C1subC2. destruct C1subC2 as [_ [HCtx _]].
+            apply uniq_from_wf_ctx in HCtx. apply fresh_mid_tail in HCtx... 
+        -- apply IHC1subC2... 
   - specialize (IHC1subC2 CsubD G ltac:(fsetdec)).
     epose proof (subcapt_regular _ _ _ _ CsubD) as [WfS [WfCtx [WfC _]]].
     epose proof (subcapt_regular _ _ _ _ C1subC2) as [_ [WfCtx2 _]].
@@ -205,7 +205,7 @@ Proof with eauto using wf_ctx_subst_cb, wf_cse_subst_cb with fsetdec.
   - constructor...
   - apply subcapt_join_inr...
     Unshelve. all: eauto.
-Admitted.
+Qed.
 
 Tactic Notation "subst_mem_singleton" hyp(H) :=
   match type of H with
