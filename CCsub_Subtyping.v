@@ -44,14 +44,14 @@ Proof with simpl_env; eauto using wf_typ_weakening, subcapt_weakening, wf_cse_we
     rewrite <- app_assoc.
     rename select (forall x : atom, x ∉ L -> forall Δ0 : ctx, [(x, bind_typ (C2 # R2))] ++ _ = _ -> _) into IH.
     apply IH...
-    admit.
+    apply wf_ctx_typ...
   (* - Case sub_all. *)
   - pick fresh Y and apply sub_all...
     rewrite <- app_assoc.
     rename select (forall X : atom, X ∉ L -> forall Δ0 : ctx, [(X, bind_sub R2)] ++ _ = _ -> _) into IH.
     apply IH...
-    admit.
-Admitted.
+    apply wf_ctx_sub...
+Qed.
 
 Lemma sub_weakening_store : forall Γ S1 S2 S3 T U,
   sub Γ (S1 ++ S3) T U ->
@@ -147,9 +147,11 @@ Proof with simpl_env;
            apply sub_weakening...
         (* -- SSCase "{} # Q <: T". *)
         -- rename select (binds Z _ _) into Binds.
-           admit.
-           (* binds_get Binds...
-           inversion select (bind_sub _ = bind_sub _); subst... *)
+           assert (bind_sub Q = bind_sub U). {
+            admit.
+           }
+           (* binds_get Binds... *)
+           inversion select (bind_sub _ = bind_sub _); subst...
     (* + SCase "X <> Z". *)
     + forwards: IHSsubT Δ.
       1: congruence.
@@ -157,23 +159,21 @@ Proof with simpl_env;
       apply (sub_trans_tvar U)...
   (* - Case "sub_arr". *)
   - pick fresh Y and apply sub_arr...
-    admit.
-    (* rewrite_parenthesise_binding.
+    rewrite <- app_assoc. (*Formerly rewrite_parenthesise_binding*)
     rename select (forall x : atom, x ∉ L -> sub Γ S P Q -> forall Δ0 : ctx, [(x, bind_typ (C2 # R2))] ++ _ = _ -> _) into IH.
-    eapply IH... *)
+    eapply IH...
   (* - Case "sub_all". *)
   - pick fresh Y and apply sub_all...
-    admit.
-    (* rewrite_parenthesise_binding.
+    rewrite <- app_assoc.
     rename select (forall X : atom, X ∉ L -> sub Γ S P Q -> forall Δ0 : ctx, [(X, bind_sub R2)] ++ _ = _ -> _) into IH.
-    eapply IH... *)
+    eapply IH...
 Admitted.
 
 Lemma sub_narrowing_typ_aux : forall CQ Q Δ Γ x CP P R T S,
   sub (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ) S R T ->
   sub Γ S (CP # P) (CQ # Q) ->
   sub (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) S R T.
-(* Proof with simpl_env;
+Proof with simpl_env;
            eauto using wf_typ_ignores_typ_bindings,
                        wf_ctx_narrowing_typ,
                        subcapt_narrowing_typ,
@@ -182,22 +182,19 @@ Lemma sub_narrowing_typ_aux : forall CQ Q Δ Γ x CP P R T S,
   remember (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ).
   generalize dependent Δ.
   induction SsubT; intros Δ EQ; subst...
-  - Case "sub_trans_tvar".
-    apply sub_trans_tvar with (U := U)...
-    binds_cases H.
-    + apply binds_tail...
-    + apply binds_head...
-  - Case "sub_arr".
-    pick fresh Y and apply sub_arr...
-    rewrite_parenthesise_binding.
+  (* - Case "sub_trans_tvar". *)
+  - apply sub_trans_tvar with (U := U)...
+    analyze_binds H.
+  (* - Case "sub_arr". *)
+  - pick fresh Y and apply sub_arr...
+    rewrite <- app_assoc.
     rename select (forall x0 : atom, x0 ∉ L -> sub Γ S (CP # P) (CQ # Q) -> forall Δ0 : ctx, [(x0, bind_typ (C2 # R2))] ++ _ = _ -> _) into IH.
     eapply IH...
   - pick fresh Y and apply sub_all...
-    rewrite_parenthesise_binding.
+    rewrite <- app_assoc.
     rename select (forall X : atom, X ∉ L -> sub Γ S (CP # P) (CQ # Q) -> forall Δ0 : ctx, [(X, bind_sub R2)] ++ _ = _ -> _) into IH.
     eapply IH...
-Qed. *)
-Admitted.
+Qed.
 
 Lemma sub_transitivity_mut :
      (forall Q, type Q -> transitivity_on Q)
@@ -239,10 +236,9 @@ Proof with eauto using subcapt_transitivity.
       * econstructor...
         intros x xNotIn.
         specialize (T1subT2 x xNotIn).
-        admit.
-        (* rewrite_nil_concat.
+        rewrite_nil_concat.
         eapply wf_typ_ignores_typ_bindings.
-        applys sub_regular T1subT2. *)
+        applys sub_regular T1subT2.
       * pick fresh x and apply type_arr...
         eapply type_from_wf_typ.
         specialize (T1subT2 x ltac:(fsetdec)).
@@ -259,9 +255,8 @@ Proof with eauto using subcapt_transitivity.
         rename select (forall x : atom, x ∉ L1 -> sub ([(x, bind_typ (C3 # R3))] ++ _) _ _ _) into T2subT3.
         specialize (T2subT3 x ltac:(fsetdec)).
         apply IH2 with (X := x); [fsetdec | | auto].
-        (* rewrite_nil_concat. *)
-        admit.
-        (* apply sub_narrowing_typ_aux with (CQ := C2) (Q := R2)... *)
+        rewrite_nil_concat.
+        apply sub_narrowing_typ_aux with (CQ := C2) (Q := R2)...
   (* - Case "type_all". *)
   - intros * TypeS IH1 TypeT * IH2 * SsubQ QsubT.
     dependent induction SsubQ; inversion QsubT; subst.
@@ -275,10 +270,9 @@ Proof with eauto using subcapt_transitivity.
       * econstructor...
         intros x xNotIn.
         specialize (T1subT2 x xNotIn).
-        (* rewrite_nil_concat. *)
-        admit.
-        (* eapply wf_typ_ignores_sub_bindings.
-        applys sub_regular T1subT2. *)
+        rewrite_nil_concat.
+        eapply wf_typ_ignores_sub_bindings.
+        applys sub_regular T1subT2.
       * econstructor...
         intros x xNotIn.
         specialize (T1subT2 x xNotIn).
@@ -291,13 +285,12 @@ Proof with eauto using subcapt_transitivity.
         rename select (forall x : atom, x ∉ L1 -> sub _ _ _ _) into T2subT3.
         specialize (T2subT3 X ltac:(fsetdec)).
         apply IH2 with (X := X); [fsetdec | | auto].
-        (* rewrite_nil_concat. *)
-        admit.
-        (* eapply sub_narrowing_aux with (Q := R)... *)
+        rewrite_nil_concat.
+        eapply sub_narrowing_aux with (Q := R)...
   (* - Case "type_box". *)
   - intros * TypeT IH * SsubQ QsubT.
     dependent induction SsubQ; inversion QsubT; subst; eauto.
-Admitted.
+Qed.
 
 Lemma sub_transitivity : forall Q Γ R T S,
   type Q ->
