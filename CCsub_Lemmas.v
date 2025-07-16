@@ -555,24 +555,26 @@ Proof with eauto using wf_cse_over_join; eauto.
 Qed.
 
 Lemma bind_typ_notin_fv_tt : forall x T' Γ T S,
+  wf_ctx Γ S ->
   binds x (bind_typ T') Γ ->
   wf_typ Γ S T ->
   x ∉ fv_tt T.
-Proof with auto.
-  intros * Hbnd WfT.
+Proof with eauto.
+  intros * WfCtx Hbnd WfT.
   dependent induction WfT; simpl...
-  - admit.
+  - enough (x <> X) by fsetdec.
+    intro; subst. 
+    unshelve epose proof (binds_unique _ _ _ _ _ Hbnd H _)...
+    inversion H0.
   - apply AtomSetNotin.notin_union_3...
     pick fresh y and specialize H0.
     eapply notin_fv_tt_open_ct with (C := cse_fvar y).
-    apply H0.
-    apply binds_app_3...
+    apply H0...
   - apply AtomSetNotin.notin_union_3...
     pick fresh Y and specialize H1.
     eapply notin_fv_tt_open_tt.
-    apply H1.
-    apply binds_app_3...
-Admitted.
+    apply H1...
+Qed.
 
 Lemma wf_cse_notin_fvars : forall x Γ C S,
   wf_cse Γ S C ->

@@ -127,7 +127,7 @@ Lemma typing_narrowing_typ : forall D Q Γ Δ X C P e T S,
 Proof with eauto.
   intros * Typ Sub.
   assert (CsubD_PsubQ_WfC_WfD_PureP_PureQ : subcapt Γ S C D /\ sub Γ S P Q /\ wf_cse Γ S C /\ wf_cse Γ S D /\ pure_type P /\ pure_type Q).
-  { dependent induction Sub... admit. }
+  { dependent induction Sub; repeat split... }
   destruct CsubD_PsubQ_WfC_WfD_PureP_PureQ as [CsubD [PsubQ [WfC [WfD [PureP PureQ]]]]].
   dependent induction Typ.
   (* - Case "typing_var". *)
@@ -181,5 +181,5 @@ Proof with eauto.
   (* - Case "typing_sub". *)
   - apply typing_sub with (R := R)...
     eapply sub_narrowing_typ...
-Admitted.
+Qed.
 

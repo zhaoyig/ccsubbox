@@ -148,9 +148,8 @@ Proof with simpl_env;
         (* -- SSCase "{} # Q <: T". *)
         -- rename select (binds Z _ _) into Binds.
            assert (bind_sub Q = bind_sub U). {
-            admit.
+            analyze_binds_uniq Binds...
            }
-           (* binds_get Binds... *)
            inversion select (bind_sub _ = bind_sub _); subst...
     (* + SCase "X <> Z". *)
     + forwards: IHSsubT Δ.
@@ -167,7 +166,7 @@ Proof with simpl_env;
     rewrite <- app_assoc.
     rename select (forall X : atom, X ∉ L -> sub Γ S P Q -> forall Δ0 : ctx, [(X, bind_sub R2)] ++ _ = _ -> _) into IH.
     eapply IH...
-Admitted.
+Qed.
 
 Lemma sub_narrowing_typ_aux : forall CQ Q Δ Γ x CP P R T S,
   sub (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ) S R T ->
