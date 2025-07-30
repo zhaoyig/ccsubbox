@@ -690,35 +690,31 @@ Lemma sub_under_loc_transform : forall Γ E S T1 T2 T1' T2',
 Admitted.
 (* TODO for Sam *)
 
-Lemma subst_ct_invert_fun : forall T C R U D x,
-  subst_ct x D T = ∀ (C # R) U ->
-  exists C' R' U',
-    T = ∀ (C' # R') U' /\ C = subst_cse x D C' /\ R = subst_ct x D R' /\ U = subst_ct x D U'.
+Lemma subst_ct_invert_fun : forall T U1 U2 D x,
+  subst_ct x D T = ∀ (U1) U2 ->
+  exists U1' U2',
+    T = ∀ (U1') U2' /\ U1 = subst_ct x D U1' /\ U2 = subst_ct x D U2'.
 Proof with eauto.
   intros * Eq.
-  generalize dependent C.
-  generalize dependent R.
-  generalize dependent U.
+  generalize dependent U1.
+  generalize dependent U2.
   induction T; simpl in *; intros; try inversion Eq...
   - destruct v; inversion Eq; subst.
-  - destruct (subst_ct_invert_capt _ _ _ _ _ H0) as [C' [R' [EqT [EqC EqR]]]]; subst.
-    exists C', R', T2; repeat split...
 Qed.
 
-Lemma loc_transform_fun_rev : forall E C2 R2 T2 U,
-  loc_transform E U (∀ (C2 # R2) T2) ->
-  exists C1 R1 T1,
-    loc_transform_cse E C1 C2 /\
-    loc_transform E R1 R2 /\
+Lemma loc_transform_fun_rev : forall E U2 T2 U,
+  loc_transform E U (∀ (U2) T2) ->
+  exists U1 T1,
+    loc_transform E U1 U2 /\
     loc_transform E T1 T2 /\
-    U = ∀ (C1 # R1) T1.
+    U = ∀ (U1) T1.
 Proof with eauto.
   intros * LocTrans.
   dependent induction LocTrans; intros; subst; simpl in *.
-  - exists C2, R2, T2; repeat split...
-  - destruct (IHLocTrans _ _ _ eq_refl) as [C1 [R1 [T1 [LocTransC [LocTransR [LocTransT Eq]]]]]]; subst.
-    epose proof (subst_ct_invert_fun _ _ _ _ _ _ Eq) as [C0 [R0 [T0 [EqT [EqC [EqR EqU]]]]]]; subst.
-    exists C0, R0, T0; repeat split...
+  - exists U2, T2; repeat split...
+  - destruct (IHLocTrans _ _ eq_refl) as [U1 [T1 [LocTransU [LocTransT Eq]]]]; subst.
+    epose proof (subst_ct_invert_fun _ _ _ _ _ Eq) as [U0 [T0 [EqT [EqU0 EqT0]]]]; subst.
+    exists U0, T0; repeat split...
 Qed.
 
 Lemma loc_transform_capt_rev : forall E C2 R2 U,

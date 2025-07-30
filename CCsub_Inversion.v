@@ -16,7 +16,8 @@ Lemma typing_inv_abs : forall Γ S1 e1 T S,
   /\ exists S2, exists L, forall x, x ∉ L ->
     typing ([(x, bind_typ S1)] ++ Γ) S (open_ve e1 x (cse_fvar x)) (open_ct S2 (cse_fvar x)) /\
     wf_typ ([(x, bind_typ S1)] ++ Γ) S (open_ct U2 (cse_fvar x)) /\
-    sub ([(x, bind_typ U1)] ++ Γ) S (open_ct S2 (cse_fvar x)) (open_ct U2 (cse_fvar x)).
+    sub ([(x, bind_typ U1)] ++ Γ) S (open_ct S2 (cse_fvar x)) (open_ct U2 (cse_fvar x)) /\
+    x `notin`A fv_ct S2.
 Proof with auto.
   intros * Typ.
   dependent induction Typ; intros U1 U2 D Sub.
@@ -24,7 +25,7 @@ Proof with auto.
     inversion select (sub _ _ _ _); subst.
     split...
     exists T1.
-    exists (L `union`A L0).
+    exists (L `union`A L0 `union`A fv_ct T1).
     intros y ?.
     rename select (forall x : atom, x ∉ L0 -> _) into Sub'.
     specialize (Sub' y ltac:(fsetdec)).
@@ -161,3 +162,22 @@ Proof with eauto.
     repeat split...
     apply sub_transitivity with (Q := R)...
 Qed.
+
+Lemma sub_inv_arr : forall Γ S T U1 U2,
+  no_type_bindings Γ ->
+  sub Γ S T (∀ (U1) U2) ->
+  exists T1 T2,
+    T = (∀ (T1) T2) /\
+    sub Γ S U1 T1 /\
+    exists L, forall x, x ∉ L ->
+      sub ([(x, bind_typ U1)] ++ Γ) S (open_ct T2 (cse_fvar x)) (open_ct U2 (cse_fvar x)).
+Proof with eauto.
+  intros * NoTypeBindings Sub.
+  dependent induction Sub; intros.
+  - exfalso.
+    apply (NoTypeBindings _ _ H).
+  - exists (C1 # R1), T1; repeat split...
+Qed.
+
+
+

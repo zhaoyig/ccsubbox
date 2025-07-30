@@ -377,6 +377,9 @@ Inductive typing : ctx -> store_ctx -> exp -> typ -> Prop :=
       sub Γ S R T ->
       typing Γ S e T.
 
+Definition no_type_bindings (Γ : ctx) : Prop :=
+  forall X U, ~ binds X (bind_sub U) Γ.
+
 Hint Constructors uniq StoreImpl.uniq : core.
 Hint Constructors type pure_type expr cset wf_cse wf_typ wf_ctx wf_store_ctx sub subcapt typing : core.
 Hint Resolve sub_top sub_refl_tvar sub_arr sub_all sub_box : core.

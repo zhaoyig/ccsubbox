@@ -19,15 +19,15 @@ Definition exp_env: Set := (exp * env).
 Inductive value : exp_env -> Prop :=
   | value_abs : forall T E e1,
       expr (λ (T) e1) ->
-      fv_ve e1 = dom E ->
+      (* fv_ve e1 = dom E -> *)
       value ((λ (T) e1), E)
   | value_tabs : forall T E e1,
       expr (Λ [T] e1) ->
-      fv_ve e1 = dom E ->
+      (* fv_ve e1 = dom E -> *)
       value ((Λ [T] e1), E)
   | value_box : forall E e1,
       expr (box e1) ->
-      fv_ve e1 = dom E ->
+      (* fv_ve e1 = dom E -> *)
       value ((box e1), E).
 
 Inductive answer : exp_env -> Prop :=
@@ -87,10 +87,14 @@ Inductive loc_transform_ctx : env -> ctx -> ctx -> Prop :=
       loc_transform_ctx ((x, l) :: E) Γ Δ.
 
 Inductive frame_typing : store_ctx -> exp_env -> typ -> Prop :=
-  | typing_frame : forall S e E U T Γ,
+  | typing_frame_transform : forall S e E U T Γ,
       env_well_typed S E Γ ->
       typing Γ S e U ->
       loc_transform E U T ->
+      frame_typing S (e, E) T
+  | typing_frame_sub : forall S e E U T,
+      frame_typing S (e, E) U ->
+      sub nil S U T ->
       frame_typing S (e, E) T.
 
 Inductive store_typing : store_env -> store_ctx  -> Prop :=
@@ -169,6 +173,6 @@ Inductive red : state -> state -> Prop :=
       binds x l E ->
       stores l (box y, E') SS ->
       red ⟨ (C0 ⟜ x, E) | SS | K ⟩
-          ⟨ ((exp_var y), E) | SS | K ⟩.
+          ⟨ (exp_var y, E) | SS | K ⟩.
 
 Hint Constructors value store_typing eval_typing state_typing frame_typing loc_transform loc_transform_cse loc_transform_ctx : core.
