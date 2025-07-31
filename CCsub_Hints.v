@@ -43,12 +43,12 @@ Ltac rewrite_set_facts_in H :=
   | _ => idtac
   end;
   match type of H with
-  | NatSet.F.mem _ _ = true => rewrite <- NatSetFacts.mem_iff in H
-  | NatSet.F.mem _ _ = false => rewrite <- NatSetFacts.not_mem_iff in H
-  | AtomSet.F.mem _ _ = true => rewrite <- AtomSetFacts.mem_iff in H
-  | AtomSet.F.mem _ _ = false => rewrite <- AtomSetFacts.not_mem_iff in H
-  | LocSet.F.mem _ _ = true => rewrite <- LocSetFacts.mem_iff in H 
-  | LocSet.F.mem _ _ = false => rewrite <- LocSetFacts.not_mem_iff in H
+  | NatSetImpl.mem _ _ = true => rewrite <- NatSetFacts.mem_iff in H
+  | NatSetImpl.mem _ _ = false => rewrite <- NatSetFacts.not_mem_iff in H
+  | AtomSetImpl.mem _ _ = true => rewrite <- AtomSetFacts.mem_iff in H
+  | AtomSetImpl.mem _ _ = false => rewrite <- AtomSetFacts.not_mem_iff in H
+  | LocSetImpl.mem _ _ = true => rewrite <- LocSetFacts.mem_iff in H 
+  | LocSetImpl.mem _ _ = false => rewrite <- LocSetFacts.not_mem_iff in H
   end.
 
 Ltac rewrite_parenthesise_binding_in H :=

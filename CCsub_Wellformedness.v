@@ -1,10 +1,9 @@
 Require Import Coq.Program.Equality.
 
 Require Export CCsub_Infrastructure.
-Require Import Atom.
 
 (* ********************************************************************** *)
-(** * #<a name="utils"></a># Automation Utils -- mostly related to wellformedness of environments [ok], [wf_ctx], [dom], ...*)
+(** * #<a name="utils"></a># Automation Utils -- mostly related to wellformedness of environments [uniq], [wf_ctx], [dom], ...*)
 
 
 Lemma cset_from_wf_cse : forall Γ S C,
@@ -20,28 +19,28 @@ Proof. eauto using cset_from_wf_cse. Qed.
 Hint Resolve cset_from_wf_cse_in : core.
 
 Lemma allbound_over_union : forall Γ T1 T2,
-  allbound Γ (T1 `u`A T2) ->
+  allbound Γ (T1 `union`A T2) ->
   allbound Γ T1 /\ allbound Γ T2.
 Proof with eauto*.
   intros.
-  split; intros ? ?; assert (x `in` (T1 `u`A T2)) by fsetdec...
+  split; intros ? ?; assert (x `in`A (T1 `union`A T2)) by fsetdec...
 Qed.
 
-Lemma ok_from_wf_ctx : forall Γ S,
+Lemma uniq_from_wf_ctx : forall Γ S,
   wf_ctx Γ S ->
-  ok Γ.
+  uniq Γ.
 Proof.
   intros Γ S H; induction H; auto.
 Qed.
 
-(** We add [ok_from_wf_ctx] as a hint here since it helps blur the
-    distinction between [wf_ctx] and [ok] in proofs.  The lemmas in
-    the [Environment] library use [ok], whereas here we naturally have
+(** We add [uniq_from_wf_ctx] as a hint here since it helps blur the
+    distinction between [wf_ctx] and [uniq] in proofs.  The lemmas in
+    the [Environment] library use [uniq], whereas here we naturally have
     (or can easily show) the stronger [wf_ctx].  Thus,
-    [ok_from_wf_ctx] serves as a bridge that allows us to use the
+    [uniq_from_wf_ctx] serves as a bridge that allows us to use the
     ctxironments library. *)
 
-Hint Resolve ok_from_wf_ctx : core.
+Hint Resolve uniq_from_wf_ctx : core.
 
 (* This lemma is needed by a couple of lemmas about wf_typ *)
 Lemma wf_ctx_tail : forall Γ Δ S,
@@ -54,19 +53,19 @@ Qed.
 
 Hint Resolve wf_ctx_tail : core.
 
-Hint Extern 1 (ok (map ?f ?Δ ++ ?Γ)) =>
+Hint Extern 1 (uniq (map ?f ?Δ ++ ?Γ)) =>
 match goal with
 | H : wf_ctx (Δ ++ ?b ++ Γ) S |- _ =>
-  enough (ok (Δ ++ b ++ Γ))
+  enough (uniq (Δ ++ b ++ Γ))
 end : core.
 
 Lemma binding_uniq_from_wf_ctx : forall F E S x b,
   wf_ctx (F ++ ([(x, b)]) ++ E) S ->
-  x ∉ (dom F `union` dom E).
+  x ∉ (dom F `union`A dom E).
 Proof.
   intros.
-  apply ok_from_wf_ctx in H.
-  eapply binding_uniq_from_ok; eauto.
+  apply uniq_from_wf_ctx in H.
+  eapply fresh_mid; eauto.
 Qed.
 
 (* ********************************************************************** *)
@@ -89,7 +88,7 @@ Hint Resolve empty_cse_wf univ_cse_wf : core.
 Lemma wf_cse_union : forall Γ S C D,
   wf_cse Γ S C ->
   wf_cse Γ S D ->
-  wf_cse Γ S (C `u` D).
+  wf_cse Γ S (cse_join C D).
 Proof with eauto.
   intros *.
   intros H1 H2.
@@ -97,7 +96,7 @@ Proof with eauto.
 Qed.
 
 Lemma wf_cse_over_join : forall Γ S C D,
-  wf_cse Γ S (C `u` D) <->
+  wf_cse Γ S (cse_join C D) <->
   wf_cse Γ S C /\ wf_cse Γ S D.
 Proof with eauto*.
   intros; split; intros H; destruct C eqn:HC1;
@@ -132,11 +131,12 @@ Ltac wf_cse_simpl instantiate_ext :=
     end
   end.
 
-Lemma wf_cse_fvars_from_ctx : forall Γ S C,
+Lemma wf_cse_fvars_from_ctx : forall Γ S C x,
   wf_cse Γ S C ->
-   (cse_fvars C) `subset` (dom Γ).
+  x `in`A (cse_fvars C) ->
+  x `in`A EnvImpl.dom Γ.
 Proof with eauto.
-  intros * Hwf.
+  intros * Hwf In.
   induction Hwf; simpl in *; try fsetdec...
   apply binds_In in H...
   fsetdec.
@@ -144,21 +144,21 @@ Qed.
 
 Lemma wf_cse_weakening : forall F E G S C,
   wf_cse (G ++ E) S C ->
-  ok (G ++ F ++ E) ->
+  uniq (G ++ F ++ E) ->
   wf_cse (G ++ F ++ E) S C.
 Proof with auto*.
-  intros * Hwf Hok.
+  intros * Hwf Huniq.
   remember (G ++ E).
   generalize dependent G.
-  induction Hwf; intros G EQ Hok; subst; simpl in *...
+  induction Hwf; intros G EQ Huniq; subst; simpl in *...
   apply (wf_cse_term_fvar T S (G ++ F ++ E) x).
-  apply binds_weaken...
+  apply EnvImpl.binds_weaken...
   apply wf_cse_term_loc with (T := T)...
 Qed.
 
 Lemma wf_cse_weaken_head : forall C Γ Δ S,
   wf_cse Γ S C ->
-  ok (Δ ++ Γ) ->
+  uniq (Δ ++ Γ) ->
   wf_cse (Δ ++ Γ) S C.
 Proof.
   intros.
@@ -172,23 +172,17 @@ Ltac destruct_bound H :=
 (* Type bindings don't matter at all! *)
 Lemma wf_cse_narrowing : forall V U C Γ Δ S X,
   wf_cse (Δ ++ [(X, bind_sub V)] ++ Γ) S C ->
-  ok (Δ ++ [(X, bind_sub U)] ++ Γ) ->
+  uniq (Δ ++ [(X, bind_sub U)] ++ Γ) ->
   wf_cse (Δ ++ [(X, bind_sub U)] ++ Γ) S C.
 Proof with simpl_env; eauto.
   intros *.
-  intros Hwf Hok.
+  intros Hwf Huniq.
   dependent induction Hwf...
   apply (wf_cse_term_fvar T S (Δ ++ [(X, bind_sub U)] ++ Γ) x).
   destruct (x == X).
   - subst. simpl in H.
-    binds_cases H.
-    -- unfold binds in H0. simpl in H0.
-       destruct (X == X)...
-       discriminate H0.
-    -- apply binds_head...
-  - binds_cases H.
-    -- apply binds_tail...
-    -- apply binds_head...  
+    analyze_binds H.
+  - analyze_binds H.
 Qed.
 
 Lemma wf_cse_narrowing_typ : forall C1 R1 C2 R2 C Γ Δ X S,
@@ -199,7 +193,7 @@ Proof with simpl_env; eauto.
   remember (Δ ++ [(X, bind_typ (C1 # R1))] ++ Γ).
   generalize dependent Δ.
   induction H; intros F Heq; subst...
-  binds_cases H...
+  analyze_binds H...
 Qed.
 
 Lemma wf_cse_ignores_typ_bindings : forall Γ Δ x C1 R1 C2 R2 C S,
@@ -209,16 +203,16 @@ Proof with eauto.
   intros*.
   intros H.
   dependent induction H; auto.
-  - binds_cases H.
-    -- apply (wf_cse_term_fvar T S (Δ ++ [(x, bind_typ (C2 # R2))] ++ Γ) x0).
-       apply binds_tail; auto.
-    -- apply (wf_cse_term_fvar (C2 # R2) S (Δ ++ [(x0, bind_typ (C2 # R2))] ++ Γ) x0).
-       auto.
+  - analyze_binds H.
     -- apply (wf_cse_term_fvar T S (Δ ++ [(x, bind_typ (C2 # R2))] ++ Γ) x0).
        auto.
+    -- apply (wf_cse_term_fvar (C2 # R2) S (Δ ++ [(x, bind_typ (C2 # R2))] ++ Γ) x).
+       auto.
+    -- apply (wf_cse_term_fvar T S (Δ ++ [(x, bind_typ (C2 # R2))] ++ Γ) x0).
+       apply binds_app_3; auto.
   - apply wf_cse_term_loc with (T := T)...
   - constructor...
-Qed. 
+Qed.
 
 Lemma wf_cse_ignores_sub_bindings : forall Γ Δ x R1 R2 C S,
   wf_cse (Δ ++ [(x, bind_sub R1)] ++ Γ) S C ->
@@ -226,18 +220,18 @@ Lemma wf_cse_ignores_sub_bindings : forall Γ Δ x R1 R2 C S,
 Proof with eauto.
   intros * H.
   dependent induction H; auto.
-  - binds_cases H.
-    -- apply (wf_cse_term_fvar T S (Δ ++ [(x, bind_sub R2)] ++ Γ) x0).
-       apply binds_tail; auto.
+  - analyze_binds H.
     -- apply (wf_cse_term_fvar T S (Δ ++ [(x, bind_sub R2)] ++ Γ) x0).
        auto.
+    -- apply (wf_cse_term_fvar T S (Δ ++ [(x, bind_sub R2)] ++ Γ) x0).
+       apply binds_app_3; auto.
   - apply wf_cse_term_loc with (T := T)...
   - constructor...
-Qed. 
+Qed.
 
 Create HintDb fsetdec.
 
-Hint Extern 1 (_ `in` _) => fsetdec: fsetdec.
+Hint Extern 1 (_ `in`A _) => fsetdec: fsetdec.
 
 (* skip this *)
 (* Lemma wf_cset_singleton_by_mem : forall xs b1 Γ x b2,
@@ -334,8 +328,6 @@ Proof with eauto.
   intros * ? H.
   dependent induction H...
   - destruct (x == x0); simpl in H0; notin_simpl...
-    + contradiction (H2 e).
-    + econstructor. binds_cases H...
   - apply wf_cse_union...
     + rewrite cse_fvars_join_union in H0.
       notin_simpl...
@@ -344,7 +336,7 @@ Proof with eauto.
 Qed.
 
 Lemma notin_open_tt_rec_fv_ct : forall k x T U,
-  x ∉ (fv_ct T `u`A fv_ct U) ->
+  x ∉ (fv_ct T `union`A fv_ct U) ->
   x ∉ fv_ct (open_tt_rec k U T).
 Proof with eauto*.
   intros * NotIn.
@@ -355,7 +347,7 @@ Proof with eauto*.
 Qed.
 
 Lemma notin_open_cse : forall k x c d,
-  x ∉ ((cse_fvars c) `u`A (cse_fvars d)) ->
+  x ∉ ((cse_fvars c) `union`A (cse_fvars d)) ->
   x ∉ (cse_fvars (open_cse k c d)).
 Proof with eauto*.
   intros * NotIn.
@@ -364,7 +356,7 @@ Proof with eauto*.
 Qed.
 
 Lemma notin_open_ct_rec_fv_ct : forall k x c T,
-  x ∉ (fv_ct T `u`A (cse_fvars c)) ->
+  x ∉ (fv_ct T `union`A (cse_fvars c)) ->
   x ∉ fv_ct (open_ct_rec k c T).
 Proof with eauto using notin_open_cse.
   intros * NotIn.
@@ -373,7 +365,7 @@ Proof with eauto using notin_open_cse.
 Qed.
 
 Lemma wf_typ_strengthen : forall x Γ Δ T U S,
-  x ∉ (dom Δ `u`A fv_ct T) ->
+  x ∉ (dom Δ `union`A fv_ct T) ->
   wf_typ (Δ ++ [(x, bind_typ U)] ++ Γ) S T ->
   wf_typ (Δ ++ Γ) S T.
 Proof with eauto*.
@@ -381,7 +373,7 @@ Proof with eauto*.
   eremember (Δ ++ [(x, bind_typ U)] ++ Γ) as Ctx.
   generalize dependent Δ.
   induction WfT; intros Ctx NotIn EQ; subst; simpl in *; notin_simpl; simpl_env in *.
-  - binds_cases H; simpl in *; notin_simpl...
+  - analyze_binds H; simpl in *; notin_simpl...
   - apply wf_typ_top.
   - pick fresh y and apply wf_typ_arr...
     rewrite_env (([(y, bind_typ (C # R))] ++ Ctx) ++ Γ).
@@ -408,28 +400,28 @@ Qed.
 
 Lemma wf_typ_weakening : forall T Γ Θ Δ S,
   wf_typ (Δ ++ Γ) S T ->
-  ok (Δ ++ Θ ++ Γ) ->
+  uniq (Δ ++ Θ ++ Γ) ->
   wf_typ (Δ ++ Θ ++ Γ) S T.
 Proof with eauto*.
-  intros * Hwf Hok.
+  intros * Hwf Huniq.
   eremember (Δ ++ Γ) as Ctx.
   generalize dependent Δ.
-  induction Hwf; intros Δ EQ Hok; subst...
+  induction Hwf; intros Δ EQ Huniq; subst...
   - pick fresh x and apply wf_typ_arr...
     rewrite_env (([(x, bind_typ (C # R))] ++ Δ) ++ Θ ++ Γ).
     apply H0...
-    apply ok_cons...
+    constructor; auto.
   - pick fresh X and apply wf_typ_all...
     rewrite_env (([(X, bind_sub R)] ++ Δ) ++ Θ ++ Γ).
     apply H1...
-    apply ok_cons...
+    constructor; auto.
   - apply wf_typ_capt...
     apply wf_cse_weakening...
 Qed.
 
 Lemma wf_typ_weaken_head : forall T Γ Δ S,
   wf_typ Γ S T ->
-  ok (Δ ++ Γ) ->
+  uniq (Δ ++ Γ) ->
   wf_typ (Δ ++ Γ) S T.
 Proof.
   intros.
@@ -446,7 +438,7 @@ Proof with simpl_env; eauto using wf_cse_ignores_sub_bindings.
   generalize dependent Δ.
   induction H; intros Δ Heq; subst...
   - Case "X0".
-    binds_cases H...
+    analyze_binds H...
   - Case "∀ (S) T".
     pick fresh y and apply wf_typ_arr...
     rewrite_env (([(y, bind_typ (C # R))] ++ Δ) ++ [(X, bind_sub U)] ++ Γ).
@@ -466,7 +458,7 @@ Proof with simpl_env; eauto using wf_cse_ignores_typ_bindings.
   generalize dependent Δ.
   induction H; intros Δ Heq; subst...
   - Case "X0".
-    binds_cases H...
+    analyze_binds H...
   - Case "∀ (S) T".
     pick fresh y and apply wf_typ_arr...
     rewrite_env (([(y, bind_typ (C # R))] ++ Δ) ++ [(x, bind_typ (C2 # R2))] ++ Γ).
@@ -476,8 +468,6 @@ Proof with simpl_env; eauto using wf_cse_ignores_typ_bindings.
     rewrite_env (([(Y, bind_sub R)] ++ Δ) ++ [(x, bind_typ (C2 # R2))] ++ Γ).
     apply H2...
 Qed.
-
-Notation "x `mem`A E" := (AtomSet.F.mem x E) (at level 69) : metatheory_scope.
 
 (* ********************************************************************** *)
 (** * #<a name="wffrom"></a># Lemmas helping to extract wellformedness or closedness from other properties. *)
@@ -489,8 +479,8 @@ Lemma wf_typ_from_binds_typ : forall x U Γ S,
   wf_typ Γ S U.
 Proof with eauto using wf_typ_weaken_head.
   intros * Hwf Hbinds.
-  induction Hwf; binds_cases Hbinds...
-  inversion H3; subst...
+  induction Hwf; analyze_binds Hbinds...
+  inversion select (_ = _); subst...
 Qed.
 
 Lemma wf_typ_from_binds_sub : forall x U Γ S,
@@ -499,7 +489,7 @@ Lemma wf_typ_from_binds_sub : forall x U Γ S,
   wf_typ Γ S U.
 Proof with eauto using wf_typ_weaken_head.
   intros x U E S Hwf Hbinds.
-  induction Hwf; binds_cases Hbinds...
+  induction Hwf; analyze_binds Hbinds...
   rename select (_ = _) into EQ.
   inversion EQ; subst...
 Qed.
@@ -524,7 +514,7 @@ Qed.
 
 Lemma wf_cse_loc_from_binds : forall C R l Γ S,
   wf_ctx Γ S ->
-  Store.binds l (C # R) S ->
+  StoreImpl.binds l (C # R) S ->
   wf_cse Γ S (cse_loc l).
 Proof.
   intros.
@@ -541,18 +531,18 @@ Proof with eauto using wf_typ_weaken_head.
   intros * WfCtx Binds.
   induction WfCtx.
   - inversion Binds.
-  - binds_cases Binds.
+  - analyze_binds Binds.
     rename select (binds x _ _) into Binds.
     destruct (IHWfCtx Binds) as [C [R [EQ WfCR]]].
     exists C, R.
     split...
-  - binds_cases Binds.
+  - analyze_binds Binds.
+    + exists C, R.
+      inversion select (bind_typ _ = bind_typ _).
+      split...
     + rename select (binds x _ _) into Binds.
       destruct (IHWfCtx Binds) as [D [Q [EQ WfCR]]].
       exists D, Q.
-      split...
-    + exists C, R.
-      inversion select (bind_typ _ = bind_typ _).
       split...
 Qed.
 
@@ -564,13 +554,13 @@ Proof with eauto using wf_typ_weaken_head.
   intros * WfCtx Binds.
   induction WfCtx.
   - inversion Binds.
-  - binds_cases Binds.
+  - analyze_binds Binds.
+    + inversion select (bind_sub _ = bind_sub _).
+      split...
     + rename select (binds X _ _) into Binds.
       destruct (IHWfCtx Binds) as [PureU WfU].
       split...
-    + inversion select (bind_sub _ = bind_sub _).
-      split... 
-  - binds_cases Binds.
+  - analyze_binds Binds.
     rename select (binds X _ _) into Binds.
     destruct (IHWfCtx Binds) as [PureU WfU].
     split...
@@ -602,27 +592,27 @@ Lemma wf_cse_subst_tb : forall Γ Δ Q Z P C S,
 Proof with simpl_env; eauto*.
   intros * HwfC HwfP.
   dependent induction HwfC; auto...
-  - binds_cases H.
-    -- apply (wf_cse_term_fvar T S (map (subst_tb Z P) Δ ++ Γ) x)...
+  - analyze_binds H.
     -- apply (wf_cse_term_fvar (subst_tt Z P T) S (map (subst_tb Z P) Δ ++ Γ) x)...
+    -- apply (wf_cse_term_fvar T S (map (subst_tb Z P) Δ ++ Γ) x)...
 Qed.
 
 Lemma wf_cse_over_subst : forall Γ Δ Q Z C C' S,
-  ok (map (subst_cb Z C) Δ ++ Γ) ->
+  uniq (map (subst_cb Z C) Δ ++ Γ) ->
   wf_cse Γ S C ->
   wf_cse (Δ ++ [(Z, bind_typ Q)] ++ Γ) S C' ->
-  ok (Δ ++ [(Z, bind_typ Q)] ++ Γ) ->
+  uniq (Δ ++ [(Z, bind_typ Q)] ++ Γ) ->
   wf_cse (map (subst_cb Z C) Δ ++ Γ) S (subst_cse Z C C').
 Proof with eauto*.
   intros Γ Δ Q Z C C' S.
-  intros HokFE HwfC HwfC' Hok.
+  intros HuniqFE HwfC HwfC' Huniq.
   induction C'; simpl; eauto*.
   - inversion HwfC'.
   - destruct (Z == a).
     + apply wf_cse_weaken_head; auto.
-    + dependent induction HwfC'. binds_cases H.
-      -- apply (wf_cse_term_fvar T S (map (subst_cb Z C) Δ ++ Γ) a)...
+    + dependent induction HwfC'. analyze_binds H.
       -- apply (wf_cse_term_fvar (subst_ct Z C T) S (map (subst_cb Z C) Δ ++ Γ) a)...
+      -- apply (wf_cse_term_fvar T S (map (subst_cb Z C) Δ ++ Γ) a)...
   - inversion HwfC'. apply wf_cse_term_loc with (T := T)...
   - apply wf_cse_over_join in HwfC'...
 Qed.
@@ -630,8 +620,8 @@ Qed.
 Lemma wf_typ_subst_cb : forall Γ Δ Q Z C T S,
   wf_typ (Δ ++ [(Z, bind_typ Q)] ++ Γ) S T ->
   wf_cse Γ S C ->
-  ok (map (subst_cb Z C) Δ ++ Γ) ->
-  ok (Δ ++ [(Z, bind_typ Q)] ++ Γ) ->
+  uniq (map (subst_cb Z C) Δ ++ Γ) ->
+  uniq (Δ ++ [(Z, bind_typ Q)] ++ Γ) ->
   wf_typ (map (subst_cb Z C) Δ ++ Γ) S (subst_ct Z C T).
 Proof with simpl_env;
            eauto using wf_typ_weaken_head,
@@ -639,21 +629,19 @@ Proof with simpl_env;
                        type_from_wf_typ,
                        cset_from_wf_cse.
   intros *.
-  intros HwfT HwfC Hok HokZ.
+  intros HwfT HwfC Huniq HuniqZ.
   remember (Δ ++ [(Z, bind_typ Q)] ++ Γ).
   generalize dependent Δ.
-  induction HwfT; intros Δ ? Hok; subst; simpl subst_ct...
+  induction HwfT; intros Δ ? Huniq; subst; simpl subst_ct...
   - Case "X".
     assert (X <> Z). {
-      binds_cases H...
-      - simpl_env in *.
-        notin_solve.
-      - assert (binds X (bind_sub T) (Δ ++ [(Z, bind_typ Q)] ++ Γ)) by auto.
-        forwards: fresh_mid_head HokZ.
-        forwards: binds_In H1.
-        fsetdec.
+      analyze_binds H; intro Heq; subst.
+      - apply fresh_mid_head in HuniqZ.
+        eauto using binds_dom_contradiction.
+      - apply fresh_mid_tail in HuniqZ.
+        eauto using binds_dom_contradiction.
     }
-    binds_cases H...
+    analyze_binds H...
     apply (wf_typ_var _ S X (subst_ct Z C T))...
   - Case "∀ (S) T".
     pick fresh y and apply wf_typ_arr.
@@ -689,21 +677,21 @@ Proof with simpl_env; eauto*.
   induction C; eauto*.
   - inversion HwfC.
   - simpl. destruct (x == a).
-    + apply wf_cse_weaken_head... apply ok_from_wf_ctx in HwfCtx...
+    + apply wf_cse_weaken_head... apply uniq_from_wf_ctx in HwfCtx...
     + dependent induction HwfC.
-      binds_cases H...
+      analyze_binds H...
       apply (wf_cse_term_fvar (subst_ct x D T) S (map (subst_cb x D) Δ ++ Γ) a)...
   - inversion HwfC. apply wf_cse_term_loc with (T := T)...
   - simpl. apply wf_cse_over_join in HwfC...
 Qed.
 
 Lemma wf_typ_open_cse : forall Γ C R T S,
-  ok Γ ->
+  uniq Γ ->
   wf_typ Γ S (∀ (R) T) ->
   wf_cse Γ S C ->
   wf_typ Γ S (open_ct T C).
 Proof with simpl_env; eauto.
-  intros * Hok HwfA HwfC.
+  intros * Huniq HwfA HwfC.
   inversion HwfA; subst...
   pick fresh x.
   rewrite (subst_ct_intro x)...
@@ -717,23 +705,23 @@ Lemma wf_typ_subst_tb : forall Γ Δ Q Z P T S,
 (*       as we're substituting in both places. *)
   wf_typ Γ S P ->
   pure_type P ->
-  ok (Δ ++ [(Z, bind_sub Q)] ++ Γ) ->
+  uniq (Δ ++ [(Z, bind_sub Q)] ++ Γ) ->
   wf_typ (map (subst_tb Z P) Δ ++ Γ) S (subst_tt Z P T).
 Proof with simpl_env; eauto using wf_typ_weaken_head, type_from_wf_typ, wf_cse_subst_tb.
-  intros * HwfT HwfP HpureP Hok.
+  intros * HwfT HwfP HpureP Huniq.
   (* remember (F ++ [(Z, bind_sub Q)] ++ E). *)
   (* generalize dependent F. *)
-  (* induction HwfT; intros F EQF Hok; subst; simpl subst_tt. *)
+  (* induction HwfT; intros F EQF Huniq; subst; simpl subst_tt. *)
   dependent induction HwfT; simpl...
   - Case "X".
     destruct (X == Z); subst.
     + SCase "X == Z".
       eapply wf_typ_weaken_head...
     + SCase "X <> Z".
-      forwards: fresh_mid_tail Hok.
-      binds_cases H.
-      * applys wf_typ_var T...
+      forwards: fresh_mid_tail Huniq.
+      analyze_binds H.
       * applys wf_typ_var (subst_tt Z P T)...
+      * applys wf_typ_var T...
   - Case "∀ (S) T".
     pick fresh y and apply wf_typ_arr...
     unfold open_ct in *...
@@ -755,13 +743,13 @@ Proof with simpl_env; eauto using wf_typ_weaken_head, type_from_wf_typ, wf_cse_s
 Qed.
 
 Lemma wf_typ_open_type : forall Γ U R T S,
-  ok Γ ->
+  uniq Γ ->
   wf_typ Γ S (∀ [R] T) ->
   wf_typ Γ S U ->
   pure_type U ->
   wf_typ Γ S (open_tt T U).
 Proof with simpl_env; eauto.
-  intros * Hok HwfA HwfU HpureU.
+  intros * Huniq HwfA HwfU HpureU.
   inversion HwfA; subst...
   pick fresh X.
   rewrite (subst_tt_intro X)...
@@ -782,12 +770,12 @@ Proof with eauto 6 using wf_typ_subst_tb.
     + eapply IHΔ...
     + eapply wf_typ_subst_tb...
     + apply subst_tt_pure_type... 
-    + rewrite dom_concat, dom_map...
+    + rewrite dom_app, dom_map...
   - apply wf_ctx_typ.
     + eapply IHΔ...
     + replace (C # subst_tt Z P R) with (subst_tt Z P (C # R)) by reflexivity.
       eapply wf_typ_subst_tb...
-    + rewrite dom_concat, dom_map...
+    + rewrite dom_app, dom_map...
 Qed.
 
 Lemma wf_ctx_subst_cb : forall Γ Δ Q C x S,
@@ -803,16 +791,16 @@ Proof with eauto using wf_typ_subst_cb.
     + eapply IHΔ...
     + eapply wf_typ_subst_cb...
     + apply subst_ct_pure_type...
-    + rewrite dom_concat, dom_map...
+    + rewrite dom_app, dom_map...
   - apply wf_ctx_typ.
     + eapply IHΔ...
     + replace (subst_cse x C C0 # subst_ct x C R) with (subst_ct x C (C0 # R)) by reflexivity.
       eapply wf_typ_subst_cb...
-    + rewrite dom_concat, dom_map...
+    + rewrite dom_app, dom_map...
 Qed.
 
 (* ********************************************************************** *)
-(** * #<a name="okt"></a># Properties of [wf_ctx] *)
+(** * #<a name="uniqt"></a># Properties of [wf_ctx] *)
 
 Lemma wf_ctx_narrowing : forall Γ Δ V U X S,
   wf_ctx (Δ ++ [(X, bind_sub V)] ++ Γ) S ->
@@ -820,8 +808,8 @@ Lemma wf_ctx_narrowing : forall Γ Δ V U X S,
   wf_typ Γ S U ->
   wf_ctx (Δ ++ [(X, bind_sub U)] ++ Γ) S.
 Proof with eauto using wf_typ_ignores_sub_bindings, wf_typ_ignores_typ_bindings.
-  induction Δ; intros * WfCtx Wf;
-    inversion WfCtx; subst; simpl_env in *...
+  induction Δ; intros * WfCtx Pure WfTyp;
+    inversion WfCtx; subst; simpl_env in *; constructor...
 Qed.
 
 Lemma wf_ctx_narrowing_typ : forall Γ Δ C1 R1 C2 R2 X S,
@@ -830,18 +818,18 @@ Lemma wf_ctx_narrowing_typ : forall Γ Δ C1 R1 C2 R2 X S,
   wf_ctx (Δ ++ [(X, bind_typ (C2 # R2))] ++ Γ) S.
 Proof with eauto using wf_typ_ignores_sub_bindings, wf_typ_ignores_typ_bindings.
   induction Δ; intros * WfCtx Wf;
-    inversion WfCtx; subst; simpl_env in *...
+    inversion WfCtx; subst; simpl_env in *; constructor...
 Qed.
 
-Lemma ok_from_wf_store_ctx : forall S,
+Lemma uniq_from_wf_store_ctx : forall S,
   wf_store_ctx S ->
-  Store.ok S.
+  StoreImpl.uniq S.
 Proof with eauto.
   intros * H.
   induction H...
 Qed.
 
-Hint Resolve ok_from_wf_store_ctx : core.
+Hint Resolve uniq_from_wf_store_ctx : core.
 
 Lemma wf_store_ctx_from_wf_ctx : forall S Γ,
   wf_ctx Γ S ->
@@ -855,19 +843,19 @@ Hint Resolve wf_store_ctx_from_wf_ctx : core.
 
 Lemma wf_cse_weaken_store_tail: forall C Γ S1 S2,
   wf_cse Γ S2 C ->
-  Store.ok (S1 ++ S2) ->
+  StoreImpl.uniq (S1 ++ S2) ->
   wf_cse Γ (S1 ++ S2) C.
 Proof with eauto.
-  intros * Hwf Hok.
+  intros * Hwf Huniq.
   induction Hwf...
 Qed.
 
 Lemma wf_typ_weaken_store_tail: forall T Γ S1 S2,
   wf_typ Γ S2 T ->
-  Store.ok (S1 ++ S2) ->
+  StoreImpl.uniq (S1 ++ S2) ->
   wf_typ Γ (S1 ++ S2) T.
 Proof with eauto.
-  intros * Hwf Hok.
+  intros * Hwf Huniq.
   induction Hwf...
   apply wf_typ_capt...
   apply wf_cse_weaken_store_tail...
@@ -880,40 +868,37 @@ Proof with eauto.
   intros * H.
   induction S1...
   destruct a.
-  rewrite (Store.cons_concat_assoc _ l t S1 S2) in H.
   inversion H; subst...
 Qed.
 
 Lemma wf_typ_from_wf_store_ctx_nil : forall S C R l,
   wf_store_ctx S ->
-  Store.binds l (C # R) S ->
+  StoreImpl.binds l (C # R) S ->
   wf_typ nil S (C # R).
-Proof with eauto 5 using wf_typ_weaken_store_tail.
+Proof with eauto using wf_typ_weaken_store_tail.
   intros * Hwf Hbinds.
   induction Hwf...
   - inversion Hbinds.
-  - inversion Hbinds.
-    destruct (l ==== l0); subst...
-    inversion H2; subst...
+  - StoreImpl.analyze_binds Hbinds...
+    inversion BindsTacVal; subst...
 Qed.
 
 Lemma wf_typ_from_wf_store_ctx : forall Γ S C R l,
   wf_store_ctx S ->
-  Store.binds l (C # R) S ->
+  StoreImpl.binds l (C # R) S ->
   wf_ctx Γ S ->
   wf_typ Γ S (C # R).
 Proof with eauto 5 using wf_typ_weaken_store_tail.
   intros * Hwf Hbinds WfCtx.
   enough (wf_typ nil S (C # R)) as H.
   apply wf_typ_weaken_head with (Δ := Γ) in H; simpl_env in *...
-
   apply wf_typ_from_wf_store_ctx_nil with (l := l)...
 Qed.
 
 Lemma wf_pair_from_wf_store_ctx : forall Γ S C R l,
   wf_store_ctx S ->
   wf_ctx Γ S ->
-  Store.binds l (C # R) S ->
+  StoreImpl.binds l (C # R) S ->
   wf_cse Γ S C /\ wf_typ Γ S (C # R).
 Proof with eauto.
   intros * Hwf HwfCtx Hbinds.
@@ -926,7 +911,7 @@ Lemma wf_cse_weakening_store : forall Γ S1 S2 S3 C,
   wf_store_ctx (S1 ++ S2 ++ S3) ->
   wf_cse Γ (S1 ++ S2 ++ S3) C.
 Proof with eauto.
-  intros * Hwf Hok.
+  intros * Hwf Huniq.
   dependent induction Hwf...
 Qed.
 
@@ -935,7 +920,7 @@ Lemma wf_typ_weakening_store : forall Γ S1 S2 S3 T,
   wf_store_ctx (S1 ++ S2 ++ S3) ->
   wf_typ Γ (S1 ++ S2 ++ S3) T.
 Proof with eauto.
-  intros * Hwf Hok.
+  intros * Hwf Huniq.
   dependent induction Hwf...
   apply wf_typ_capt...
   apply wf_cse_weakening_store...
@@ -946,7 +931,7 @@ Lemma wf_ctx_weakening_store : forall Γ S1 S2 S3,
   wf_store_ctx (S1 ++ S2 ++ S3) ->
   wf_ctx Γ (S1 ++ S2 ++ S3).
 Proof with eauto using wf_cse_weakening_store, wf_typ_weakening_store.
-  intros * Hwf Hok.
+  intros * Hwf Huniq.
   dependent induction Hwf...
 Qed.
 
