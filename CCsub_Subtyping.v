@@ -17,11 +17,11 @@ Proof with eauto using subcapt_reflexivity, wf_typ_weakening.
   intros *.
   intros WfS Ok Wf.
   induction Wf...
-  - apply sub_arr with (L := L `u`A dom Γ)...
+  - apply sub_arr with (L := L `union`A dom Γ)...
     all: inversion Wf...
     pose (CRRefl := IHWf WfS Ok).
     inversion CRRefl...
-  - apply sub_all with (L := L `u`A dom Γ)...
+  - apply sub_all with (L := L `union`A dom Γ)...
 Qed.
 
 (* ********************************************************************** *)
@@ -41,14 +41,16 @@ Proof with simpl_env; eauto using wf_typ_weakening, subcapt_weakening, wf_cse_we
   induction Sub; intros Δ Ok EQ; subst...
   - Case "sub_arr".
     pick fresh y and apply sub_arr...
-    rewrite <- concat_assoc.
+    rewrite <- app_assoc.
     rename select (forall x : atom, x ∉ L -> forall Δ0 : ctx, [(x, bind_typ (C2 # R2))] ++ _ = _ -> _) into IH.
     apply IH...
+    constructor...
   - Case "sub_all".
     pick fresh Y and apply sub_all...
-    rewrite <- concat_assoc.
+    rewrite <- app_assoc.
     rename select (forall X : atom, X ∉ L -> forall Δ0 : ctx, [(X, bind_sub R2)] ++ _ = _ -> _) into IH.
     apply IH...
+    constructor...
 Qed.
 
 Lemma sub_weakening_store : forall Γ S1 S2 S3 T U,
@@ -78,29 +80,23 @@ Lemma subcapt_narrowing_typ : forall Δ Γ S x CP P CQ Q R T,
   subcapt (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ) S R T ->
   sub Γ S (CP # P) (CQ # Q) ->
   subcapt (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) S R T.
-Proof with eauto using wf_cse_narrowing_typ, wf_ctx_narrowing_typ.
+Proof with simpl_env; eauto using wf_cse_narrowing_typ, wf_ctx_narrowing_typ.
   intros * SsubT PsubQ.
   remember (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ).
   generalize dependent Δ.
   induction SsubT; intros Δ EQ; subst...
   destruct (X == x); subst...
-  - binds_cases H... inversion H0.
-    rewrite H2 in SsubT.
-    apply (subcapt_trans_var CP S (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) Q0 x P).
-    auto.
-    inversion PsubQ; subst.
-    assert (Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ = Δ ++ [(x, bind_typ (CQ # Q))] ++ Γ ) by reflexivity.
-    specialize (IHSsubT PsubQ Δ H1).
-    assert (subcapt (Δ ++ ([(x, bind_typ (CP # P))]) ++ Γ) S CP CQ).
-    {
-      rewrite_env (nil ++ (Δ ++ [(x, bind_typ (CP # P))]) ++ Γ).
-      apply (subcapt_weakening Γ (Δ ++ [(x, bind_typ (CP # P))]) nil CP CQ).
-      simpl. exact H9.
-      simpl. rewrite concat_assoc.
-      apply (proj1 (proj2 (subcapt_regular (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) CQ Q0 S IHSsubT))).
-    }
-    apply subcapt_transitivity with (Q := CQ)...
-  - binds_cases H...
+  analyze_binds H... inversion BindsTacVal; subst.
+apply (subcapt_trans_var CP S (Δ ++ [(x, bind_typ (CP # P))] ++ Γ) Q0 x P).
+auto.
+  inversion PsubQ; subst.
+  specialize (IHSsubT PsubQ Δ eq_refl).
+  assert (subcapt (Δ ++ ([(x, bind_typ (CP # P))]) ++ Γ) S CP CQ).
+  {
+    rewrite_env (nil ++ (Δ ++ [(x, bind_typ (CP # P))]) ++ Γ).
+    apply (subcapt_weakening Γ (Δ ++ [(x, bind_typ (CP # P))]) nil CP CQ)...
+  }
+  apply subcapt_transitivity with (Q := CQ)...
 Qed.
 
 Lemma subcapt_narrowing : forall Δ Γ S Z P Q C1 C2,
@@ -112,7 +108,7 @@ Lemma subcapt_narrowing : forall Δ Γ S Z P Q C1 C2,
 Proof with eauto 6 using wf_cse_narrowing, wf_ctx_narrowing.
   intros * SubPQ TransQ WfE SubCap.
   dependent induction SubCap...
-  - binds_cases H...
+  - analyze_binds H...
 Qed.
 
 Lemma sub_narrowing_aux : forall Q Δ Γ Z P R T S,
@@ -135,11 +131,8 @@ Proof with simpl_env;
     destruct (X == Z); subst.
     + SCase "X = Z".
       apply (sub_trans_tvar P).
-      * apply binds_tail.
-        apply binds_head; apply binds_singleton.
-        eapply fresh_mid_head.
-        apply ok_from_wf_ctx with (S := S).
-        applys sub_regular SsubT.
+      * apply binds_app_3.
+        apply binds_app_2; apply binds_one...
       * apply TransQ.
         -- SSCase "{} # P <: {} # Q".
            forwards: IHSsubT Δ.
@@ -148,8 +141,8 @@ Proof with simpl_env;
            rewrite_env (∅ ++ (Δ ++ [(Z, bind_sub P)]) ++ Γ).
            apply sub_weakening...
         -- SSCase "{} # Q <: T".
-          rename select (binds Z _ _) into Binds.
-           binds_get Binds...
+           rename select (binds Z _ _) into Binds.
+           analyze_binds_uniq Binds...
            inversion select (bind_sub _ = bind_sub _); subst...
     + SCase "X <> Z".
       forwards: IHSsubT Δ.
@@ -158,12 +151,12 @@ Proof with simpl_env;
       apply (sub_trans_tvar U)...
   - Case "sub_arr".
     pick fresh Y and apply sub_arr...
-    rewrite_parenthesise_binding.
+    rewrite <- app_assoc.
     rename select (forall x : atom, x ∉ L -> sub Γ S P Q -> forall Δ0 : ctx, [(x, bind_typ (C2 # R2))] ++ _ = _ -> _) into IH.
     eapply IH...
   - Case "sub_all".
     pick fresh Y and apply sub_all...
-    rewrite_parenthesise_binding.
+    rewrite <- app_assoc.
     rename select (forall X : atom, X ∉ L -> sub Γ S P Q -> forall Δ0 : ctx, [(X, bind_sub R2)] ++ _ = _ -> _) into IH.
     eapply IH...
 Qed.
@@ -183,16 +176,14 @@ Proof with simpl_env;
   induction SsubT; intros Δ EQ; subst...
   - Case "sub_trans_tvar".
     apply sub_trans_tvar with (U := U)...
-    binds_cases H.
-    + apply binds_tail...
-    + apply binds_head...
+    analyze_binds H.
   - Case "sub_arr".
     pick fresh Y and apply sub_arr...
-    rewrite_parenthesise_binding.
+    rewrite <- app_assoc.
     rename select (forall x0 : atom, x0 ∉ L -> sub Γ S (CP # P) (CQ # Q) -> forall Δ0 : ctx, [(x0, bind_typ (C2 # R2))] ++ _ = _ -> _) into IH.
     eapply IH...
   - pick fresh Y and apply sub_all...
-    rewrite_parenthesise_binding.
+    rewrite <- app_assoc.
     rename select (forall X : atom, X ∉ L -> sub Γ S (CP # P) (CQ # Q) -> forall Δ0 : ctx, [(X, bind_sub R2)] ++ _ = _ -> _) into IH.
     eapply IH...
 Qed.
