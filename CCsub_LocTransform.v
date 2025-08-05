@@ -94,6 +94,40 @@ Proof with eauto.
     exists T2...
 Qed.
 
+Lemma loc_transform_exp_ident : forall E e,
+  (forall x, x `notin`A fv_ve e `union`A fv_ce e) ->
+  loc_transform_exp E e e.
+Proof with eauto.
+  intros * Fv.
+  induction E...
+  destruct a as [x l].
+  apply loc_transform_exp_multi with (E := E) (e1 := e)...
+  rewrite <- subst_ve_fresh...
+Qed.
+
+Lemma loc_transform_exp_deterministic : forall E e1 e2 e3,
+  loc_transform_exp E e1 e2 ->
+  loc_transform_exp E e1 e3 ->
+  e2 = e3.
+Proof with eauto.
+  intros * LocTrans1 LocTrans2.
+  generalize dependent e3.
+  dependent induction LocTrans1; intros; subst; simpl in *;
+  inversion LocTrans2; subst...
+Qed.
+
+Lemma loc_transform_exp_result : forall e E,
+  exists e2, loc_transform_exp E e e2.
+Proof with eauto.
+  intros *.
+  generalize dependent e.
+  dependent induction E; intros; simpl in *.
+  - exists e...
+  - destruct a as [x l].
+    pose proof (IHE (subst_ve x l (cse_loc l) e)) as [e2 LocTrans].
+    exists e2...
+Qed.
+
 Lemma loc_transform_pure : forall E T1 T2,
   loc_transform E T1 T2 ->
   pure_type T1 ->
@@ -198,6 +232,29 @@ Proof with eauto.
     intro; subst...
 Qed.
 
+Lemma loc_transfrom_exp_bound_fvar : forall E x l,
+  uniq E ->
+  binds x l E ->
+  loc_transform_exp E x l.
+Proof with eauto.
+  intros * Uniq Binds.
+  induction E; simpl in *...
+  { inversion Binds. }
+  destruct a as [y l'].
+  simpl_env in Binds.
+  analyze_binds Binds.
+  - constructor...
+    simpl...
+    destruct (y == y); try fsetdec...
+    epose proof (loc_transform_exp_ident E l')...
+  - inversion Uniq; subst.
+    constructor...
+    rewrite <- subst_ve_fresh...
+    simpl.
+    enough (y <> x) by fsetdec.
+    intro; subst...
+Qed.
+
 Lemma loc_transform_cse_unbound_fvar : forall E x,
   x `notin`A dom E ->
   loc_transform_cse E (cse_fvar x) (cse_fvar x).
@@ -210,6 +267,18 @@ Proof with eauto.
   rewrite <- subst_cse_fresh...
 Qed.
 
+Lemma loc_transform_exp_unbound_var : forall E x,
+  x `notin`A dom E ->
+  loc_transform_exp E x x.
+Proof with eauto.
+  intros * NotIn.
+  induction E; simpl in *...
+  destruct a as [y l].
+  assert (x <> y) by fsetdec.
+  constructor...
+  rewrite <- subst_ve_fresh...
+Qed.
+
 Ltac loc_transform_cse_ident_eq H :=
   match type of H with
   | loc_transform_cse ?E ?C ?C' =>
@@ -220,6 +289,12 @@ Ltac loc_transform_ident_eq H :=
   match type of H with
   | loc_transform ?E ?T ?T' =>
       unshelve epose proof (loc_transform_deterministic _ _ _ _ H (loc_transform_ident E T _)); subst
+  end.
+
+Ltac loc_transform_exp_ident_eq H :=
+  match type of H with
+  | loc_transform_exp ?E ?e ?e' =>
+      unshelve epose proof (loc_transform_exp_deterministic _ _ _ _ H (loc_transform_exp_ident E e _)); subst
   end.
 
 Lemma loc_transform_unbound_var : forall E X,
@@ -689,6 +764,364 @@ Lemma sub_under_loc_transform : forall Γ E S T1 T2 T1' T2',
   sub nil S T1' T2'.
 Admitted.
 (* TODO for Sam *)
+
+Lemma loc_transform_exp_abs : forall E e e2 C R,
+  loc_transform_exp E (λ ((C # R)) e) e2 ->
+  exists C' R' e',
+    loc_transform_cse E C C' /\
+    loc_transform E R R' /\
+    loc_transform_exp E e e' /\
+    e2 = (λ ((C' # R')) e').
+Proof with eauto.
+  intros * LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - exists C, R, e; repeat split...
+  - destruct (IHLocTrans _ _ _ eq_refl) as [C' [R' [e' [LocTransC [LocTransR [LocTransExp Eq]]]]]]; subst.
+    exists C', R', e'; repeat split...
+Qed.
+
+Lemma loc_transform_exp_tabs : forall E T e e2,
+  loc_transform_exp E (Λ [T] e) e2 ->
+  exists T' e',
+    loc_transform E T T' /\
+    loc_transform_exp E e e' /\
+    e2 = (Λ [T'] e').
+Proof with eauto.
+  intros * LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - exists T, e; split...
+  - destruct (IHLocTrans _ _ eq_refl) as [T' [e' [LocTransT [LocTransExp Eq]]]]; subst.
+    exists T', e'; split...
+Qed.
+
+Lemma loc_transform_exp_app : forall E f x e,
+  loc_transform_exp E (f @ x) e ->
+  exists (f' x' : var_like),
+    loc_transform_exp E f f' /\
+    loc_transform_exp E x x' /\
+    e = (f' @ x').
+Proof with eauto.
+  intros * LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - exists f, x; repeat split...
+  - destruct (IHLocTrans _ _ eq_refl) as [f' [x' [LocTransF [LocTransX Eq]]]]; subst.
+    exists f', x'; repeat split...
+Qed.
+
+Lemma loc_transform_exp_tapp : forall E e T e2,
+  loc_transform_exp E (e @ [T]) e2 ->
+  exists T' (e' : var_like),
+    loc_transform E T T' /\
+    loc_transform_exp E e e' /\
+    e2 = (e' @ [T']).
+Proof with eauto.
+  intros * LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - exists T, e; split...
+  - destruct (IHLocTrans _ _ eq_refl) as [T' [e' [LocTransT [LocTransExp Eq]]]]; subst.
+    exists T', e'; split...
+Qed.
+
+Lemma loc_transform_exp_let : forall E k e e2,
+  loc_transform_exp E (let= e in k) e2 ->
+  exists e' k',
+    loc_transform_exp E k k' /\
+    loc_transform_exp E e e' /\
+    e2 = (let= e' in k').
+Proof with eauto.
+  intros * LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - exists e, k; repeat split...
+  - destruct (IHLocTrans _ _ eq_refl) as [e' [k' [LocTransE [LocTransK Eq]]]]; subst.
+    exists e', k'; repeat split...
+Qed.
+
+Lemma loc_transform_exp_box : forall E e e2,
+  loc_transform_exp E (box e) e2 ->
+  exists (e' : var_like),
+    loc_transform_exp E e e' /\
+    e2 = box e'.
+Proof with eauto.
+  intros * LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - exists e; split...
+  - destruct (IHLocTrans _ eq_refl) as [e' [LocTransE Eq]]; subst.
+    exists e'; split...
+Qed.
+
+Lemma loc_transform_exp_unbox : forall E C x e2,
+  loc_transform_exp E (C ⟜ x) e2 ->
+  exists C' (x' : var_like),
+    loc_transform_cse E C C' /\
+    loc_transform_exp E x x' /\
+    e2 = (C' ⟜ x').
+Proof with eauto.
+  intros * LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - exists C, x; repeat split...
+  - destruct (IHLocTrans _ _ eq_refl) as [C' [x' [LocTransC [LocTransX Eq]]]]; subst.
+    exists C', x'; repeat split...
+Qed.
+
+Lemma loc_transform_cse_exp_cv : forall E e1 e2,
+  loc_transform_exp E e1 e2 ->
+  loc_transform_cse E (exp_cv e1) (exp_cv e2).
+Proof with eauto.
+  intros * LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - constructor...
+  - rewrite <- subst_cse_loc_cv_commutes_with_subst_ve in IHLocTrans...
+Qed.
+
+
+Lemma loc_transform_exp_open_ve_unbound_var : forall E e1 e2 x,
+  x `notin`A dom E ->
+  loc_transform_exp E e1 e2 ->
+  loc_transform_exp E (open_ve e1 x (cse_fvar x)) (open_ve e2 x (cse_fvar x)).
+Proof with eauto.
+  intros * NotIn LocTrans.
+  generalize dependent x.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - constructor...
+  - destruct (x == x0); try fsetdec...
+    constructor...
+    unfold open_ve in *.
+    rewrite subst_ve_open_ve_rec...
+    simpl...
+    destruct (x == x0); try fsetdec...
+Qed.
+
+Lemma loc_transform_exp_open_te_unbound_var : forall E e1 e2 X,
+  X `notin`A dom E ->
+  loc_transform_exp E e1 e2 ->
+  loc_transform_exp E (open_te e1 X) (open_te e2 X).
+Proof with eauto.
+  intros * NotIn LocTrans.
+  generalize dependent X.
+  dependent induction LocTrans; intros; subst; simpl in *.
+  - constructor...
+  - destruct (X == x); try fsetdec...
+    constructor...
+    unfold open_te in *.
+    replace (open_te_rec 0 X e1) with (open_te e1 X) by reflexivity.
+    rewrite <- subst_ve_open_te_var...
+Qed.
+
+Lemma loc_transform_open_tt : forall E T T' P P',
+  loc_transform E T T' ->
+  loc_transform E P P' ->
+  loc_transform E (open_tt T P) (open_tt T' P').
+Proof with eauto using loc_transform_ctx_binds_typ, loc_transform_ctx_binds_sub.
+  intros * LocTransT LocTransP.
+  generalize dependent P.
+  generalize dependent P'.
+  dependent induction LocTransT; intros; subst; simpl in *.
+  - inversion LocTransP; subst.
+    constructor...
+  - inversion LocTransP; subst.
+    constructor...
+    unfold open_tt.
+    rewrite subst_ct_open_tt_rec...
+Qed.
+
+Lemma loc_transform_exp_fvar_like : forall E (v v' : var_like),
+  fvar_like v ->
+  loc_transform_exp E v v' ->
+  fvar_like v'.
+Proof with eauto.
+  intros * FvarLike LocTrans.
+  dependent induction LocTrans; intros; subst; simpl in *...
+Qed.
+
+Lemma typing_under_loc_transform_strong : forall Γ Δ Δ' E S e e' T T',
+  env_well_typed S E Γ ->
+  typing (Δ ++ Γ) S e T ->
+  loc_transform E T T' ->
+  loc_transform_exp E e e' ->
+  loc_transform_ctx E Δ Δ' ->
+  typing Δ' S e' T'.
+Proof with eauto using loc_transform_ctx_binds_typ, loc_transform_ctx_binds_sub, loc_transform_cse_wf, loc_transform_wf, loc_transform_pure, wf_typ_notin_fv_ct, wf_typ_from_wf_store_ctx_nil, loc_transform_ctx_wf, loc_transform_exp_fvar_like.
+  intros * EnvTyp Typ LocTrans LocTransExp LocTransCtx.
+  assert (WfCtx : wf_ctx (Δ ++ Γ) S) by applys typing_regular Typ.
+  assert (WfΓ : wf_ctx Γ S) by (eapply env_well_typed_ctx_wf; eauto).
+  assert (Uniq : uniq (Δ ++ Γ)) by eauto.
+  generalize dependent T'.
+  generalize dependent e'.
+  generalize dependent E.
+  generalize dependent Δ'.
+  dependent induction Typ; intros; subst; simpl in *.
+  - Case "typing_var".
+    simpl_env in H0.
+    analyze_binds_uniq H0; subst.
+    + erewrite <- env_well_typed_preserves_dom in H1...
+      epose proof (loc_transform_exp_unbound_var _ _ H1) as Ident.
+      epose proof (loc_transform_exp_deterministic _ _ _ _ LocTransExp Ident); subst.
+      epose proof (loc_transform_capt _ _ _ _ LocTrans) as [C' [R' [Eq [LocTransC LocTransR]]]]; subst.
+      epose proof (loc_transform_cse_unbound_fvar E x H1) as IdentFvar.
+      epose proof (loc_transform_cse_deterministic _ _ _ _ LocTransC IdentFvar); subst.
+      epose proof (loc_transform_cse_result C E) as [C' LocTransC'].
+      unshelve epose proof (loc_transform_ctx_binds_typ _ _ _ _ _ (C' # R') H1 LocTransCtx BindsTac _).
+      apply loc_transform_equiv...
+      econstructor...
+    + epose proof (runtime_ctx_binds_loc _ _ _ _ _ _ EnvTyp BindsTac) as [l [BindsL EqL]]; subst.
+      unshelve epose proof (loc_transfrom_exp_bound_fvar _ _ _ _ BindsL)...
+      epose proof (loc_transform_exp_deterministic _ _ _ _ LocTransExp H0); subst.
+      epose proof (loc_transform_capt _ _ _ _ LocTrans) as [C' [R' [Eq [LocTransC LocTransR]]]]; subst.
+      unshelve epose proof (loc_transform_cse_bound_fvar _ _ _ _ BindsL) as LocTransFvar...
+      epose proof (loc_transform_cse_deterministic _ _ _ _ LocTransC LocTransFvar); subst.
+      epose proof ((proj2 (env_typing_inversion _ _ _ R _ _ EnvTyp BindsL)) BindsTac) as [C StoreBinds]...
+      loc_transform_ident_eq LocTransR.
+      enough (wf_typ nil S (C # R)).
+      inversion H2; subst...
+      eapply wf_typ_from_wf_store_ctx_nil...
+      econstructor...
+  - Case "typing_loc".
+    loc_transform_exp_ident_eq LocTransExp...
+    epose proof (loc_transform_capt _ _ _ _ LocTrans) as [C' [R' [Eq [LocTransC LocTransR]]]]; subst.
+    loc_transform_cse_ident_eq LocTransC...
+    loc_transform_ident_eq LocTransR.
+    enough (wf_typ nil S (C # R)).
+    inversion H1; subst...
+    eapply wf_typ_from_wf_store_ctx_nil...
+    econstructor...
+  - Case "typing_abs".
+    epose proof (loc_transform_exp_abs _ _ _ _ _ LocTransExp) as [C0 [R0 [e0 [LocTransC [LocTransR [LocTransE Eq]]]]]]; subst.
+    epose proof (loc_transform_capt _ _ _ _ LocTrans) as [C' [Fun' [Eq' [LocTransC' LocTransFun']]]]; subst.
+    epose proof (loc_transform_cse_exp_cv _ _ _ LocTransE).
+    epose proof (loc_transform_cse_deterministic _ _ _ _ LocTransC' H2) as EqC; subst.
+    epose proof (loc_transform_fun _ _ _ _ _ LocTransFun') as [C2 [R2 [T2 [LocTransC2 [LocTransR2 [LocTransT2 Eq]]]]]]; subst.
+    epose proof (loc_transform_cse_deterministic _ _ _ _ LocTransC2 LocTransC) as EqC2; subst.
+    epose proof (loc_transform_deterministic _ _ _ _ LocTransR2 LocTransR) as EqR; subst.
+    pick fresh x and apply typing_abs.
+    unshelve epose proof (loc_transform_wf _ _ _ _ _ _ (C0 # R0) EnvTyp WfCtx H _ LocTransCtx)...
+    apply loc_transform_equiv...
+    eapply (H1 x ltac:(fsetdec) Γ ((x, bind_typ (C # R)) :: Δ)); auto.
+    + constructor...
+    + constructor...
+    + apply EnvTyp.
+    + eapply loc_transform_ctx_cons_typ...
+      apply loc_transform_equiv...
+    + eapply loc_transform_exp_open_ve_unbound_var...
+      erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp)...
+    + eapply loc_transform_open_ct...
+      eapply loc_transform_cse_unbound_fvar...
+      erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp)...
+  - Case "typing_app".
+    epose proof (loc_transform_exp_app _ _ _ _ LocTransExp) as [f' [x' [LocTransF [LocTransX Eq]]]]; subst.
+    epose proof (loc_transform_result T E) as [T2 LocTransT2].
+    replace (var_cv x) with (exp_cv x) in LocTrans by reflexivity.
+    epose proof (loc_transform_cse_exp_cv _ _ _ LocTransX).
+    epose proof (loc_transform_open_ct _ _ _ _ _ _ _ EnvTyp LocTransT2 H1).
+    epose proof (loc_transform_deterministic _ _ _ _ LocTrans H2) as EqF; subst.
+    epose proof (loc_transform_cse_result C E) as [C' LocTransC].
+    epose proof (loc_transform_result (∀ ((D # Q)) T) E) as [Fun' LocTransFun].
+    epose proof (loc_transform_fun _ _ _ _ _ LocTransFun) as [D' [Q' [T' [LocTransD' [LocTransQ' [LocTransT Eq]]]]]]; subst.
+    epose proof (loc_transform_deterministic _ _ _ _ LocTransT2 LocTransT) as EqT; subst.
+    eapply typing_app.
+    + eapply (loc_transform_exp_fvar_like E f)...
+    + eapply (loc_transform_exp_fvar_like E x)...
+    + eapply IHTyp1...
+      apply loc_transform_equiv; split...
+    + eapply IHTyp2...
+      apply loc_transform_equiv; split...
+  - Case "typing_let".
+    epose proof (loc_transform_exp_let _ _ _ _ LocTransExp) as [e2 [k2 [LocTransE [LocTransK Eq]]]]; subst.
+    epose proof (loc_transform_cse_result C1 E) as [C1' LocTransC1].
+    epose proof (loc_transform_result R1 E) as [R1' LocTransR1].
+    pick fresh x and apply typing_let.
+    + eapply IHTyp...
+      apply loc_transform_equiv; split...
+    + eapply (H0 x ltac:(fsetdec) Γ ((x, bind_typ (C1 # R1)) :: Δ)) with (E := E); auto.
+      * constructor...
+      * constructor...
+      * eapply loc_transform_ctx_cons_typ...
+        apply loc_transform_equiv...
+      * eapply loc_transform_exp_open_ve_unbound_var...
+        erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp)...
+  - Case "typing_tabs".
+    epose proof (loc_transform_exp_tabs _ _ _ _ LocTransExp) as [V2 [e2 [LocTransV2 [LocTransE Eq]]]]; subst.
+    epose proof (loc_transform_capt _ _ _ _ LocTrans) as [C' [Tfun' [Eq' [LocTransC' LocTransFun']]]]; subst.
+    epose proof (loc_transform_cse_exp_cv _ _ _ LocTransE).
+    epose proof (loc_transform_tfun _ _ _ _ LocTransFun') as [R' [T1' [LocTransR [LocTransT1 Eq]]]]; subst.
+    epose proof (loc_transform_deterministic _ _ _ _ LocTransV2 LocTransR) as EqV2; subst.
+    epose proof (loc_transform_cse_deterministic _ _ _ _ LocTransC' H3) as EqC; subst.
+    pick fresh x and apply typing_tabs.
+    + eapply loc_transform_wf...
+    + eapply loc_transform_pure...
+    + eapply (H2 x ltac:(fsetdec) Γ ((x, bind_sub V) :: Δ)) with (E := E); auto; try constructor...
+      * apply loc_transform_ctx_cons_sub...
+      * apply loc_transform_exp_open_te_unbound_var...
+        erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp)...
+      * eapply loc_transform_open_tt_fresh...
+        erewrite (env_well_typed_preserves_dom _ _ _ EnvTyp).
+        fsetdec.
+  - Case "typing_tapp".
+    epose proof (loc_transform_exp_tapp _ _ _ _ LocTransExp) as [P' [x' [LocTransP [LocTransX Eq]]]]; subst.
+    epose proof (loc_transform_result T E) as [T2 LocTransT2].
+    epose proof (loc_transform_open_tt _ _ _ _  _ LocTransT2 LocTransP).
+    epose proof (loc_transform_deterministic _ _ _ _ LocTrans H1); subst.
+    epose proof (loc_transform_cse_result C E) as [C' LocTransC].
+    epose proof (loc_transform_result (∀ [Q] T) E) as [Fun' LocTransFun].
+    epose proof (loc_transform_tfun _ _ _ _  LocTransFun) as [Q' [T' [LocTransQ [LocTransT Eq]]]]; subst.
+    epose proof (loc_transform_deterministic _ _ _ _ LocTransT2 LocTransT) as EqT; subst.
+    eapply typing_tapp.
+    + eapply (loc_transform_exp_fvar_like E x)...
+    + eapply IHTyp...
+      apply loc_transform_equiv; split...
+    + eapply sub_under_loc_transform_strong with (Δ := Δ) (Δ' := Δ')...
+  - Case "typing_box".
+    epose proof (loc_transform_exp_box _ _ _ LocTransExp) as [e2 [LocTransE Eq]]; subst.
+    epose proof (loc_transform_capt _ _ _ _ LocTrans) as [C' [R' [Eq' [LocTransBot LocTransBox]]]]; subst.
+    loc_transform_cse_ident_eq LocTransBot.
+    { intros; fsetdec. }
+    epose proof (loc_transform_box _ _ _ LocTransBox) as [T2' [LocTransT2' EqT]]; subst.
+    epose proof (loc_transform_capt _ _ _ _ LocTransT2') as [C' [R' [Eq' [LocTransC' LocTransR']]]]; subst.
+    eapply typing_box...
+  - Case "typing_unbox".
+    epose proof (loc_transform_exp_unbox _ _ _ _ LocTransExp) as [C' [x' [LocTransC [LocTransX Eq]]]]; subst.
+    epose proof (loc_transform_capt _ _ _ _ LocTrans) as [C'' [R' [Eq' [LocTransC' LocTransR]]]]; subst.
+    epose proof (loc_transform_cse_deterministic _ _ _ _ LocTransC' LocTransC) as EqC; subst.
+    assert (loc_transform E (C # R) (C' # R')) by (eapply loc_transform_equiv; split; eauto).
+    epose proof (loc_transform_result ((□ C # R)) E) as [Box LocTransBox].
+    epose proof (loc_transform_box _ _ _ LocTransBox) as [T2' [LocTransT2' EqT]]; subst.
+    epose proof (loc_transform_capt _ _ _ _ LocTransT2') as [C'' [R'' [Eq'' [LocTransC'' LocTransR'']]]]; subst.
+    epose proof (loc_transform_cse_deterministic _ _ _ _ LocTransC'' LocTransC') as EqC2; subst.
+    epose proof (loc_transform_deterministic _ _ _ _ LocTransR'' LocTransR) as EqR; subst.
+    eapply typing_unbox.
+    * eapply (loc_transform_exp_fvar_like E x)...
+    * eapply IHTyp...
+      eapply loc_transform_equiv; split...
+      apply loc_transform_cse_ident...
+    * eapply loc_transform_cse_wf with (Δ := Δ) (Δ' := Δ')...
+  - Case "typing_sub".
+    epose proof (loc_transform_result R E) as [R' LocTransR'].
+    eapply typing_sub with (R := R')...
+    eapply sub_under_loc_transform_strong with (Δ := Δ) (Δ' := Δ')...
+Qed.
+
+Lemma typing_under_loc_transform : forall Γ E S e e' T T',
+  env_well_typed S E Γ ->
+  typing Γ S e T ->
+  loc_transform E T T' ->
+  loc_transform_exp E e e' ->
+  typing nil S e' T'.
+Proof with eauto using wf_typ_notin_fv_ct, wf_typ_from_wf_store_ctx_nil.
+  intros * EnvTyp Typ LocTrans LocTransExp.
+  eapply typing_under_loc_transform_strong with (Δ := nil) (Δ' := nil)...
+  apply loc_transform_ctx_nil.
+Qed.
+
+Lemma frame_typing_implies_typing : forall E S e e' T,
+  frame_typing S (e, E) T ->
+  loc_transform_exp E e e' ->
+  typing nil S e' T.
+Proof with eauto using sub_reflexivity.
+  intros * FrameTyp LocTransExp.
+  generalize dependent e'.
+  dependent induction FrameTyp; intros; subst; simpl in *.
+  - eapply typing_under_loc_transform...
+  - eapply typing_sub...
+Qed.
 
 Lemma subst_ct_invert_fun : forall T U1 U2 D x,
   subst_ct x D T = ∀ (U1) U2 ->

@@ -79,6 +79,13 @@ Inductive loc_transform : env -> typ -> typ -> Prop :=
       loc_transform E (subst_ct x (cse_loc l) T) U ->
       loc_transform ((x, l) :: E) T U.
 
+Inductive loc_transform_exp : env -> exp -> exp -> Prop :=
+  | loc_transform_exp_nil : forall e,
+      loc_transform_exp nil e e
+  | loc_transform_exp_multi : forall x (l : loc) E e1 e2,
+      loc_transform_exp E (subst_ve x l (cse_loc l) e1) e2 ->
+      loc_transform_exp ((x, l) :: E) e1 e2.
+
 Inductive loc_transform_ctx : env -> ctx -> ctx -> Prop :=
   | loc_transform_ctx_nil : forall Γ,
       loc_transform_ctx nil Γ Γ
@@ -175,4 +182,4 @@ Inductive red : state -> state -> Prop :=
       red ⟨ (C0 ⟜ x, E) | SS | K ⟩
           ⟨ (exp_var_like y, E) | SS | K ⟩.
 
-Hint Constructors value store_typing eval_typing state_typing frame_typing loc_transform loc_transform_cse loc_transform_ctx : core.
+Hint Constructors value store_typing eval_typing state_typing frame_typing loc_transform loc_transform_cse loc_transform_exp loc_transform_ctx : core.

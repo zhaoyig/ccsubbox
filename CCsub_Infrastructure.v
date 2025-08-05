@@ -118,8 +118,7 @@ Definition subst_vv (z : atom) (u : var_like) (v : var_like) : var_like :=
 
 Fixpoint subst_ve (z : atom) (u : var_like) (c : cse) (e : exp) {struct e} : exp :=
   match e with
-  | exp_var_like (var_like_var v) => subst_vv z u v
-  | exp_var_like (var_like_loc l) => l
+  | exp_var_like v => subst_vv z u v
   | λ (t) e1 => exp_abs (subst_ct z c t) (subst_ve z u c e1)
   | f @ x => subst_vv z u f @ subst_vv z u x
   | let= e in C => let= subst_ve z u c e in subst_ve z u c C
@@ -801,7 +800,7 @@ Lemma subst_ve_fresh : forall (x : atom) u c e,
   x ∉ (fv_ve e `union`A fv_ce e) ->
   e = subst_ve x u c e.
 Proof with auto using subst_vv_fresh, subst_ct_fresh, subst_cse_fresh.
-  induction e;  intros; simpl in *; f_equal... destruct v... destruct v... notin_simpl. destruct (a == x)... fsetdec.
+  induction e;  intros; simpl in *; f_equal... 
 Qed.
 
 Lemma subst_ct_open_rec : forall t x k c1 c2,
@@ -957,8 +956,7 @@ Lemma subst_ve_open_te_rec_fresh : forall e P z u c k,
   z ∉ (fv_ct P `union`A fv_tt P) ->
   subst_ve z u c (open_te_rec k P e) = open_te_rec k P (subst_ve z u c e).
 Proof with eauto using subst_cset_open_cset_fresh, subst_ct_open_tt_rec_fresh.
-  induction e; intros * Hc Hfv; simpl; f_equal... 
-  destruct v...
+  induction e; intros * Hc Hfv; simpl; f_equal...
 Qed.
 
 Lemma subst_ve_open_te_fresh : forall e P z u c,
@@ -1032,13 +1030,8 @@ Lemma subst_ve_intro_rec : forall x e u c k,
   x ∉ (fv_ve e `union`A fv_ce e) ->
   open_ve_rec k u c e = subst_ve x u c (open_ve_rec k x (cse_fvar x) e).
 Proof with eauto using open_ct_subst_ct_var, subst_vv_intro, subst_cse_intro.
-  induction e; intros u c' k Fr; simpl in *; f_equal... destruct v... destruct v...
-  - notin_simpl. simpl. destruct (a == x). rewrite e.
-  contradiction. reflexivity.
-  - notin_simpl. simpl. destruct (k === n). destruct (x == x). reflexivity. contradiction.
-    reflexivity.
+  induction e; intros u c' k Fr; simpl in *; f_equal... 
 Qed.
-
 
 Lemma subst_ve_intro : forall x e u c,
   x ∉ (fv_ve e `union`A fv_ce e) ->
@@ -1058,11 +1051,9 @@ Lemma subst_ve_open_ve_rec : forall e x y u c1 c2 k,
 Proof with auto using subst_vv_open_vv, subst_ct_open_rec, subst_cset_open_cset_fresh.
   intros * Neq Fvar Capt.
   revert k.
-  induction e; intros k; simpl; f_equal... destruct v. destruct v...
-  - simpl. destruct (a == x); inversion Fvar; subst...
-  - simpl. destruct (k === n); subst... destruct (y == x); subst... fsetdec.
-  - simpl. f_equal; apply subst_cset_open_cset_fresh; auto.
-  - destruct u; simpl in *; inversion Fvar; subst...
+  induction e; intros k; simpl; f_equal... destruct u; simpl.
+  inversion Fvar; subst...
+  simpl...
 Qed.
 
 Lemma subst_ve_open_ve_var : forall (x y : atom) u c e,

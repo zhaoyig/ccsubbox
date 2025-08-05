@@ -825,7 +825,7 @@ Proof with eauto using sub_reflexivity.
            simpl. destruct (a == x)...
            fsetdec.
     + simpl in *.
-      erewrite help...
+      erewrite help; try constructor.
       apply typing_app with (D := subst_cse x (cse_loc l) D) (Q := subst_ct x (cse_loc l) Q) (C := subst_cse x (cse_loc l) C0) (T := subst_ct x (cse_loc l) T). auto. auto.
       * replace (subst_cse x (cse_loc l) D # subst_ct x (cse_loc l) Q) with (subst_ct x (cse_loc l) (D # Q)) by reflexivity.
         replace (exp_var_like (subst_vv x l f)) with (subst_ve x l (cse_loc l) f) by (destruct f; auto).
