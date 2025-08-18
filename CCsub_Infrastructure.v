@@ -1257,3 +1257,91 @@ Proof with auto*.
   apply subst_tt_open_ct_rec; trivial.
   notin_solve.
 Qed.
+
+Lemma subst_cse_double_loc : forall x y l l0 C,
+  x <> y ->
+  subst_cse x (cse_loc l) (subst_cse y (cse_loc l0) C) = subst_cse y (cse_loc l0) (subst_cse x (cse_loc l) C).
+Proof with eauto.
+  induction C; intros; simpl in *...
+  2: f_equal...
+  destruct (y == a); destruct (x == a); simpl; try fsetdec.
+  destruct (y == a); destruct (x == a); simpl; try fsetdec.
+  destruct (y == a); destruct (x == a); simpl; try fsetdec.
+  destruct (y == a); destruct (x == a); simpl; try fsetdec.
+Qed.
+
+Lemma subst_ct_double_loc : forall x y l l0 T,
+  x <> y ->
+  subst_ct x (cse_loc l) (subst_ct y (cse_loc l0) T) = subst_ct y (cse_loc l0) (subst_ct x (cse_loc l) T).
+Proof with eauto using subst_cse_double_loc.
+  induction T; intros; simpl in *...
+  destruct v...
+  all: f_equal...
+Qed.
+
+Lemma subst_cse_var : forall x y C D,
+  x `notin`A cse_fvars C ->
+  subst_cse x C (subst_cse y (cse_fvar x) D) = subst_cse x C (subst_cse y C D).
+Proof with eauto.
+  induction D; intros; simpl in *...
+  2: f_equal...
+  destruct (y == a); simpl; try f_equal...
+  destruct (x == x); simpl; try fsetdec.
+  rewrite <- subst_cse_fresh...
+Qed.
+
+Lemma subst_ct_var : forall x y C U,
+  x `notin`A cse_fvars C ->
+  subst_ct x C (subst_ct y (cse_fvar x) U) = subst_ct x C (subst_ct y C U).
+Proof with eauto.
+  induction U; intros; simpl in *; try f_equal...
+  rewrite subst_cse_var...
+Qed.
+
+(* Some basic cctx lemmas *)
+
+Lemma subst_cb_map_fresh : forall Γ x T,
+  x `notin`A fv_cctx Γ ->
+  map (subst_cb x T) Γ = Γ.
+Proof with eauto using subst_ct_fresh.
+  intros * NotIn.
+  induction Γ; simpl in *...
+  destruct a as [y T'].
+  destruct T'; rewrite IHΓ; f_equal; f_equal; simpl; f_equal...
+  all: rewrite <- subst_ct_fresh...
+Qed.
+
+Lemma fv_cctx_app : forall Γ1 Γ2 x,
+  x `in`A fv_cctx Γ1 `union`A fv_cctx Γ2 <-> x `in`A fv_cctx (Γ1 ++ Γ2).
+Proof with eauto.
+  intros *; split; intros.
+  - induction Γ1; simpl in *...
+    { fsetdec. }
+    destruct a as [y T]; simpl in *.
+    destruct T; simpl in *; fsetdec...
+  - induction Γ1; simpl in *...
+    destruct a as [y T]; simpl in *.
+    destruct T; simpl in *; fsetdec...
+Qed.
+
+Lemma notin_cse_fvars_subst_cse : forall x y C D,
+  x `notin`A cse_fvars D ->
+  x `notin`A cse_fvars C ->
+  x `notin`A cse_fvars (subst_cse y C D).
+Proof with eauto using subst_cse_fresh.
+  intros * NotInD NotInC.
+  induction D; simpl in *; try fsetdec.
+  destruct (y == a); simpl in *; try fsetdec.
+Qed.
+
+Lemma notin_fv_ct_subst_ct : forall x y C T,
+  x `notin`A fv_ct T ->
+  x `notin`A cse_fvars C ->
+  x `notin`A fv_ct (subst_ct y C T).
+Proof with eauto using subst_ct_fresh.
+  intros * NotIn NotInC.
+  induction T; simpl in *; try fsetdec.
+  destruct v...
+  epose proof notin_cse_fvars_subst_cse...
+Qed.
+

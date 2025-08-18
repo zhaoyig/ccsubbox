@@ -212,7 +212,37 @@ Proof with eauto using sub_reflexivity.
     repeat split...
 Qed.
 
-(*
+Lemma subst_ct_open_ct_loc_var : forall x l T,
+  subst_ct x (cse_loc l) (open_ct T (cse_fvar x)) = open_ct (subst_ct x (cse_loc l) T) (cse_loc l).
+Proof with eauto.
+  intros.
+  unfold open_ct.
+  rewrite subst_ct_open_rec...
+  simpl. destruct (x == x); try fsetdec...
+Qed.
+
+Lemma subst_ct_open_ct_loc : forall x l C T,
+  cset C ->
+  (subst_ct x C (open_ct T (cse_loc l))) = open_ct (subst_ct x C T) (cse_loc l).
+Proof with eauto.
+  intros.
+  unfold open_ct.
+  rewrite subst_ct_open_rec...
+Qed.
+
+
+Lemma subst_vv_saves_fvar_like : forall z u v,
+   fvar_like v ->
+   fvar_like u ->
+   fvar_like (subst_vv z u v).
+Proof with eauto.
+  intros * FvarV FvarU.
+  destruct FvarV; simpl...
+  destruct (x == z); subst...
+Qed.
+
+Hint Resolve subst_vv_saves_fvar_like : core.
+
 Lemma typing_through_subst_ve : forall Γ Δ x T C R e (u : atom) S,
   typing (Δ ++ [(x, bind_typ (C # R))] ++ Γ) S e T ->
   typing Γ S u (C # R) ->
@@ -227,62 +257,54 @@ Proof with eauto*.
     by (eapply wf_cse_from_binds; eauto).
   assert (WfCtxSubst : wf_ctx (map (subst_cb x (cse_fvar u)) Δ ++ Γ) S) by (eapply wf_ctx_subst_cb; eauto).
   assert (uNotInΔ : u ∉ dom Δ).
-  { eapply tail_not_in_head...
-    apply binds_In in Binds.
-    simpl; fsetdec.
-  }
+  { eapply fresh_app_l... }
   assert (xNotInΓ : x ∉ dom Γ) by (apply fresh_mid_tail with (F := Δ) (a := (bind_typ (C # R))); eauto).
   assert (xNotInΔ : x ∉ dom Δ) by (eapply fresh_mid_head; eauto).
   assert (xNotInQ : x ∉ fv_ct Q) by (eapply wf_typ_notin_fv_ct; eauto).
   assert (xNotInR : x ∉ fv_ct R) by (eapply wf_typ_notin_fv_ct; eauto).
+  assert (uniq (Δ ++ [(x, bind_typ (C # R))] ++ Γ)) by (eapply uniq_from_wf_ctx; eauto).
   dependent induction Typ; simpl.
   - Case "typing_var".
     destruct (x0 == x); subst; try (exfalso; fsetdec).
     + SCase "x0 = x".
       rename select (binds x _ _) into Binds'.
-      binds_cases Binds'.
-      * exfalso; simpl in *; fsetdec.
-      * inversion select (bind_typ _ = bind_typ _); subst.
-        rewrite_nil_concat.
-        eapply typing_weakening.
-        2: assumption.
-        apply typing_sub with (R := cse_fvar u # R); simpl in *...
-        destruct (x == x); try fsetdec.
-        inversion uTyp...
-        apply sub_capt...
-        -- rewrite <- subst_ct_fresh...
-        -- rewrite <- subst_ct_fresh...
-        -- rewrite <- subst_ct_fresh... apply sub_reflexivity...
-      * rename select (binds x _ _) into Binds'.
-        apply binds_In in Binds'.
-        contradiction.
+      analyze_binds_uniq Binds'...
+      inversion select (bind_typ _ = bind_typ _); subst.
+      rewrite_nil_concat.
+      eapply typing_weakening.
+      2: assumption.
+      apply typing_sub with (R := cse_fvar u # R); simpl in *...
+      destruct (x == x); try fsetdec.
+      apply sub_capt...
+      -- rewrite <- subst_ct_fresh...
+         apply sub_reflexivity...
+      -- rewrite <- subst_ct_fresh...
     + SCase "x0 <> x".
       rename select (binds x0 _ _) into Binds'.
-      binds_cases Binds'; destruct (x == x0); subst; simpl; destruct (x0 == x0); try fsetdec.
+      analyze_binds_uniq Binds'; destruct (x == x0); subst; simpl; destruct (x0 == x0); try fsetdec.
+      * destruct (x0 == x); destruct (x == x0); try fsetdec; simpl.
+        eapply typing_var with (C := subst_cse x (cse_fvar u) C0)...
+        replace (bind_typ (subst_cse x (cse_fvar u) C0 # subst_ct x (cse_fvar u) R0))
+           with (subst_cb x (cse_fvar u) (bind_typ (C0 # R0)))
+             by reflexivity.
+        apply binds_app_2...
       * destruct (x0 == x); destruct (x == x0); try fsetdec; simpl.
         eapply typing_var with (C := C0)...
-        apply binds_tail...
+        apply binds_app_3...
         rewrite <- subst_ct_fresh...
         eapply wf_typ_notin_fv_ct with (Γ := Γ)...
         rename select (binds x0 _ _) into Binds'.
         destruct (wf_typ_ctx_bind_typ _ _ _ _ WfCtx' Binds') as [D0 [Q0 [Eq WfD0Q0]]]; inversion Eq; subst; clear Eq.
         inversion WfD0Q0; subst...
-      * destruct (x0 == x); destruct (x == x0); try fsetdec; simpl.
-        eapply typing_var with (C := subst_cse x (cse_fvar u) C0)...
-        rename select (binds x0 _ _) into Binds'.
-        replace (bind_typ (subst_cse x (cse_fvar u) C0 # subst_ct x (cse_fvar u) R0))
-           with (subst_cb x (cse_fvar u) (bind_typ (C0 # R0)))
-             by reflexivity.
-        apply binds_head, binds_map, Binds'.
   - Case "typing_loc".
     apply typing_loc with (C := C0)...
     rewrite <- subst_ct_fresh. assumption.
     apply wf_typ_from_wf_store_ctx_nil in H0.
     inversion H0; subst.
-    apply wf_typ_notin_fv_ct with (x := x) in H6.
+    apply wf_typ_notin_fv_ct with (x := x) in H7.
     assumption. fsetdec. assumption.
   - Case "typing_abs".
-    rewrite subst_cse_cv_commutes_with_susbt_ve.
+    rewrite subst_cse_var_cv_commutes_with_subst_ve.
     pick fresh y and apply typing_abs.
     + replace (subst_cse x (cse_fvar u) C0 # subst_ct x (cse_fvar u) R0)
          with (subst_ct x (cse_fvar u) (C0 # R0))
@@ -297,59 +319,45 @@ Proof with eauto*.
       rewrite subst_ve_open_ve_var.
       2-3: auto.
       rename select (forall x0 : atom, x0 ∉ L -> forall (Γ0 Δ0 : ctx), _) into IH.
-      eapply IH with (C1 := C) (R1 := R)...
+      eapply IH with (C := C) (R := R)...
       eapply wf_ctx_subst_cb...
       eapply cset_from_wf_cse...
   - Case "typing_app".
-    assert (Iff : (if f == x then (var_like_var (var_f u)) else var_like_var (var_f f)) = var_like_var (var_f (if f == x then u else f)))
-      by (destruct_if; reflexivity).
-    rewrite Iff.
-    destruct (x0 == x); subst.
-    + SCase "x0 = x".
-      unfold open_ct.
-      rewrite subst_ct_open_rec...
-      simpl. simpl. destruct (x == x); try fsetdec...
-      eapply typing_app.
-      * rewrite <- Iff.
-        eapply IHTyp1...
-      * fold subst_ct.
-        replace (subst_cse x (cse_fvar u) D # subst_ct x (cse_fvar u) Q)
-           with (subst_ct x (cse_fvar u) (D # Q))
-             by reflexivity.
-        replace (exp_var_like u) with (subst_ve x u (cse_fvar u) x).
-        2: simpl; destruct_if...
-        eapply IHTyp2...
-    + SCase "x0 <> x".
-      rewrite <- subst_ct_open_ct_var...
-      apply typing_app with (D := subst_cse x (cse_fvar u) D) (Q := subst_ct x (cse_fvar u) Q) (C := subst_cse x (cse_fvar u) C0) (T := subst_ct x (cse_fvar u) T)...
-      * replace (subst_cse x (cse_fvar u) C0 # ∀ ((subst_cse x (cse_fvar u) D # subst_ct x (cse_fvar u) Q)) subst_ct x (cse_fvar u) T)
-           with (subst_ct x (cse_fvar u) (C0 # ∀ (D # Q) T))
-             by reflexivity.
-        rewrite <- Iff.
-        eapply IHTyp1...
-      * replace (subst_cse x (cse_fvar u) D # subst_ct x (cse_fvar u) Q)
-           with (subst_ct x (cse_fvar u) (D # Q))
-             by reflexivity.
-        erewrite subst_ve_fresh with (x := x) (u := u) (c := cse_fvar u) (e := x0).
-        2: simpl; fsetdec.
-        eapply IHTyp2...
+    unfold open_ct.
+    rewrite subst_ct_open_rec...
+    replace ((open_ct_rec 0 (subst_cse x (cse_fvar u) (var_cv x0)) (subst_ct x (cse_fvar u) T))) with
+      (open_ct (subst_ct x (cse_fvar u) T) (subst_cse x (cse_fvar u) (exp_cv x0))) by reflexivity.
+    rewrite subst_cse_var_cv_commutes_with_subst_ve.
+    eapply typing_app with (C := subst_cse x (cse_fvar u) C0) (D := subst_cse x (cse_fvar u) D) (Q := subst_ct x (cse_fvar u) Q); auto.
+    + replace (subst_cse x (cse_fvar u) C0 # ∀ ((subst_cse x (cse_fvar u) D # subst_ct x (cse_fvar u) Q)) subst_ct x (cse_fvar u) T)
+         with (subst_ct x (cse_fvar u) (C0 # ∀ (D # Q) T))
+           by reflexivity.
+      eapply IHTyp1...
+    + replace (subst_cse x (cse_fvar u) D # subst_ct x (cse_fvar u) Q)
+         with (subst_ct x (cse_fvar u) (D # Q))
+           by reflexivity.
+      replace (exp_var_like (subst_vv x u x0))
+         with (subst_ve x u (cse_fvar u) x0)
+           by reflexivity.
+      eapply IHTyp2...
   - Case "typing_let".
     pick fresh y and apply typing_let.
     + eapply IHTyp...
     + rewrite subst_ve_open_ve_var...
       fold subst_ct.
-      replace ([(y, bind_typ (subst_cse x (cse_fvar u) C1 # subst_ct x (cse_fvar u) T1))] ++ map (subst_cb x (cse_fvar u)) Δ ++ Γ)
-         with (map (subst_cb x (cse_fvar u)) ([(y, bind_typ (C1 # T1))] ++ Δ) ++ Γ)
+      replace ([(y, bind_typ (subst_cse x (cse_fvar u) C1 # subst_ct x (cse_fvar u) R1))] ++ map (subst_cb x (cse_fvar u)) Δ ++ Γ)
+         with (map (subst_cb x (cse_fvar u)) ([(y, bind_typ (C1 # R1))] ++ Δ) ++ Γ)
            by reflexivity.
       rename select (forall x0 : atom, x0 ∉ L -> forall (Γ0 Δ0 : ctx), _) into IH.
       eapply IH...
       * apply wf_ctx_typ...
-      * rewrite concat_assoc.
+      * rewrite app_assoc.
         apply wf_typ_weaken_head...
       * eapply wf_ctx_subst_cb...
         eapply wf_ctx_typ...
+      * constructor...
   - Case "typing_tabs".
-    rewrite subst_cse_cv_commutes_with_susbt_ve.
+    rewrite subst_cse_var_cv_commutes_with_subst_ve.
     pick fresh Y and apply typing_tabs.
     + eapply wf_typ_subst_cb...
     + apply subst_ct_pure_type...
@@ -365,62 +373,33 @@ Proof with eauto*.
       eapply IH...
       eapply wf_ctx_subst_cb...
   - Case "typing_tapp".
-    assert (Ifx0 : (if x0 == x then var_like_var (var_f u) else var_like_var (var_f x0)) = (var_like_var (if x0 == x then var_f u else var_f x0)))
-      by (destruct_if; reflexivity).
-    rewrite Ifx0.
-    rewrite subst_ct_open_tt...
-    2: eapply bind_typ_notin_fv_tt with (T' := C # R) (Γ := Δ ++ [(x, bind_typ (C # R))] ++ Γ)...
-    assert (Ifx0' : (if x0 == x then var_f u else var_f x0) = (var_f (if x0 == x then u else x0)))
-      by (destruct_if; reflexivity).
-    rewrite Ifx0'.
-    eapply typing_tapp with (Q := subst_ct x (cse_fvar u) Q) (C := subst_cse x (cse_fvar u) C0) (x := (if x0 == x then u else x0)).
-    + replace (subst_cse x (cse_fvar u) C # ∀ [subst_ct x (cse_fvar u) Q] subst_ct x (cse_fvar u) T)
-         with (subst_ct x (cse_fvar u) (C # ∀ [Q] T))
+    rewrite subst_ct_open_tt; auto.
+    eapply typing_tapp with (Q := subst_ct x (cse_fvar u) Q) (C := subst_cse x (cse_fvar u) C0); auto.
+    + replace (subst_cse x (cse_fvar u) C0 # ∀ [subst_ct x (cse_fvar u) Q] subst_ct x (cse_fvar u) T)
+         with (subst_ct x (cse_fvar u) (C0 # ∀ [Q] T))
            by reflexivity.
-      rewrite <- Ifx0'.
-      rewrite <- Ifx0.
       eapply IHTyp...
     + apply sub_through_subst_ct with (CU := C) (U := R)...
   - Case "typing_box".
-    assert (Ifx0 : (if x0 == x then var_like_var (var_f u) else var_like_var (var_f x0)) = (var_like_var (if x0 == x then var_f u else var_f x0)))
-      by (destruct_if; reflexivity).
-    rewrite Ifx0.
-    assert (Ifx0' : (if x0 == x then var_f u else var_f x0) = (var_f (if x0 == x then u else x0)))
-      by (destruct_if; reflexivity).
-    rewrite Ifx0'.
-    eapply typing_box.
+    apply typing_box; auto.
     + replace (subst_cse x (cse_fvar u) C0 # subst_ct x (cse_fvar u) R0)
          with (subst_ct x (cse_fvar u) (C0 # R0))
            by reflexivity.
-      rewrite <- Ifx0'.
-      rewrite <- Ifx0.
       eapply IHTyp...
     + apply (wf_cse_over_subst Γ Δ (C # R) x (cse_fvar u) C0)...
   - Case "typing_unbox".
-    assert (Ifx0 : (if x0 == x then var_like_var (var_f u) else var_like_var (var_f x0)) = (var_like_var (if x0 == x then var_f u else var_f x0)))
-      by (destruct_if; reflexivity).
-    rewrite Ifx0.
-    assert (Ifx0' : (if x0 == x then var_f u else var_f x0) = (var_f (if x0 == x then u else x0)))
-      by (destruct_if; reflexivity).
-    rewrite Ifx0'.
-    apply typing_unbox.
-    + replace ({} # (□ subst_cse x (cse_fvar u) C0 # subst_ct x (cse_fvar u) R0))
-         with (subst_ct x (cse_fvar u) ({} # (□ C0 # R0))).
-      2: {
-        simpl.
-        f_equal...
-      }
-      rewrite <- Ifx0'.
-      rewrite <- Ifx0.
+    apply typing_unbox; auto.
+    + replace (subst_cse x (cse_fvar u) C0 # subst_ct x (cse_fvar u) R0)
+         with (subst_ct x (cse_fvar u) (C0 # R0))
+           by reflexivity.
       eapply IHTyp...
-    + eapply wf_cse_over_subst...
+    + apply (wf_cse_over_subst Γ Δ (C # R) x (cse_fvar u) C0)...
   - Case "typing_sub".
     Set Printing Coercions.
     apply typing_sub with (R := subst_ct x (cse_fvar u) R0).
     + eapply IHTyp...
     + apply sub_through_subst_ct with (CU := C) (U := R)...
 Qed.
-*)
 
 Lemma wf_typ_free_in_ctx : forall x Γ S T,
   wf_typ Γ S T ->
@@ -524,7 +503,7 @@ Proof with simpl_env;
       reflexivity.
   - Case "typing_app".
     destruct x...
-    + destruct v... 2: inversion H0... 
+    + destruct v... 2: inversion H0...
       assert (Z <> a).
       { destruct (typing_var_implies_binds_typ _ _ _ _ _ Typ2) as [C' [R' [Binds _]]].
         analyze_binds_uniq Binds...
@@ -579,7 +558,6 @@ Proof with simpl_env;
     apply sub_reflexivity...
 Qed.
 
-(*
 Lemma typing_through_open_ve_typing : forall Γ S (x y : atom) U e T,
   y ∉ (fv_ct T `union`A fv_ve e `union`A fv_ce e) ->
   typing ([(y, bind_typ U)] ++ Γ) S (open_ve e y (cse_fvar y)) T ->
@@ -635,7 +613,6 @@ Proof with eauto*.
     applys sub_pure_type QsubR...
   - eapply typing_var...
 Qed.
- *)
 
 Lemma typing_through_open_te : forall Γ S (Y : atom) e T P Q,
   Y ∉ (fv_tt T `union`A fv_ct T `union`A fv_te e `union`A fv_ce e) ->
@@ -653,18 +630,6 @@ Proof with eauto*.
      by (symmetry; apply subst_tt_intro; clear - NotIn; fsetdec).
   apply typing_through_subst_te with (Q := Q)...
 Qed.
-
- Lemma subst_vv_saves_fvar_like : forall z u v,
-   fvar_like v ->
-   fvar_like u ->
-   fvar_like (subst_vv z u v).
-Proof with eauto.
-  intros * FvarV FvarU.
-  destruct FvarV; simpl...
-  destruct (x == z); subst...
-Qed.
-
-Hint Resolve subst_vv_saves_fvar_like : core.
 
 (* Location lemmas *)
 Lemma typing_loc_implies_binds : forall Γ S (l: loc) C R,
@@ -698,24 +663,6 @@ Proof with eauto*.
     + assert (wf_typ Γ S (C # R)) by applys typing_regular Typ'.
       inversion H1; subst...
     + simpl. flsetdec.
-Qed.
-
-Lemma subst_ct_open_ct_loc : forall x l T,
-  subst_ct x (cse_loc l) (open_ct T (cse_fvar x)) = open_ct (subst_ct x (cse_loc l) T) (cse_loc l).
-Proof with eauto.
-  intros.
-  unfold open_ct.
-  rewrite subst_ct_open_rec...
-  simpl. destruct (x == x); try fsetdec...
-Qed.
-
-Lemma help : forall x l C T,
-  cset C ->
-  (subst_ct x C (open_ct T (cse_loc l))) = open_ct (subst_ct x C T) (cse_loc l).
-Proof with eauto.
-  intros.
-  unfold open_ct.
-  rewrite subst_ct_open_rec...
 Qed.
 
 Lemma typing_loc_through_subst_ve : forall Γ Δ x T C R e (l : loc) S,
@@ -804,12 +751,12 @@ Proof with eauto using sub_reflexivity.
         unshelve epose proof (IHTyp2 Γ Δ x C R _ _ _ _ _ _ D0 Q0 _ _ _ _ _ _ _ _ _ _ _ _) as IH2...
         destruct f. destruct v. 2: exfalso; inversion H.
         simpl in *.
-        destruct (a == x) eqn:Hf_a; rewrite subst_ct_open_ct_loc...
+        destruct (a == x) eqn:Hf_a; rewrite subst_ct_open_ct_loc_var...
         -- destruct (a == x); destruct (x == x); subst; try fsetdec.
            eapply typing_app with (D := subst_cse x (cse_loc l) D) (Q := subst_ct x (cse_loc l) Q) (C := subst_cse x (cse_loc l) C0); try auto.
         -- destruct (x == x); try fsetdec.
            eapply typing_app with (D := subst_cse x (cse_loc l) D) (Q := subst_ct x (cse_loc l) Q) (C := subst_cse x (cse_loc l) C0); try auto.
-        -- rewrite subst_ct_open_ct_loc.
+        -- rewrite subst_ct_open_ct_loc_var.
            eapply typing_app with (D := subst_cse x (cse_loc l) D) (Q := subst_ct x (cse_loc l) Q) (C := subst_cse x (cse_loc l) C0); try auto.
            replace (subst_cse x (cse_loc l) D # subst_ct x (cse_loc l) Q) with (subst_ct x (cse_loc l) (D # Q)) by reflexivity.
            simpl in IH2; destruct (x == x); try fsetdec...
@@ -825,7 +772,7 @@ Proof with eauto using sub_reflexivity.
            simpl. destruct (a == x)...
            fsetdec.
     + simpl in *.
-      erewrite help; try constructor.
+      erewrite subst_ct_open_ct_loc; try constructor.
       apply typing_app with (D := subst_cse x (cse_loc l) D) (Q := subst_ct x (cse_loc l) Q) (C := subst_cse x (cse_loc l) C0) (T := subst_ct x (cse_loc l) T). auto. auto.
       * replace (subst_cse x (cse_loc l) D # subst_ct x (cse_loc l) Q) with (subst_ct x (cse_loc l) (D # Q)) by reflexivity.
         replace (exp_var_like (subst_vv x l f)) with (subst_ve x l (cse_loc l) f) by (destruct f; auto).

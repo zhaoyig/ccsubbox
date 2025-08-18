@@ -871,6 +871,21 @@ Proof with eauto.
   inversion H; subst...
 Qed.
 
+Lemma wf_store_capt_type : forall l T S,
+  wf_store_ctx S ->
+  StoreImpl.binds l T S ->
+  exists C R, T = C # R.
+Proof with eauto.
+  intros * Hwf Hbinds.
+  induction Hwf...
+  { inversion Hbinds. }
+  simpl in Hbinds.
+  simpl_env in Hbinds.
+  StoreImpl.analyze_binds Hbinds...
+  apply StoreImpl.binds_one_iff in BindsTac.
+  destruct BindsTac as [Eq Eq']; subst...
+Qed.
+
 Lemma wf_typ_from_wf_store_ctx_nil : forall S C R l,
   wf_store_ctx S ->
   StoreImpl.binds l (C # R) S ->

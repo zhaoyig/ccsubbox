@@ -33,4 +33,5 @@ CCsub_Substitution.v
 CCsub_Red.v
 CCsub_LocTransform.v
 CCsub_RuntimeInversion.v
+CCsub_FrameTypingInversion.v
 CCsub_Soundness.v

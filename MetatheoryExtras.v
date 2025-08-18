@@ -61,6 +61,36 @@ Proof.
   reflexivity.
 Qed.
 
+Lemma list_app_nil : forall A (l1 l2 : list A),
+  nil = l1 ++ l2 ->
+  l1 = nil /\ l2 = nil.
+Proof with eauto.
+  intros * Eq.
+  generalize dependent l1.
+  induction l2; simpl in *; intros...
+  { rewrite app_nil_2 in Eq... }
+  exfalso.
+  rewrite_env ((l1 ++ [a]) ++ l2) in Eq.
+  epose proof (IHl2 _ Eq) as [Eq1 Eq2]; subst...
+  induction l1; simpl in *; inversion Eq...
+Qed.
+
+Lemma list_app_ident_r : forall A (l1 l2 : list A),
+  l1 ++ l2 = l2 ->
+  l1 = nil.
+Proof with eauto.
+  intros * Eq.
+  generalize dependent l1.
+  induction l2; simpl in *; intros...
+  { rewrite app_nil_r in Eq... }
+  induction l1; simpl in *...
+  inversion Eq; subst.
+  rewrite_env ((l1 ++ [a]) ++ l2) in H1.
+  specialize (IHl2 _ H1).
+  symmetry in IHl2.
+  epose proof (list_app_nil _ _ _ IHl2) as [Eq1 Eq2]; subst...
+Qed.
+
 Ltac rewrite_nil_concat :=
   match goal with
   | |- _ ?E0 =>

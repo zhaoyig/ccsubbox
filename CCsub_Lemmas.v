@@ -928,6 +928,100 @@ Proof with simpl_env; eauto*.
     eapply sub_regular; eassumption.
 Qed.
 
+Lemma notin_fv_vv_open_vv : forall v k (y : atom) x,
+  x `notin`A fv_vv (open_vv k y v) ->
+  x `notin`A fv_vv v.
+Proof with eauto*.
+  intros v k y x NotIn.
+  generalize dependent k.
+  generalize dependent x.
+  generalize dependent y.
+  induction v; intros; simpl in *; simpl_env in *...
+  destruct v...
+Qed.
+
+Lemma notin_fv_ve_open_ve : forall e k (y : atom) x,
+  x `notin`A fv_ve (open_ve_rec k y (cse_fvar y) e) ->
+  x `notin`A fv_ve e.
+Proof with eauto using notin_fv_vv_open_vv, notin_cse_fvars_open_cse.
+  intros e k y x NotIn.
+  generalize dependent k.
+  generalize dependent x.
+  generalize dependent y.
+  induction e; intros; simpl in *; simpl_env in *...
+Qed.
+
+Lemma notin_fv_ce_open_ve : forall e k (y : atom) x,
+  x `notin`A fv_ce (open_ve_rec k y (cse_fvar y) e) ->
+  x `notin`A fv_ce e.
+Proof with eauto using notin_fv_vv_open_vv, notin_cse_fvars_open_cse, notin_fv_ct_open_ct_rec.
+  intros e k y x NotIn.
+  generalize dependent k.
+  generalize dependent x.
+  generalize dependent y.
+  induction e; intros; simpl in *; simpl_env in *...
+Qed.
+
+Lemma notin_fv_ve_open_te : forall e k (y : atom) x,
+  x `notin`A fv_ve (open_te_rec k y e) ->
+  x `notin`A fv_ve e.
+Proof with eauto.
+  intros e k y x NotIn.
+  generalize dependent k.
+  generalize dependent x.
+  generalize dependent y.
+  induction e; intros; simpl in *; simpl_env in *...
+Qed.
+
+Lemma notin_fv_ce_open_te : forall e k (y : atom) x,
+  x `notin`A fv_ce (open_te_rec k y e) ->
+  x `notin`A fv_ce e.
+Proof with eauto using notin_fv_ct_open_tt_rec.
+  intros e k y x NotIn.
+  generalize dependent k.
+  generalize dependent x.
+  generalize dependent y.
+  induction e; intros; simpl in *; simpl_env in *...
+Qed.
+
+Lemma typing_fv_ve_fv_ce : forall Γ S e T,
+  typing Γ S e T ->
+  forall x,
+    x `notin`A dom Γ -> x `notin`A fv_ve e `union`A fv_ce e.
+Proof with eauto using notin_fv_ve_open_ve, notin_fv_ce_open_ve, notin_fv_vv_open_vv, wf_typ_notin_fv_ct, notin_fv_ve_open_te, notin_fv_ce_open_te.
+  intros * Typ x NotIn.
+  dependent induction Typ; simpl; simpl_env in *...
+  - apply binds_In in H0...
+    assert (x <> x0); fsetdec.
+  - pick fresh y and specialize H1.
+    assert (y <> x) by fsetdec.
+    simpl in H1.
+    specialize (H1 x ltac:(clear - NotIn H2; fsetdec)).
+    apply wf_typ_notin_fv_ct with (x := x) in H; auto.
+    simpl in H...
+  - specialize (IHTyp1 x0 NotIn).
+    specialize (IHTyp2 x0 NotIn)...
+  - simpl in H0.
+    pick fresh y and specialize H0.
+    assert (y <> x) by fsetdec.
+    specialize (H0 x ltac:(clear - NotIn H1; fsetdec)).
+    specialize (IHTyp x NotIn).
+    enough (x `notin`A fv_ve k /\ x `notin`A fv_ce k)...
+    split...
+  - apply wf_typ_notin_fv_ct with (x := x) in H; auto.
+    pick fresh Y and specialize H2.
+    simpl in H2.
+    assert (Y <> x) by fsetdec.
+    specialize (H2 x ltac:(clear - NotIn H3; fsetdec))...
+  - assert (wf_typ Γ S P) by applys sub_regular H0.
+    apply wf_typ_notin_fv_ct with (x := x0) in H1...
+    specialize (IHTyp x0 NotIn)...
+  - specialize (IHTyp x0 NotIn).
+    enough (x0 `notin`A cse_fvars C)...
+    intro.
+    apply wf_cse_fvars_from_ctx with (x := x0) in H0...
+Qed.
+
 (* Lemma eval_typing_regular : forall E Sf T U S, *)
 (*   eval_typing E S Sf T U -> *)
 (*   wf_store_ctx S /\ wf_ctx E S /\ wf_typ E S T /\ wf_typ E S U. *)
