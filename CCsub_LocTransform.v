@@ -667,8 +667,19 @@ Lemma loc_transform_wf_nil : forall E Γ S T1 T2,
   wf_typ Γ S T1 ->
   loc_transform E T1 T2 ->
   wf_typ nil S T2.
-Admitted.
-(* TODO for Sam *)
+Proof with eauto.
+  intros * EnvTyp WfTyp LocTrans.
+  generalize dependent Γ.
+  dependent induction LocTrans; simpl in *; eauto; intros Γ EnvTyp WfTyp; subst.
+  - inversion EnvTyp; subst...
+  - inversion EnvTyp; subst...
+    eapply IHLocTrans; eauto.
+    rewrite_env (nil ++ [(x, bind_typ (cse_loc l # R))] ++ Γ0) in WfTyp.
+    epose proof (wf_typ_subst_cb _ _ _ _ _ _ _ WfTyp).
+    simpl in H.
+    epose proof (env_well_typed_ctx_wf _ _ _ H3).
+    apply H...
+Qed.
 
 Lemma sub_under_loc_transform_strong : forall Γ Δ Δ' E S T1 T2 T1' T2',
   env_well_typed S E Γ ->
@@ -758,8 +769,12 @@ Lemma sub_under_loc_transform : forall Γ E S T1 T2 T1' T2',
   loc_transform E T2 T2' ->
   sub Γ S T1 T2 ->
   sub nil S T1' T2'.
-Admitted.
-(* TODO for Sam *)
+Proof with eauto using sub_under_loc_transform_strong.
+  intros * EnvTyp LocTransC1 LocTransC2 Sub.
+  rewrite_env (nil ++ Γ) in Sub.
+  apply (sub_under_loc_transform_strong _ _ _ _ _ _ _ _ _ EnvTyp Sub LocTransC1 LocTransC2).
+  apply loc_transform_ctx_nil.
+Qed.
 
 Lemma loc_transform_exp_abs : forall E e e2 C R,
   loc_transform_exp E (λ ((C # R)) e) e2 ->
